@@ -105,6 +105,13 @@ def _tokenize(seq, tokenizer):
 
 
 def _get_masked(words):
+    '''
+    加入words是：[a,b,c]
+    那么返回的结果是：
+        [[UNK],b,c]
+        [a,[UNK],c]
+        [a,b,[UNK]]
+    '''
     len_text = len(words)
     masked_words = []
     for i in range(len_text - 1):
@@ -114,6 +121,9 @@ def _get_masked(words):
 
 
 def get_important_scores(words, tgt_model, orig_prob, orig_label, orig_probs, tokenizer, batch_size, max_length):
+    '''
+    用以计算important score
+    '''
     masked_words = _get_masked(words)
     texts = [' '.join(words) for words in masked_words]  # list of text of masked words
     all_input_ids = []
