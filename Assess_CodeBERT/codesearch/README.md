@@ -25,11 +25,20 @@ The code is directly borrowed from the original implementation of CodeBERT (http
 We only modify the data loading part and the evaluation part.
 
 ### Training
-      $$ python run_classifier.py --do_train  --data_dir [the path of training data] --model_name_or_path [codebert or roberta]  --output_dir [where to save the trained model] 
- 
+```
+python run_classifier.py --do_train  \
+      --data_dir [the path of training data] \
+      --model_name_or_path [codebert or roberta]  \
+      --output_dir [where to save the trained model] 
+```
+
  Example:
- 
-      $$ python run_classifier.py --do_train  --data_dir './data/CodeBERT/doc_code_dataset/' --model_name_or_path 'microsoft/codebert-base' --output_dir './models/doc_code_codebert'
+ ```
+python run_classifier.py --do_train  \
+      --data_dir './data/CodeBERT/doc_code_dataset/' \
+      --model_name_or_path 'microsoft/codebert-base' \
+      --output_dir './models/doc_code_codebert'
+ ```
 
 ### Testing
       $$ python eval_run_classifier.py --do_predict  --data_dir [the path of testing data] --model_name_or_path [codebert or roberta]  --pred_model_dir [path of the trained model to do prediction]   --test_result_dir [where to store the result file]
