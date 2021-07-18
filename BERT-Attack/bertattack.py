@@ -125,7 +125,7 @@ def get_important_scores(words, tgt_model, orig_prob, orig_label, orig_probs, to
     用以计算important score
     '''
     masked_words = _get_masked(words)
-    texts = [' '.join(words) for words in masked_words]  # list of text of masked words
+    texts = [' '.join(words) for words in masked_words]  # 将words拼接成句子
     all_input_ids = []
     all_masks = []
     all_segs = []
@@ -165,7 +165,6 @@ def get_important_scores(words, tgt_model, orig_prob, orig_label, orig_probs, to
                      (leave_1_probs_argmax != orig_label).float()
                      * (leave_1_probs.max(dim=-1)[0] - torch.index_select(orig_probs, 0, leave_1_probs_argmax))
                      ).data.cpu().numpy()
-
     return import_scores
 
 
@@ -246,46 +245,57 @@ def attack(feature, tgt_model, mlm_model, tokenizer, k, batch_size, max_length=5
                            attention_mask.unsqueeze(0).to('cuda'),
                            token_type_ids.unsqueeze(0).to('cuda')
                            )[0].squeeze()
+    # 得到tgt模型的输出值
     orig_probs = torch.softmax(orig_probs, -1)
+    # 经过一层softmax，转化成porability
     orig_label = torch.argmax(orig_probs)
+    # 得到probability最大的那个label
     current_prob = orig_probs.max()
+    # 得到最大的probability
 
     if orig_label != feature.label:
+        # 如果预测不正确，就不攻击
         feature.success = 3
         return feature
 
     sub_words = ['[CLS]'] + sub_words[:max_length - 2] + ['[SEP]']
+    # 如果长度超了，就截断；这里的max_length是BERT能接受的最大长度
     input_ids_ = torch.tensor([tokenizer.convert_tokens_to_ids(sub_words)])
     word_predictions = mlm_model(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
     word_pred_scores_all, word_predictions = torch.topk(word_predictions, k, -1)  # seq-len k
 
     word_predictions = word_predictions[1:len(sub_words) + 1, :]
+    # 貌似这里已经是id了
     word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
 
     important_scores = get_important_scores(words, tgt_model, current_prob, orig_label, orig_probs,
                                             tokenizer, batch_size, max_length)
     feature.query += int(len(words))
     list_of_index = sorted(enumerate(important_scores), key=lambda x: x[1], reverse=True)
-    # print(list_of_index)
+    # 根据important scores进行排序
     final_words = copy.deepcopy(words)
 
     for top_index in list_of_index:
+        # top_index格式：(61, 0.002598703)
         if feature.change > int(0.4 * (len(words))):
+            # 应该是代表已经改变的token数量，不能改变超过40%
             feature.success = 1  # exceed
             return feature
 
         tgt_word = words[top_index[0]]
+        # 得到打算修改的words
         if tgt_word in filter_words:
+            # 如果在filter_words中就不修改
             continue
         if keys[top_index[0]][0] > max_length - 2:
+            # TO-DO: 这个是什么意思呢？
             continue
 
-
         substitutes = word_predictions[keys[top_index[0]][0]:keys[top_index[0]][1]]  # L, k
+
         word_pred_scores = word_pred_scores_all[keys[top_index[0]][0]:keys[top_index[0]][1]]
 
         substitutes = get_substitues(substitutes, tokenizer, mlm_model, use_bpe, word_pred_scores, threshold_pred_score)
-
 
         most_gap = 0.0
         candidate = None
@@ -315,6 +325,7 @@ def attack(feature, tgt_model, mlm_model, tokenizer, k, batch_size, max_length=5
             temp_label = torch.argmax(temp_prob)
 
             if temp_label != orig_label:
+                # 如果结果变了
                 feature.change += 1
                 final_words[top_index[0]] = substitute
                 feature.changes.append([keys[top_index[0]][0], substitute, tgt_word])
@@ -322,7 +333,7 @@ def attack(feature, tgt_model, mlm_model, tokenizer, k, batch_size, max_length=5
                 feature.success = 4
                 return feature
             else:
-
+                # 如果结果没变
                 label_prob = temp_prob[orig_label]
                 gap = current_prob - label_prob
                 if gap > most_gap:
@@ -334,7 +345,6 @@ def attack(feature, tgt_model, mlm_model, tokenizer, k, batch_size, max_length=5
             feature.changes.append([keys[top_index[0]][0], candidate, tgt_word])
             current_prob = current_prob - most_gap
             final_words[top_index[0]] = candidate
-
     feature.final_adverse = (tokenizer.convert_tokens_to_string(final_words))
     feature.success = 2
     return feature
