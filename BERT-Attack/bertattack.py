@@ -169,6 +169,9 @@ def get_important_scores(words, tgt_model, orig_prob, orig_label, orig_probs, to
 
 
 def get_substitues(substitutes, tokenizer, mlm_model, use_bpe, substitutes_score=None, threshold=3.0):
+    '''
+    将metrics转化成的word
+    '''
     # substitues L,k
     # from this matrix to recover a word
     words = []
@@ -182,6 +185,7 @@ def get_substitues(substitutes, tokenizer, mlm_model, use_bpe, substitutes_score
             if threshold != 0 and j < threshold:
                 break
             words.append(tokenizer._convert_id_to_token(int(i)))
+            # 将id转为token.
     else:
         if use_bpe == 1:
             words = get_bpe_substitues(substitutes, tokenizer, mlm_model)
@@ -288,14 +292,16 @@ def attack(feature, tgt_model, mlm_model, tokenizer, k, batch_size, max_length=5
             # 如果在filter_words中就不修改
             continue
         if keys[top_index[0]][0] > max_length - 2:
-            # TO-DO: 这个是什么意思呢？
+            # 看被修改的词在不在最大长度之外 在就跳过
             continue
 
         substitutes = word_predictions[keys[top_index[0]][0]:keys[top_index[0]][1]]  # L, k
+        # To-Do: 这是啥？
 
         word_pred_scores = word_pred_scores_all[keys[top_index[0]][0]:keys[top_index[0]][1]]
 
         substitutes = get_substitues(substitutes, tokenizer, mlm_model, use_bpe, word_pred_scores, threshold_pred_score)
+        # 这里是得到所有可以替换的candidate
 
         most_gap = 0.0
         candidate = None
@@ -304,33 +310,40 @@ def attack(feature, tgt_model, mlm_model, tokenizer, k, batch_size, max_length=5
             substitute = substitute_
 
             if substitute == tgt_word:
+                # 如果和原来的词相同
                 continue  # filter out original word
             if '##' in substitute:
                 continue  # filter out sub-word
 
             if substitute in filter_words:
+                # 如果在filter words中也跳过
                 continue
             if substitute in w2i and tgt_word in w2i:
+                # To-Do
                 if cos_mat[w2i[substitute]][w2i[tgt_word]] < 0.4:
                     continue
             temp_replace = final_words
             temp_replace[top_index[0]] = substitute
+            # 对应的位置换掉
             temp_text = tokenizer.convert_tokens_to_string(temp_replace)
             inputs = tokenizer.encode_plus(temp_text, None, add_special_tokens=True, max_length=max_length, )
             input_ids = torch.tensor(inputs["input_ids"]).unsqueeze(0).to('cuda')
             seq_len = input_ids.size(1)
+            # 准备新的输入
             temp_prob = tgt_model(input_ids)[0].squeeze()
             feature.query += 1
             temp_prob = torch.softmax(temp_prob, -1)
             temp_label = torch.argmax(temp_prob)
 
+            # 输入模型看一看
             if temp_label != orig_label:
-                # 如果结果变了
+                # 如果结果变了 -> 攻击成功
                 feature.change += 1
                 final_words[top_index[0]] = substitute
                 feature.changes.append([keys[top_index[0]][0], substitute, tgt_word])
                 feature.final_adverse = temp_text
                 feature.success = 4
+                # 4 表示攻击成功
                 return feature
             else:
                 # 如果结果没变
@@ -347,6 +360,7 @@ def attack(feature, tgt_model, mlm_model, tokenizer, k, batch_size, max_length=5
             final_words[top_index[0]] = candidate
     feature.final_adverse = (tokenizer.convert_tokens_to_string(final_words))
     feature.success = 2
+    # 2 应该表示攻击失败
     return feature
 
 
@@ -520,6 +534,7 @@ def run_attack():
     evaluate(features_output)
 
     dump_features(features_output, output_dir)
+    # 将结果记录下来
 
 
 if __name__ == '__main__':
