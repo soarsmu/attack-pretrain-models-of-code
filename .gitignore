@@ -1,3 +1,4 @@
 
 *.DS_Store
 BERT-Attack/models/
+Assess_CodeBERT/codesearch/data/
