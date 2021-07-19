@@ -3,3 +3,4 @@
 BERT-Attack/models/
 Assess_CodeBERT/codesearch/data/
 Assess_CodeBERT/codesearch/models
+BERT-Attack/data_defense/imdb_logs.tsv
