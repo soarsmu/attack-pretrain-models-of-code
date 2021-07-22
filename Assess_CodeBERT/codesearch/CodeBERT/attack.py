@@ -14,6 +14,8 @@ from transformers import (WEIGHTS_NAME, get_linear_schedule_with_warmup, AdamW,
                           RobertaForSequenceClassification,
                           RobertaTokenizer)
 
+from transformers import RobertaForMaskedLM, pipeline
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning
 MODEL_CLASSES = {'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)}
@@ -56,13 +58,19 @@ def main():
 
     ## Load CodeBERT-base and the target model
     config_class, model_class, tokenizer_class = MODEL_CLASSES[model_type]
-    config_mlm = config_class.from_pretrained(mlm_path)
-    config_tgt = config_class.from_pretrained(tgt_path)
 
-    tokenizer_mlm = tokenizer_class.from_pretrained(mlm_path)
-    tokenizer_tgt = tokenizer_class.from_pretrained(tgt_path)
+    ## Load CodeBERT (MLM) model
+    codebert_mlm = RobertaForMaskedLM.from_pretrained("microsoft/codebert-base-mlm")
+    tokenizer_mlm = RobertaTokenizer.from_pretrained("microsoft/codebert-base-mlm")
 
+    CODE = "if (x is <mask> None) and (x > 1)"
+    # It only supports one <mask>
+    # Two masked_token, e.g. if (x is not None) <mask> (x <mask> 1) is not supported.
+    fill_mask = pipeline('fill-mask', model=codebert_mlm, tokenizer=tokenizer_mlm)
 
+    outputs = fill_mask(CODE)
+    for output in outputs:
+        print(output)
 
 
 
