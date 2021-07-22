@@ -49,29 +49,36 @@ def main():
     mlm_path = str(args.mlm_path)
     tgt_path = str(args.tgt_path)
     output_dir = str(args.output_dir)
-    num_label = args.num_label
+    num_labels = args.num_label
     use_bpe = args.use_bpe
     k = args.k
     threshold_pred_score = args.threshold_pred_score
 
     ## ----------------Load Models------------------- ##
 
-    ## Load CodeBERT-base and the target model
-    config_class, model_class, tokenizer_class = MODEL_CLASSES[model_type]
-
     ## Load CodeBERT (MLM) model
     codebert_mlm = RobertaForMaskedLM.from_pretrained("microsoft/codebert-base-mlm")
     tokenizer_mlm = RobertaTokenizer.from_pretrained("microsoft/codebert-base-mlm")
 
-    CODE = "if (x is <mask> None) and (x > 1)"
-    # It only supports one <mask>
-    # Two masked_token, e.g. if (x is not None) <mask> (x <mask> 1) is not supported.
-    fill_mask = pipeline('fill-mask', model=codebert_mlm, tokenizer=tokenizer_mlm)
+    '''
+    CodeBERT MLM Model Usage Example (from CodeBERT README file):
 
-    outputs = fill_mask(CODE)
-    for output in outputs:
-        print(output)
+        CODE = "if (x is <mask> None) and (x > 1)"
+        # It only supports one <mask>
+        # Two masked_token, e.g. if (x is not None) <mask> (x <mask> 1) is not supported.
+        fill_mask = pipeline('fill-mask', model=codebert_mlm, tokenizer=tokenizer_mlm)
 
+        outputs = fill_mask(CODE)
+        for output in outputs:
+            print(output)
+    '''
+
+    ## Load CodeBERT Target Model
+    config_tgt = RobertaConfig.from_pretrained(tgt_path, num_labels=num_labels, finetuning_task='codesearch')
+    tokenizer_tgt = RobertaTokenizer.from_pretrained('roberta-base')
+    codebert_tgt = RobertaForSequenceClassification.from_pretrained(tgt_path, config=config_tgt)
+
+    ## 貌似这里有点问题
 
 
 
