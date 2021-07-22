@@ -93,28 +93,32 @@ def main():
 
     ## ----------------Load Datasets------------------- ##
     processor = CodesearchProcessor()
-    label_list = processor.get_labels() # ['0', '1']
-    examples = processor.get_new_train_examples(data_path, "triple_train.txt")
+    cached_features_file = os.path.join(data_path,
+            'cached_train_triple_train_codebert-base_128_codesearch')
+    try:
+        features = torch.load(cached_features_file)
+    except:
+        label_list = processor.get_labels() # ['0', '1']
+        examples = processor.get_new_train_examples(data_path, "triple_train.txt")
 
-    print('this is example:', len(examples)) #28483
-    ## structure of examples
-        # print(examples[i].text_a) 
-        # print(examples[i].text_b)
-        # print(examples[i].label)
-    
-    # turn examples into BERT Tokenized Ids (features)
+        print('this is example:', len(examples)) #28483
+        ## structure of examples
+            # print(examples[i].text_a) 
+            # print(examples[i].text_b)
+            # print(examples[i].label)
+        
+        # turn examples into BERT Tokenized Ids (features)
 
-    features = convert_examples_to_features(examples, label_list, max_seq_length, tokenizer_mlm, "classification",
-                                            cls_token_at_end=bool(model_type in ['xlnet']),
-                                            # xlnet has a cls token at the end
-                                            cls_token=tokenizer_mlm.cls_token,
-                                            sep_token=tokenizer_mlm.sep_token,
-                                            cls_token_segment_id=2 if model_type in ['xlnet'] else 1,
-                                            pad_on_left=bool(model_type in ['xlnet']),
-                                            # pad on the left for xlnet
-                                            pad_token_segment_id=4 if model_type in ['xlnet'] else 0)
+        features = convert_examples_to_features(examples, label_list, max_seq_length, tokenizer_mlm, "classification",
+                                                cls_token_at_end=bool(model_type in ['xlnet']),
+                                                # xlnet has a cls token at the end
+                                                cls_token=tokenizer_mlm.cls_token,
+                                                sep_token=tokenizer_mlm.sep_token,
+                                                cls_token_segment_id=2 if model_type in ['xlnet'] else 1,
+                                                pad_on_left=bool(model_type in ['xlnet']),
+                                                # pad on the left for xlnet
+                                                pad_token_segment_id=4 if model_type in ['xlnet'] else 0)
 
-    # To-Do: 可以将结果保存为cache，这样就不需要每次都重新加载了
 
     ###--------- Convert to Tensors and build dataset --------------------------
     
@@ -128,7 +132,6 @@ def main():
 
     eval_sampler = SequentialSampler(dataset)
     eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=16)
-
 
 
 
