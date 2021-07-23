@@ -28,8 +28,21 @@ MODEL_CLASSES = {'roberta': (RobertaConfig, RobertaForSequenceClassification, Ro
 def get_identifiers():
     pass
 
-def get_masked_code():
-    pass
+def get_masked_code_by_position(tokens: list, positions: list):
+    '''
+    给定一段文本，以及需要被mask的位置,返回一组masked后的text
+    Example:
+        tokens: [a,b,c]
+        positions: [0,2]
+        Return:
+            [<mask>, b, c]
+            [a, b, <mask>]
+    '''
+    masked_token_list = []
+    for pos in positions:
+        masked_token_list.append(tokens[0:pos] + ['<mask>'] + tokens[pos + 1:])
+    
+    return masked_token_list
 
 def get_importance_score():
     pass
