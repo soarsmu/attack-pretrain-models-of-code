@@ -5,3 +5,5 @@ Assess_CodeBERT/codesearch/data/
 Assess_CodeBERT/codesearch/models
 BERT-Attack/data_defense/imdb_logs.tsv
 Assess_CodeBERT/codesearch/CodeBERT/__pycache__/
+Assess_CodeBERT/codesearch/CodeBERT/models/
+Assess_CodeBERT/codesearch/CodeBERT/runs/
