@@ -90,6 +90,7 @@ def main():
     codebert_tgt.to('cuda')
 
     # TO-DO: 这里貌似有问题，具体看This IS NOT expected的那条消息
+    # Resolved: 我重新fune-tune了一个模型，从这个模型load就没有这个消息了
 
     ## ----------------Load Datasets------------------- ##
     processor = CodesearchProcessor()
@@ -131,7 +132,39 @@ def main():
     dataset = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label_ids)
 
     eval_sampler = SequentialSampler(dataset)
-    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=16)
+    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=1)
+
+    ## ----------------Evaluate------------------- ##
+
+    for batch in tqdm(eval_dataloader, desc="Evaluating"):
+        codebert_tgt.eval()
+        batch = tuple(t.to('cuda') for t in batch)
+
+        with torch.no_grad():
+            inputs = {'input_ids': batch[0],
+                        'attention_mask': batch[1],
+                        'token_type_ids': None,
+                        # XLM don't use segment_ids
+                        'labels': batch[3]}
+
+
+
+            outputs = codebert_tgt(**inputs)
+            tmp_eval_loss, logits = outputs[:2]
+            print("--------")
+            print(tmp_eval_loss)
+            print(logits)
+            exit()
+            # logits是这个batch中，每个输入的结果.
+            # tmp_eval_loss是这个batch的总loss
+
+            # 我现在需要做的是：
+            # 1. 得到每一个原始的text，而非converted后的feature
+            # 2. 找到identifier，将词换成<mask>，得到一组新text
+            # 3. 将这组新text转化为feature，然后使用模型进行预测
+            # 4. 计算importance score.
+
+
 
 
 
