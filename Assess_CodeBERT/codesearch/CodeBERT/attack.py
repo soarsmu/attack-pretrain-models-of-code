@@ -25,7 +25,20 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning
 MODEL_CLASSES = {'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)}
 
-def get_identifiers():
+
+def get_identifier_posistions_from_code(code: str, language = 'python'):
+    '''
+    给定一串代码，要能够返回其中identifier的位置
+    这个问题和bertattack中的并不一样，因为代码中存在identifier的对应问题
+    这个数据的结构还得好好地思考和设计一下
+    此外，先需要对代码进行Parse并提取出token及其类型
+    还不能单纯地用tokenization，比如导入某一个个package，这个package也会被认为是name
+    但是这个name明显不能被修改
+    因此还是更加明确地找到被声明的变量的identifier.
+    '''
+    
+
+    # To-Do: 关于这一点，我得看一下这些文件，但是现在因为编码问题导致他们都是乱码，得想办法看看
     pass
 
 def get_masked_code_by_position(tokens: list, positions: list):
