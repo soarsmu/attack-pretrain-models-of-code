@@ -67,15 +67,11 @@ def get_masked_code_by_position(tokens: list, positions: list):
 
 def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
     '''
-    接受：
-        text, tgt_model
+    计算importance score
     '''
-    # 首先要进行mutate
-
     # 1. 过滤掉所有的keywords.
     positions = get_identifier_posistions_from_code(example.text_b)
     tokens = example.text_b.split(" ")
-    print(" ".join(tokens))
     new_example = [InputExample(0, 
                                 example.text_a, 
                                 " ".join(tokens), 
@@ -111,8 +107,7 @@ def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=1
     all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
     all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
     all_label_ids = torch.tensor([f.label_id for f in features], dtype=torch.long)
-    
-    #print('these are sizes:', all_input_ids.size(), all_input_mask.size(), all_segment_ids.size(), all_label_ids.size())  # ---> [num_data_items, max_length]*3, [num_data_items] --> [28483,200]*3, [28483]
+
     dataset = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label_ids)
 
     eval_sampler = SequentialSampler(dataset)
@@ -162,8 +157,7 @@ def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=1
         # 而BERT-ATTACK中的模型，值却没有这么极端，主要在0.99xx左右。
         # 这有什么合理的解释吗？
 
-    ## ----------------Attack------------------- ##
-    # 得到了importance_score，现在进行attack
+
     return importance_score
 
 
@@ -231,21 +225,24 @@ def main():
     label_list = processor.get_labels() # ['0', '1']
     examples = processor.get_new_train_examples(data_path, "triple_dev.txt")
 
-    print('this is example:', len(examples)) #28483
+    print('this is example:', len(examples))
     ## structure of examples
-        # print(examples[i].text_a) 
-        # print(examples[i].text_b)
-        # print(examples[i].label)
+        # examples[i].text_a : text
+        # examples[i].text_b : code
+        # examples[i].label  : label
     
     # turn examples into BERT Tokenized Ids (features)
     for example in examples:
-        importance_score = get_importance_score(example, codebert_tgt, tokenizer_tgt, label_list, batch_size=16, max_length=512, model_type='classification')
-        print(importance_score)
+        importance_score = get_importance_score(example, 
+                                                codebert_tgt, 
+                                                tokenizer_tgt, 
+                                                label_list, 
+                                                batch_size=16, 
+                                                max_length=512, 
+                                                model_type='classification')
 
-    
-
-
-
+    ## ----------------Attack------------------- ##
+    # 得到了importance_score，现在进行attack
 
 
 if __name__ == '__main__':
