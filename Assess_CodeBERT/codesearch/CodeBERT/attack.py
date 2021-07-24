@@ -102,8 +102,9 @@ def main():
     ## Load CodeBERT (MLM) model
     codebert_mlm = RobertaForMaskedLM.from_pretrained("microsoft/codebert-base-mlm")
     tokenizer_mlm = RobertaTokenizer.from_pretrained("microsoft/codebert-base-mlm")
-    codebert_mlm.to('cuda')
-
+    codebert_mlm.to('cuda') 
+    # 这一步会导致使用 fill_mask = pipeline('fill-mask', model=model, tokenizer=tokenizer)
+    # 发生和cuda devices有关的错误
     '''
     CodeBERT MLM Model Usage Example (from CodeBERT README file):
 
@@ -145,6 +146,7 @@ def main():
         # 1. 过滤掉所有的keywords.
         positions = get_identifier_posistions_from_code(example.text_b)
         tokens = example.text_b.split(" ")
+        print(" ".join(tokens))
         new_example = [InputExample(0, 
                                     example.text_a, 
                                     " ".join(tokens), 
@@ -218,7 +220,7 @@ def main():
             orig_prob = orig_probs.max()
 
             
-            import_scores = (orig_prob
+            importance_score = (orig_prob
                             - leave_1_probs[:, orig_label]
                             +
                             (leave_1_probs_argmax != orig_label).float()
@@ -230,6 +232,11 @@ def main():
             # 好像是因为，这个classifier生成的数值都非常极端，以方非常趋向于1，另一个趋向于0
             # 而BERT-ATTACK中的模型，值却没有这么极端，主要在0.99xx左右。
             # 这有什么合理的解释吗？
+
+        ## ----------------Attack------------------- ##
+        # 得到了importance_score，现在进行attack
+
+
 
 
 if __name__ == '__main__':
