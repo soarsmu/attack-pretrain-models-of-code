@@ -141,17 +141,22 @@ def main():
     # turn examples into BERT Tokenized Ids (features)
     for example in examples:
         # 首先要进行mutate
+
         # 1. 过滤掉所有的keywords.
         positions = get_identifier_posistions_from_code(example.text_b)
         tokens = example.text_b.split(" ")
+        new_example = [InputExample(0, 
+                                    example.text_a, 
+                                    " ".join(tokens), 
+                                    example.label)]
 
         # 2. 得到Masked_tokens
         masked_token_list = get_masked_code_by_position(tokens, positions)
 
-        new_example = []
+
         for index, tokens in enumerate(masked_token_list):
             new_code = ' '.join(tokens)
-            new_example.append(InputExample(index, 
+            new_example.append(InputExample(index + 1, 
                                             example.text_a, 
                                             new_code, 
                                             example.label))
@@ -169,7 +174,6 @@ def main():
                                                 pad_token_segment_id=4 if model_type in ['xlnet'] else 0)
 
 
-
         ###--------- Convert to Tensors and build dataset --------------------------
         
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)     #read input_ids of each data point; turn into tensor; store them in a list
@@ -181,49 +185,51 @@ def main():
         dataset = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label_ids)
 
         eval_sampler = SequentialSampler(dataset)
-        print(len(eval_sampler))
         eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=16)
-        print(len(eval_dataloader))
 
 
         ## ----------------Evaluate------------------- ##
-
-        for batch in tqdm(eval_dataloader, desc="Evaluating"):
-            codebert_tgt.eval()
-            batch = tuple(t.to('cuda') for t in batch)
-
-            with torch.no_grad():
+        codebert_tgt.eval()
+        leave_1_probs = []
+        corr_cnt = 0
+        with torch.no_grad():
+            for index, batch in enumerate(eval_dataloader):
+                batch = tuple(t.to('cuda') for t in batch)
                 inputs = {'input_ids': batch[0],
                             'attention_mask': batch[1],
                             'token_type_ids': None,
                             # XLM don't use segment_ids
                             'labels': batch[3]}
 
-
-
                 outputs = codebert_tgt(**inputs)
                 tmp_eval_loss, logits = outputs[:2]
-                print("--------")
-                print(tmp_eval_loss)
-                print(logits)
-                print(example.label)
-                print()
-                # logits是这个batch中，每个输入的结果.
-                # tmp_eval_loss是这个batch的总loss
+                if index == 0:
+                    # 说明是第一个，此batch的第一个是原始code
+                    orig_probs = logits[0]
+                leave_1_probs.append(logits)
 
-                # 我现在需要做的是：
-                # 1. 得到每一个原始的text，而非converted后的feature
-                # 2. 找到identifier，将词换成<mask>，得到一组新text
-                # 3. 将这组新text转化为feature，然后使用模型进行预测
-                # 4. 计算importance score.
+            
+            leave_1_probs = torch.cat(leave_1_probs, dim=0)
+            leave_1_probs = torch.softmax(leave_1_probs, -1) 
+            leave_1_probs_argmax = torch.argmax(leave_1_probs, dim=-1)
 
+            orig_probs = torch.softmax(orig_probs, -1)
+            orig_label = torch.argmax(orig_probs)
+            orig_prob = orig_probs.max()
 
+            
+            import_scores = (orig_prob
+                            - leave_1_probs[:, orig_label]
+                            +
+                            (leave_1_probs_argmax != orig_label).float()
+                            * (leave_1_probs.max(dim=-1)[0] - torch.index_select(orig_probs, 0, leave_1_probs_argmax))
+                            ).data.cpu().numpy()
 
-
-
-
-
-
+            # 从现在的结果来看，对于代码而言，每个token的importance score非常小
+            # 大概在-7数量级这样，但是原来是在-3数量
+            # 好像是因为，这个classifier生成的数值都非常极端，以方非常趋向于1，另一个趋向于0
+            # 而BERT-ATTACK中的模型，值却没有这么极端，主要在0.99xx左右。
+            # 这有什么合理的解释吗？
 
 
 if __name__ == '__main__':
