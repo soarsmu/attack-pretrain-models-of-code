@@ -65,8 +65,106 @@ def get_masked_code_by_position(tokens: list, positions: list):
     
     return masked_token_list
 
-def get_importance_score():
-    pass
+def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
+    '''
+    接受：
+        text, tgt_model
+    '''
+    # 首先要进行mutate
+
+    # 1. 过滤掉所有的keywords.
+    positions = get_identifier_posistions_from_code(example.text_b)
+    tokens = example.text_b.split(" ")
+    print(" ".join(tokens))
+    new_example = [InputExample(0, 
+                                example.text_a, 
+                                " ".join(tokens), 
+                                example.label)]
+
+    # 2. 得到Masked_tokens
+    masked_token_list = get_masked_code_by_position(tokens, positions)
+
+
+    for index, tokens in enumerate(masked_token_list):
+        new_code = ' '.join(tokens)
+        new_example.append(InputExample(index + 1, 
+                                        example.text_a, 
+                                        new_code, 
+                                        example.label))
+
+    # 3. 将他们转化成features
+
+    features = convert_examples_to_features(new_example, label_list, max_length, tokenizer, "classification",
+                                            cls_token_at_end=bool(model_type in ['xlnet']),
+                                            # xlnet has a cls token at the end
+                                            cls_token=tokenizer.cls_token,
+                                            sep_token=tokenizer.sep_token,
+                                            cls_token_segment_id=2 if model_type in ['xlnet'] else 1,
+                                            pad_on_left=bool(model_type in ['xlnet']),
+                                            # pad on the left for xlnet
+                                            pad_token_segment_id=4 if model_type in ['xlnet'] else 0)
+
+
+    ###--------- Convert to Tensors and build dataset --------------------------
+    
+    all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)     #read input_ids of each data point; turn into tensor; store them in a list
+    all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
+    all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
+    all_label_ids = torch.tensor([f.label_id for f in features], dtype=torch.long)
+    
+    #print('these are sizes:', all_input_ids.size(), all_input_mask.size(), all_segment_ids.size(), all_label_ids.size())  # ---> [num_data_items, max_length]*3, [num_data_items] --> [28483,200]*3, [28483]
+    dataset = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label_ids)
+
+    eval_sampler = SequentialSampler(dataset)
+    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size)
+
+
+    ## ----------------Evaluate------------------- ##
+    tgt_model.eval()
+    leave_1_probs = []
+    corr_cnt = 0
+    with torch.no_grad():
+        for index, batch in enumerate(eval_dataloader):
+            batch = tuple(t.to('cuda') for t in batch)
+            inputs = {'input_ids': batch[0],
+                        'attention_mask': batch[1],
+                        'token_type_ids': None,
+                        # XLM don't use segment_ids
+                        'labels': batch[3]}
+
+            outputs = tgt_model(**inputs)
+            tmp_eval_loss, logits = outputs[:2]
+            if index == 0:
+                # 说明是第一个，此batch的第一个是原始code
+                orig_probs = logits[0]
+            leave_1_probs.append(logits)
+
+        
+        leave_1_probs = torch.cat(leave_1_probs, dim=0)
+        leave_1_probs = torch.softmax(leave_1_probs, -1) 
+        leave_1_probs_argmax = torch.argmax(leave_1_probs, dim=-1)
+
+        orig_probs = torch.softmax(orig_probs, -1)
+        orig_label = torch.argmax(orig_probs)
+        orig_prob = orig_probs.max()
+
+        
+        importance_score = (orig_prob
+                        - leave_1_probs[:, orig_label]
+                        +
+                        (leave_1_probs_argmax != orig_label).float()
+                        * (leave_1_probs.max(dim=-1)[0] - torch.index_select(orig_probs, 0, leave_1_probs_argmax))
+                        ).data.cpu().numpy()
+
+        # 从现在的结果来看，对于代码而言，每个token的importance score非常小
+        # 大概在-7数量级这样，但是原来是在-3数量
+        # 好像是因为，这个classifier生成的数值都非常极端，以方非常趋向于1，另一个趋向于0
+        # 而BERT-ATTACK中的模型，值却没有这么极端，主要在0.99xx左右。
+        # 这有什么合理的解释吗？
+
+    ## ----------------Attack------------------- ##
+    # 得到了importance_score，现在进行attack
+    return importance_score
 
 
 def main():
@@ -141,100 +239,11 @@ def main():
     
     # turn examples into BERT Tokenized Ids (features)
     for example in examples:
-        # 首先要进行mutate
+        importance_score = get_importance_score(example, codebert_tgt, tokenizer_tgt, label_list, batch_size=16, max_length=512, model_type='classification')
+        print(importance_score)
 
-        # 1. 过滤掉所有的keywords.
-        positions = get_identifier_posistions_from_code(example.text_b)
-        tokens = example.text_b.split(" ")
-        print(" ".join(tokens))
-        new_example = [InputExample(0, 
-                                    example.text_a, 
-                                    " ".join(tokens), 
-                                    example.label)]
+    
 
-        # 2. 得到Masked_tokens
-        masked_token_list = get_masked_code_by_position(tokens, positions)
-
-
-        for index, tokens in enumerate(masked_token_list):
-            new_code = ' '.join(tokens)
-            new_example.append(InputExample(index + 1, 
-                                            example.text_a, 
-                                            new_code, 
-                                            example.label))
-
-        # 3. 将他们转化成features
-
-        features = convert_examples_to_features(new_example, label_list, max_seq_length, tokenizer_mlm, "classification",
-                                                cls_token_at_end=bool(model_type in ['xlnet']),
-                                                # xlnet has a cls token at the end
-                                                cls_token=tokenizer_mlm.cls_token,
-                                                sep_token=tokenizer_mlm.sep_token,
-                                                cls_token_segment_id=2 if model_type in ['xlnet'] else 1,
-                                                pad_on_left=bool(model_type in ['xlnet']),
-                                                # pad on the left for xlnet
-                                                pad_token_segment_id=4 if model_type in ['xlnet'] else 0)
-
-
-        ###--------- Convert to Tensors and build dataset --------------------------
-        
-        all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)     #read input_ids of each data point; turn into tensor; store them in a list
-        all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
-        all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
-        all_label_ids = torch.tensor([f.label_id for f in features], dtype=torch.long)
-        
-        #print('these are sizes:', all_input_ids.size(), all_input_mask.size(), all_segment_ids.size(), all_label_ids.size())  # ---> [num_data_items, max_length]*3, [num_data_items] --> [28483,200]*3, [28483]
-        dataset = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label_ids)
-
-        eval_sampler = SequentialSampler(dataset)
-        eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=16)
-
-
-        ## ----------------Evaluate------------------- ##
-        codebert_tgt.eval()
-        leave_1_probs = []
-        corr_cnt = 0
-        with torch.no_grad():
-            for index, batch in enumerate(eval_dataloader):
-                batch = tuple(t.to('cuda') for t in batch)
-                inputs = {'input_ids': batch[0],
-                            'attention_mask': batch[1],
-                            'token_type_ids': None,
-                            # XLM don't use segment_ids
-                            'labels': batch[3]}
-
-                outputs = codebert_tgt(**inputs)
-                tmp_eval_loss, logits = outputs[:2]
-                if index == 0:
-                    # 说明是第一个，此batch的第一个是原始code
-                    orig_probs = logits[0]
-                leave_1_probs.append(logits)
-
-            
-            leave_1_probs = torch.cat(leave_1_probs, dim=0)
-            leave_1_probs = torch.softmax(leave_1_probs, -1) 
-            leave_1_probs_argmax = torch.argmax(leave_1_probs, dim=-1)
-
-            orig_probs = torch.softmax(orig_probs, -1)
-            orig_label = torch.argmax(orig_probs)
-            orig_prob = orig_probs.max()
-
-            
-            importance_score = (orig_prob
-                            - leave_1_probs[:, orig_label]
-                            +
-                            (leave_1_probs_argmax != orig_label).float()
-                            * (leave_1_probs.max(dim=-1)[0] - torch.index_select(orig_probs, 0, leave_1_probs_argmax))
-                            ).data.cpu().numpy()
-
-            # 从现在的结果来看，对于代码而言，每个token的importance score非常小
-            # 大概在-7数量级这样，但是原来是在-3数量
-            # 好像是因为，这个classifier生成的数值都非常极端，以方非常趋向于1，另一个趋向于0
-            # 而BERT-ATTACK中的模型，值却没有这么极端，主要在0.99xx左右。
-            # 这有什么合理的解释吗？
-
-        ## ----------------Attack------------------- ##
-        # 得到了importance_score，现在进行attack
 
 
 
