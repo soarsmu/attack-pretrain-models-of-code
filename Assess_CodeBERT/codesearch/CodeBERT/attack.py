@@ -249,7 +249,7 @@ def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=1
         # 这有什么合理的解释吗？
 
 
-    return importance_score, orig_label
+    return importance_score
 
 
 def main():
@@ -325,13 +325,19 @@ def main():
     # turn examples into BERT Tokenized Ids (features)
     for example in examples:
         # 得到tgt model针对原始example预测的label信息
-        # get_result(example, 
-        #             codebert_tgt, 
-        #             tokenizer_tgt, 
-        #             label_list, 
-        #             batch_size=16, 
-        #             max_length=512, 
-        #             model_type='classification')
+        leave_1_probs, leave_1_probs_argmax = get_results([example], 
+                                                        codebert_tgt, 
+                                                        tokenizer_tgt, 
+                                                        label_list, 
+                                                        batch_size=16, 
+                                                        max_length=512, 
+                                                        model_type='classification')
+        
+        orig_probs = leave_1_probs[0]
+        orig_probs = torch.softmax(orig_probs, -1)
+        orig_label = torch.argmax(orig_probs)
+        orig_prob = orig_probs.max()
+
 
         code = example.text_b
         words, sub_words, keys = _tokenize(code, tokenizer_mlm)
@@ -347,7 +353,7 @@ def main():
         word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
 
 
-        importance_score, orig_label = get_importance_score(example, 
+        importance_score = get_importance_score(example, 
                                                 codebert_tgt, 
                                                 tokenizer_tgt, 
                                                 label_list, 
