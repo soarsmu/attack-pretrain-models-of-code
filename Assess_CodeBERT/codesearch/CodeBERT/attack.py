@@ -149,32 +149,11 @@ def get_masked_code_by_position(tokens: list, positions: list):
     
     return masked_token_list
 
-def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
+def get_results(example: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
     '''
-    计算importance score
+    给定example和tgt model，返回预测的label和probability
     '''
-    # 1. 过滤掉所有的keywords.
-    positions = get_identifier_posistions_from_code(example.text_b)
-    tokens = example.text_b.split(" ")
-    new_example = [InputExample(0, 
-                                example.text_a, 
-                                " ".join(tokens), 
-                                example.label)]
-
-    # 2. 得到Masked_tokens
-    masked_token_list = get_masked_code_by_position(tokens, positions)
-
-
-    for index, tokens in enumerate(masked_token_list):
-        new_code = ' '.join(tokens)
-        new_example.append(InputExample(index + 1, 
-                                        example.text_a, 
-                                        new_code, 
-                                        example.label))
-
-    # 3. 将他们转化成features
-
-    features = convert_examples_to_features(new_example, label_list, max_length, tokenizer, "classification",
+    features = convert_examples_to_features(example, label_list, max_length, tokenizer, "classification",
                                             cls_token_at_end=bool(model_type in ['xlnet']),
                                             # xlnet has a cls token at the end
                                             cls_token=tokenizer.cls_token,
@@ -183,8 +162,7 @@ def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=1
                                             pad_on_left=bool(model_type in ['xlnet']),
                                             # pad on the left for xlnet
                                             pad_token_segment_id=4 if model_type in ['xlnet'] else 0)
-
-
+    
     ###--------- Convert to Tensors and build dataset --------------------------
     
     all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)     #read input_ids of each data point; turn into tensor; store them in a list
@@ -201,7 +179,6 @@ def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=1
     ## ----------------Evaluate------------------- ##
     tgt_model.eval()
     leave_1_probs = []
-    corr_cnt = 0
     with torch.no_grad():
         for index, batch in enumerate(eval_dataloader):
             batch = tuple(t.to('cuda') for t in batch)
@@ -213,9 +190,6 @@ def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=1
 
             outputs = tgt_model(**inputs)
             tmp_eval_loss, logits = outputs[:2]
-            if index == 0:
-                # 说明是第一个，此batch的第一个是原始code
-                orig_probs = logits[0]
             leave_1_probs.append(logits)
 
         
@@ -223,17 +197,49 @@ def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=1
         leave_1_probs = torch.softmax(leave_1_probs, -1) 
         leave_1_probs_argmax = torch.argmax(leave_1_probs, dim=-1)
 
-        orig_probs = torch.softmax(orig_probs, -1)
-        orig_label = torch.argmax(orig_probs)
-        orig_prob = orig_probs.max()
+    return leave_1_probs, leave_1_probs_argmax
 
+
+def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
+    '''
+    计算importance score
+    '''
+    # 1. 过滤掉所有的keywords.
+    positions = get_identifier_posistions_from_code(example.text_b)
+    tokens = example.text_b.split(" ")
+    new_example = []
+
+    # 2. 得到Masked_tokens
+    masked_token_list = get_masked_code_by_position(tokens, positions)
+
+
+    for index, tokens in enumerate(masked_token_list):
+        new_code = ' '.join(tokens)
+        new_example.append(InputExample(index + 1, 
+                                        example.text_a, 
+                                        new_code, 
+                                        example.label))
+
+    # 3. 将他们转化成features
+
+    leave_1_probs, leave_1_probs_argmax = get_results(new_example, 
+                tgt_model, 
+                tokenizer, 
+                label_list, 
+                batch_size=16, 
+                max_length=512, 
+                model_type='classification')
+
+    orig_probs = leave_1_probs[0]
+    orig_label = torch.argmax(orig_probs)
+    orig_prob = orig_probs.max()
         
-        importance_score = (orig_prob
-                        - leave_1_probs[:, orig_label]
-                        +
-                        (leave_1_probs_argmax != orig_label).float()
-                        * (leave_1_probs.max(dim=-1)[0] - torch.index_select(orig_probs, 0, leave_1_probs_argmax))
-                        ).data.cpu().numpy()
+    importance_score = (orig_prob
+                    - leave_1_probs[:, orig_label]
+                    +
+                    (leave_1_probs_argmax != orig_label).float()
+                    * (leave_1_probs.max(dim=-1)[0] - torch.index_select(orig_probs, 0, leave_1_probs_argmax))
+                    ).data.cpu().numpy()
 
         # 从现在的结果来看，对于代码而言，每个token的importance score非常小
         # 大概在-7数量级这样，但是原来是在-3数量
@@ -242,7 +248,7 @@ def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=1
         # 这有什么合理的解释吗？
 
 
-    return importance_score, orig_label
+    return importance_score
 
 
 def main():
@@ -257,7 +263,7 @@ def main():
     parser.add_argument("--use_bpe", type=int, )
     parser.add_argument("--k", type=int, )
     parser.add_argument("--threshold_pred_score", type=float, )
-    parser.add_argument("--max_seq_length", default=128, type=int,
+    parser.add_argument("--max_seq_length", default=512, type=int,
                         help="The maximum total input sequence length after tokenization. Sequences longer "
                              "than this will be truncated, sequences shorter will be padded.")
 
@@ -317,11 +323,28 @@ def main():
     
     # turn examples into BERT Tokenized Ids (features)
     for example in examples:
+        # 得到tgt model针对原始example预测的label信息
+        print(example)
+        leave_1_probs, leave_1_probs_argmax = get_results([example], 
+                                                        codebert_tgt, 
+                                                        tokenizer_tgt, 
+                                                        label_list, 
+                                                        batch_size=16, 
+                                                        max_length=512, 
+                                                        model_type='classification')
+        
+        orig_probs = leave_1_probs[0]
+        orig_label = torch.argmax(orig_probs)
+        orig_prob = orig_probs.max()
+        current_prob = orig_prob
+
         code = example.text_b
         words, sub_words, keys = _tokenize(code, tokenizer_mlm)
 
         sub_words = ['[CLS]'] + sub_words[:max_seq_length - 2] + ['[SEP]']
         # 如果长度超了，就截断；这里的max_length是BERT能接受的最大长度
+        # Notice: 这里用的是BERT，而非CodeBERT的格式.
+        # 到底是使用什么来分割的呢？
         input_ids_ = torch.tensor([tokenizer_mlm.convert_tokens_to_ids(sub_words)])
         word_predictions = codebert_mlm(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
         word_pred_scores_all, word_predictions = torch.topk(word_predictions, k, -1)  # seq-len k
@@ -330,14 +353,15 @@ def main():
         word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
 
 
-        # exit()
-        importance_score, orig_label = get_importance_score(example, 
+        importance_score = get_importance_score(example, 
                                                 codebert_tgt, 
                                                 tokenizer_tgt, 
                                                 label_list, 
                                                 batch_size=16, 
                                                 max_length=512, 
                                                 model_type='classification')
+        # print(importance_score)
+        # continue
         list_of_index = sorted(enumerate(importance_score), key=lambda x: x[1], reverse=True)
 
         final_words = copy.deepcopy(words)
@@ -373,41 +397,79 @@ def main():
 
             most_gap = 0.0
             candidate = None
-
             for substitute_ in substitutes:
                 substitute = substitute_
 
-            if substitute == tgt_word:
-                # 如果和原来的词相同
-                continue  # filter out original word
-            if '##' in substitute:
-                continue  # filter out sub-word
+                if substitute == tgt_word:
+                    # 如果和原来的词相同
+                    continue  # filter out original word
+                if '##' in substitute:
+                    continue  # filter out sub-word
 
-            if substitute in python_keywords:
-                # 如果在filter words中也跳过
-                continue
-            if ' ' in substitute:
-                # Solve Error
-                # 发现substiute中可能会有空格
-                # 当有的时候，tokenizer_tgt.convert_tokens_to_string(temp_replace)
-                # 会报 ' ' 这个Key不存在的Error
-                continue
+                if substitute in python_keywords:
+                    # 如果在filter words中也跳过
+                    continue
+                if ' ' in substitute:
+                    # Solve Error
+                    # 发现substiute中可能会有空格
+                    # 当有的时候，tokenizer_tgt.convert_tokens_to_string(temp_replace)
+                    # 会报 ' ' 这个Key不存在的Error
+                    continue
+                temp_replace = final_words
+                temp_replace[top_index[0]] = substitute
 
-            temp_replace = final_words
-            temp_replace[top_index[0]] = substitute
-            # 对应的位置换掉
-            # print(temp_replace)
-            temp_text = tokenizer_tgt.convert_tokens_to_string(temp_replace)
-            inputs = tokenizer_tgt.encode_plus(temp_text, None, add_special_tokens=True, max_length=max_seq_length, )
-            input_ids = torch.tensor(inputs["input_ids"]).unsqueeze(0).to('cuda')
-            seq_len = input_ids.size(1)
-            # 准备新的输入
-            temp_prob = codebert_tgt(input_ids)[0].squeeze()
-            temp_prob = torch.softmax(temp_prob, -1)
-            temp_label = torch.argmax(temp_prob)
-            if temp_label != orig_label:
-                print("Success!!!")
-                continue
+                # 对应的位置换掉
+                # print(temp_replace)
+
+                temp_text = " ".join(temp_replace)
+                # print("-------")
+                # print(substitute)
+                # print(example.text_b)
+                # print(temp_text)
+                # continue
+                replace_example =  InputExample(0, 
+                                                example.text_a, 
+                                                temp_text, 
+                                                example.label)
+
+                new_probs, leave_1_probs_argmax = get_results([replace_example], 
+                                                                codebert_tgt, 
+                                                                tokenizer_tgt, 
+                                                                label_list, 
+                                                                batch_size=16, 
+                                                                max_length=512, 
+                                                                model_type='classification')
+
+                temp_probs = new_probs[0]
+                temp_label = torch.argmax(temp_probs)
+                temp_prob = temp_probs.max()
+
+                if temp_label != orig_label:
+                    # 这里需要修改
+                    # 这里的temp_label是仅将代码放进去
+                    # 但是我们需要code + texts
+                    print("Success!!!")
+                    print(temp_text)
+                    print(example.text_b)
+                    # 感觉对第二个模型效果会好一点...
+                    break
+                else:
+                    gap = current_prob - temp_probs[temp_label]
+                    # BERT-ATTACK中有正有负，我这里都是负
+                    # 这意味着，这些mutation，甚至还让模型更加确信自己的结果了...
+                    # 这是为什么呢？
+                    if gap > most_gap:
+                        most_gap = gap
+                        candidate = substitute
+            if most_gap > 0:
+                print(most_gap)
+                change += 1
+                current_prob = current_prob - most_gap
+                final_words[top_index[0]] = candidate
+
+
+
+
 
 
 
