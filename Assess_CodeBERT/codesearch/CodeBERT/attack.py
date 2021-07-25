@@ -19,9 +19,10 @@ from torch.utils.data.distributed import DistributedSampler
 
 from utils import convert_examples_to_features, CodesearchProcessor, InputExample
 import torch
+import torch.nn as nn
 from transformers import RobertaForMaskedLM, pipeline
 from tqdm import tqdm
-
+import copy
 
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -29,7 +30,25 @@ warnings.simplefilter(action='ignore', category=FutureWarning) # Only report war
 MODEL_CLASSES = {'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)}
 
 
-python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', "+=", '-=', "<", ">", '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield']
+python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">", '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield']
+
+
+def _tokenize(seq, tokenizer):
+    seq = seq.replace('\n', '').lower()
+    words = seq.split(' ')
+
+    sub_words = []
+    keys = []
+    index = 0
+    for word in words:
+        # 并非直接tokenize这句话，而是tokenize了每个splited words.
+        sub = tokenizer.tokenize(word)
+        sub_words += sub
+        keys.append([index, index + len(sub)])
+        # 将subwords对齐
+        index += len(sub)
+
+    return words, sub_words, keys
 
 def get_identifier_posistions_from_code(code: str, language = 'python'):
     '''
@@ -47,6 +66,71 @@ def get_identifier_posistions_from_code(code: str, language = 'python'):
             positions.append(index)
     return positions
 
+def get_bpe_substitues(substitutes, tokenizer, mlm_model):
+    # substitutes L, k
+
+    substitutes = substitutes[0:12, 0:4] # maximum BPE candidates
+
+    # find all possible candidates 
+
+    all_substitutes = []
+    for i in range(substitutes.size(0)):
+        if len(all_substitutes) == 0:
+            lev_i = substitutes[i]
+            all_substitutes = [[int(c)] for c in lev_i]
+        else:
+            lev_i = []
+            for all_sub in all_substitutes:
+                for j in substitutes[i]:
+                    lev_i.append(all_sub + [int(j)])
+            all_substitutes = lev_i
+
+    # all substitutes  list of list of token-id (all candidates)
+    c_loss = nn.CrossEntropyLoss(reduction='none')
+    word_list = []
+    # all_substitutes = all_substitutes[:24]
+    all_substitutes = torch.tensor(all_substitutes) # [ N, L ]
+    all_substitutes = all_substitutes[:24].to('cuda')
+    # print(substitutes.size(), all_substitutes.size())
+    N, L = all_substitutes.size()
+    word_predictions = mlm_model(all_substitutes)[0] # N L vocab-size
+    ppl = c_loss(word_predictions.view(N*L, -1), all_substitutes.view(-1)) # [ N*L ] 
+    ppl = torch.exp(torch.mean(ppl.view(N, L), dim=-1)) # N  
+    _, word_list = torch.sort(ppl)
+    word_list = [all_substitutes[i] for i in word_list]
+    final_words = []
+    for word in word_list:
+        tokens = [tokenizer._convert_id_to_token(int(i)) for i in word]
+        text = tokenizer.convert_tokens_to_string(tokens)
+        final_words.append(text)
+    return final_words
+
+def get_substitues(substitutes, tokenizer, mlm_model, use_bpe, substitutes_score=None, threshold=3.0):
+    '''
+    将metrics转化成的word
+    '''
+    # substitues L,k
+    # from this matrix to recover a word
+    words = []
+    sub_len, k = substitutes.size()  # sub-len, k
+
+    if sub_len == 0:
+        return words
+        
+    elif sub_len == 1:
+        for (i,j) in zip(substitutes[0], substitutes_score[0]):
+            if threshold != 0 and j < threshold:
+                break
+            words.append(tokenizer._convert_id_to_token(int(i)))
+            # 将id转为token.
+    else:
+        if use_bpe == 1:
+            words = get_bpe_substitues(substitutes, tokenizer, mlm_model)
+        else:
+            return words
+    #
+    # print(words)
+    return words
 
 
 def get_masked_code_by_position(tokens: list, positions: list):
@@ -61,7 +145,7 @@ def get_masked_code_by_position(tokens: list, positions: list):
     '''
     masked_token_list = []
     for pos in positions:
-        masked_token_list.append(tokens[0:pos] + ['<mask>'] + tokens[pos + 1:])
+        masked_token_list.append(tokens[0:pos] + ['[UNK]'] + tokens[pos + 1:])
     
     return masked_token_list
 
@@ -158,7 +242,7 @@ def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=1
         # 这有什么合理的解释吗？
 
 
-    return importance_score
+    return importance_score, orig_label
 
 
 def main():
@@ -233,16 +317,107 @@ def main():
     
     # turn examples into BERT Tokenized Ids (features)
     for example in examples:
-        importance_score = get_importance_score(example, 
+        code = example.text_b
+        words, sub_words, keys = _tokenize(code, tokenizer_mlm)
+
+        sub_words = ['[CLS]'] + sub_words[:max_seq_length - 2] + ['[SEP]']
+        # 如果长度超了，就截断；这里的max_length是BERT能接受的最大长度
+        input_ids_ = torch.tensor([tokenizer_mlm.convert_tokens_to_ids(sub_words)])
+        word_predictions = codebert_mlm(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
+        word_pred_scores_all, word_predictions = torch.topk(word_predictions, k, -1)  # seq-len k
+
+        word_predictions = word_predictions[1:len(sub_words) + 1, :]
+        word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
+
+
+        # exit()
+        importance_score, orig_label = get_importance_score(example, 
                                                 codebert_tgt, 
                                                 tokenizer_tgt, 
                                                 label_list, 
                                                 batch_size=16, 
                                                 max_length=512, 
                                                 model_type='classification')
+        list_of_index = sorted(enumerate(importance_score), key=lambda x: x[1], reverse=True)
+
+        final_words = copy.deepcopy(words)
+        change = 0 # 表示被修改的token数量
+        for top_index in list_of_index:
+            if change > int(0.4 * (len(words))):
+                print("Too much change!")
+                continue
+            tgt_word = words[top_index[0]]
+
+
+            if tgt_word in python_keywords:
+                # 如果在filter_words中就不修改
+                continue
+
+            if keys[top_index[0]][0] > max_seq_length - 2:
+                # 看被修改的词在不在最大长度之外 在就跳过
+                continue
+
+            substitutes = word_predictions[keys[top_index[0]][0]:keys[top_index[0]][1]]  # L, k
+
+            word_pred_scores = word_pred_scores_all[keys[top_index[0]][0]:keys[top_index[0]][1]]
+
+            substitutes = get_substitues(substitutes, 
+                                        tokenizer_mlm, 
+                                        codebert_mlm, 
+                                        use_bpe, 
+                                        word_pred_scores, 
+                                        threshold_pred_score)
+
+            # !!!! 这里有问题
+            # 输入是code + text，这里只有text.
+
+            most_gap = 0.0
+            candidate = None
+
+            for substitute_ in substitutes:
+                substitute = substitute_
+
+            if substitute == tgt_word:
+                # 如果和原来的词相同
+                continue  # filter out original word
+            if '##' in substitute:
+                continue  # filter out sub-word
+
+            if substitute in python_keywords:
+                # 如果在filter words中也跳过
+                continue
+            if ' ' in substitute:
+                # Solve Error
+                # 发现substiute中可能会有空格
+                # 当有的时候，tokenizer_tgt.convert_tokens_to_string(temp_replace)
+                # 会报 ' ' 这个Key不存在的Error
+                continue
+
+            temp_replace = final_words
+            temp_replace[top_index[0]] = substitute
+            # 对应的位置换掉
+            # print(temp_replace)
+            temp_text = tokenizer_tgt.convert_tokens_to_string(temp_replace)
+            inputs = tokenizer_tgt.encode_plus(temp_text, None, add_special_tokens=True, max_length=max_seq_length, )
+            input_ids = torch.tensor(inputs["input_ids"]).unsqueeze(0).to('cuda')
+            seq_len = input_ids.size(1)
+            # 准备新的输入
+            temp_prob = codebert_tgt(input_ids)[0].squeeze()
+            temp_prob = torch.softmax(temp_prob, -1)
+            temp_label = torch.argmax(temp_prob)
+            if temp_label != orig_label:
+                print("Success!!!")
+                continue
+
+
+
+
+
+
 
     ## ----------------Attack------------------- ##
-    # 得到了importance_score，现在进行attack
+    # 得到了importance_score，现在生成每个位置的candidate.
+    
 
 
 if __name__ == '__main__':
