@@ -207,10 +207,7 @@ def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=1
     # 1. 过滤掉所有的keywords.
     positions = get_identifier_posistions_from_code(example.text_b)
     tokens = example.text_b.split(" ")
-    new_example = [InputExample(0, 
-                                example.text_a, 
-                                " ".join(tokens), 
-                                example.label)]
+    new_example = []
 
     # 2. 得到Masked_tokens
     masked_token_list = get_masked_code_by_position(tokens, positions)
