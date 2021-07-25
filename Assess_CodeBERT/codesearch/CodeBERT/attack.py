@@ -149,6 +149,57 @@ def get_masked_code_by_position(tokens: list, positions: list):
     
     return masked_token_list
 
+def get_results(example: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
+    '''
+    给定example和tgt model，返回预测的label和probability
+    '''
+    features = convert_examples_to_features(example, label_list, max_length, tokenizer, "classification",
+                                            cls_token_at_end=bool(model_type in ['xlnet']),
+                                            # xlnet has a cls token at the end
+                                            cls_token=tokenizer.cls_token,
+                                            sep_token=tokenizer.sep_token,
+                                            cls_token_segment_id=2 if model_type in ['xlnet'] else 1,
+                                            pad_on_left=bool(model_type in ['xlnet']),
+                                            # pad on the left for xlnet
+                                            pad_token_segment_id=4 if model_type in ['xlnet'] else 0)
+    
+    ###--------- Convert to Tensors and build dataset --------------------------
+    
+    all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)     #read input_ids of each data point; turn into tensor; store them in a list
+    all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
+    all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
+    all_label_ids = torch.tensor([f.label_id for f in features], dtype=torch.long)
+
+    dataset = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label_ids)
+
+    eval_sampler = SequentialSampler(dataset)
+    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size)
+
+
+    ## ----------------Evaluate------------------- ##
+    tgt_model.eval()
+    leave_1_probs = []
+    with torch.no_grad():
+        for index, batch in enumerate(eval_dataloader):
+            batch = tuple(t.to('cuda') for t in batch)
+            inputs = {'input_ids': batch[0],
+                        'attention_mask': batch[1],
+                        'token_type_ids': None,
+                        # XLM don't use segment_ids
+                        'labels': batch[3]}
+
+            outputs = tgt_model(**inputs)
+            tmp_eval_loss, logits = outputs[:2]
+            leave_1_probs.append(logits)
+
+        
+        leave_1_probs = torch.cat(leave_1_probs, dim=0)
+        leave_1_probs = torch.softmax(leave_1_probs, -1) 
+        leave_1_probs_argmax = torch.argmax(leave_1_probs, dim=-1)
+
+    return leave_1_probs, leave_1_probs_argmax
+
+
 def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
     '''
     计算importance score
@@ -174,66 +225,25 @@ def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=1
 
     # 3. 将他们转化成features
 
-    features = convert_examples_to_features(new_example, label_list, max_length, tokenizer, "classification",
-                                            cls_token_at_end=bool(model_type in ['xlnet']),
-                                            # xlnet has a cls token at the end
-                                            cls_token=tokenizer.cls_token,
-                                            sep_token=tokenizer.sep_token,
-                                            cls_token_segment_id=2 if model_type in ['xlnet'] else 1,
-                                            pad_on_left=bool(model_type in ['xlnet']),
-                                            # pad on the left for xlnet
-                                            pad_token_segment_id=4 if model_type in ['xlnet'] else 0)
+    leave_1_probs, leave_1_probs_argmax = get_results(new_example, 
+                tgt_model, 
+                tokenizer, 
+                label_list, 
+                batch_size=16, 
+                max_length=512, 
+                model_type='classification')
 
-
-    ###--------- Convert to Tensors and build dataset --------------------------
-    
-    all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)     #read input_ids of each data point; turn into tensor; store them in a list
-    all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
-    all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
-    all_label_ids = torch.tensor([f.label_id for f in features], dtype=torch.long)
-
-    dataset = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label_ids)
-
-    eval_sampler = SequentialSampler(dataset)
-    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size)
-
-
-    ## ----------------Evaluate------------------- ##
-    tgt_model.eval()
-    leave_1_probs = []
-    corr_cnt = 0
-    with torch.no_grad():
-        for index, batch in enumerate(eval_dataloader):
-            batch = tuple(t.to('cuda') for t in batch)
-            inputs = {'input_ids': batch[0],
-                        'attention_mask': batch[1],
-                        'token_type_ids': None,
-                        # XLM don't use segment_ids
-                        'labels': batch[3]}
-
-            outputs = tgt_model(**inputs)
-            tmp_eval_loss, logits = outputs[:2]
-            if index == 0:
-                # 说明是第一个，此batch的第一个是原始code
-                orig_probs = logits[0]
-            leave_1_probs.append(logits)
-
+    orig_probs = leave_1_probs[0]
+    orig_probs = torch.softmax(orig_probs, -1)
+    orig_label = torch.argmax(orig_probs)
+    orig_prob = orig_probs.max()
         
-        leave_1_probs = torch.cat(leave_1_probs, dim=0)
-        leave_1_probs = torch.softmax(leave_1_probs, -1) 
-        leave_1_probs_argmax = torch.argmax(leave_1_probs, dim=-1)
-
-        orig_probs = torch.softmax(orig_probs, -1)
-        orig_label = torch.argmax(orig_probs)
-        orig_prob = orig_probs.max()
-
-        
-        importance_score = (orig_prob
-                        - leave_1_probs[:, orig_label]
-                        +
-                        (leave_1_probs_argmax != orig_label).float()
-                        * (leave_1_probs.max(dim=-1)[0] - torch.index_select(orig_probs, 0, leave_1_probs_argmax))
-                        ).data.cpu().numpy()
+    importance_score = (orig_prob
+                    - leave_1_probs[:, orig_label]
+                    +
+                    (leave_1_probs_argmax != orig_label).float()
+                    * (leave_1_probs.max(dim=-1)[0] - torch.index_select(orig_probs, 0, leave_1_probs_argmax))
+                    ).data.cpu().numpy()
 
         # 从现在的结果来看，对于代码而言，每个token的importance score非常小
         # 大概在-7数量级这样，但是原来是在-3数量
@@ -317,11 +327,21 @@ def main():
     
     # turn examples into BERT Tokenized Ids (features)
     for example in examples:
+        # 得到tgt model针对原始example预测的label信息
+        # get_result(example, 
+        #             codebert_tgt, 
+        #             tokenizer_tgt, 
+        #             label_list, 
+        #             batch_size=16, 
+        #             max_length=512, 
+        #             model_type='classification')
+
         code = example.text_b
         words, sub_words, keys = _tokenize(code, tokenizer_mlm)
 
         sub_words = ['[CLS]'] + sub_words[:max_seq_length - 2] + ['[SEP]']
         # 如果长度超了，就截断；这里的max_length是BERT能接受的最大长度
+        # Notice: 这里用的是BERT，而非CodeBERT的格式.
         input_ids_ = torch.tensor([tokenizer_mlm.convert_tokens_to_ids(sub_words)])
         word_predictions = codebert_mlm(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
         word_pred_scores_all, word_predictions = torch.topk(word_predictions, k, -1)  # seq-len k
@@ -330,7 +350,6 @@ def main():
         word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
 
 
-        # exit()
         importance_score, orig_label = get_importance_score(example, 
                                                 codebert_tgt, 
                                                 tokenizer_tgt, 
