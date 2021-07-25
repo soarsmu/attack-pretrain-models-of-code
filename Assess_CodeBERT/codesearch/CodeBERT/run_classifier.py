@@ -40,6 +40,8 @@ from utils import (compute_metrics, convert_examples_to_features,
 logger = logging.getLogger(__name__)
 
 MODEL_CLASSES = {'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)}
+# 只发现了这一句，看来mlm_model和tgt_model是相同的？
+
 
 
 def set_seed(args):
@@ -225,6 +227,7 @@ def evaluate(args, model, tokenizer, checkpoint=None, prefix="", mode='dev'):
         # Note that DistributedSampler samples randomly
         eval_sampler = SequentialSampler(eval_dataset) if args.local_rank == -1 else DistributedSampler(eval_dataset)
         eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
+        # 读取数据集
 
         # Eval!
         logger.info("***** Running evaluation {} *****".format(prefix))
@@ -247,6 +250,9 @@ def evaluate(args, model, tokenizer, checkpoint=None, prefix="", mode='dev'):
 
                 outputs = model(**inputs)
                 tmp_eval_loss, logits = outputs[:2]
+
+                # 这里就应该是使用这个模型了
+
 
                 eval_loss += tmp_eval_loss.mean().item()
             nb_eval_steps += 1
@@ -316,10 +322,12 @@ def load_and_cache_examples(args, task, tokenizer, ttype='train'):
     try:
         logger.info("Loading features from cached file %s", cached_features_file)
         features = torch.load(cached_features_file)
+        # 这里得到了features
         if ttype == 'test':
             examples, instances = processor.get_test_examples(args.data_dir, args.test_file)
     
     # if no cache files, load data from data file; build dataset, tokenization
+    # 我们可以通过这里来读取
     except:
         logger.info("Creating features from dataset file at %s", args.data_dir)
         label_list = processor.get_labels()
@@ -343,7 +351,6 @@ def load_and_cache_examples(args, task, tokenizer, ttype='train'):
       
         # This object has four features: guid, text_a, text_b, label
         # Usage -> examples[0].guid
-        
         
         # turn examples into BERT Tokenized Ids (features)
         features = convert_examples_to_features(examples, label_list, args.max_seq_length, tokenizer, output_mode,
@@ -487,7 +494,6 @@ def read_args():
 
 
 def main():
-    
     #lang = "python"
     #pretrained_model= "microsoft/codebert-base"
     args = read_args().parse_args()
@@ -540,6 +546,7 @@ def main():
     args.start_epoch = 0
     args.start_step = 0
     checkpoint_last = os.path.join(args.output_dir, 'checkpoint-last')
+    # 如果output_dir存在checkpoint-last folder，则load这个文件夹中的model，也就是继续进行训练
     if os.path.exists(checkpoint_last) and os.listdir(checkpoint_last):
         args.model_name_or_path = os.path.join(checkpoint_last, 'pytorch_model.bin')
         args.config_name = os.path.join(checkpoint_last, 'config.json')
@@ -553,6 +560,7 @@ def main():
                 args.start_step = int(stepf.readlines()[0].strip())
 
         logger.info("reload model from {}, resume from {} epoch".format(checkpoint_last, args.start_epoch))
+    # 如果没有，那则从传入的参数进行load，重新开始一次训练
 
     args.model_type = args.model_type.lower()
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]

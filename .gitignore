@@ -7,3 +7,5 @@ BERT-Attack/data_defense/imdb_logs.tsv
 Assess_CodeBERT/codesearch/CodeBERT/__pycache__/
 Assess_CodeBERT/codesearch/CodeBERT/models/
 Assess_CodeBERT/codesearch/CodeBERT/runs/
+*.coverage
+*.pyc
