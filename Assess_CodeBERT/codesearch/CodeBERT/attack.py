@@ -67,6 +67,7 @@ def get_identifier_posistions_from_code(code: str, language = 'python'):
     return positions
 
 def get_bpe_substitues(substitutes, tokenizer, mlm_model):
+    # To-Do: 这里我并没有理解.
     # substitutes L, k
 
     substitutes = substitutes[0:12, 0:4] # maximum BPE candidates
@@ -107,7 +108,7 @@ def get_bpe_substitues(substitutes, tokenizer, mlm_model):
 
 def get_substitues(substitutes, tokenizer, mlm_model, use_bpe, substitutes_score=None, threshold=3.0):
     '''
-    将metrics转化成的word
+    将生成的substitued subwords转化为words
     '''
     # substitues L,k
     # from this matrix to recover a word
@@ -115,15 +116,18 @@ def get_substitues(substitutes, tokenizer, mlm_model, use_bpe, substitutes_score
     sub_len, k = substitutes.size()  # sub-len, k
 
     if sub_len == 0:
+        # 比如空格对应的subwords就是[a,a]，长度为0
         return words
         
     elif sub_len == 1:
+        # subwords就是本身
         for (i,j) in zip(substitutes[0], substitutes_score[0]):
             if threshold != 0 and j < threshold:
                 break
             words.append(tokenizer._convert_id_to_token(int(i)))
             # 将id转为token.
     else:
+        # word被分解成了多个subwords
         if use_bpe == 1:
             words = get_bpe_substitues(substitutes, tokenizer, mlm_model)
         else:
@@ -324,8 +328,7 @@ def main():
     # turn examples into BERT Tokenized Ids (features)
     for example in examples:
         # 得到tgt model针对原始example预测的label信息
-        print(example)
-        leave_1_probs, leave_1_probs_argmax = get_results([example], 
+        orig_probs, leave_1_probs_argmax = get_results([example], 
                                                         codebert_tgt, 
                                                         tokenizer_tgt, 
                                                         label_list, 
@@ -333,25 +336,33 @@ def main():
                                                         max_length=512, 
                                                         model_type='classification')
         
-        orig_probs = leave_1_probs[0]
+        # 提取出结果
+        orig_probs = orig_probs[0]
         orig_label = torch.argmax(orig_probs)
-        orig_prob = orig_probs.max()
-        current_prob = orig_prob
+        current_prob = orig_probs.max()
+        # 得到label以及对应的probability
 
         code = example.text_b
         words, sub_words, keys = _tokenize(code, tokenizer_mlm)
+        # words是用 ' ' 进行分割code得到的结果
+        # 对于words里的每一个词，使用tokenizer_mlm再进行tokenize
+        # 得到一组subwords，比如：'decimal_sep,' -> 'dec', 'imal', '_', 'se', 'p'
+        # keys用于将word和subwords对应起来，比如keys[1] 是[1,5]
+        # 这意味着，words中的第二个词，对应着subwords[1,5]
+        # [a,a] 意味着空
 
         sub_words = ['[CLS]'] + sub_words[:max_seq_length - 2] + ['[SEP]']
         # 如果长度超了，就截断；这里的max_length是BERT能接受的最大长度
-        # Notice: 这里用的是BERT，而非CodeBERT的格式.
-        # 到底是使用什么来分割的呢？
+        # To-Do: BERT是这样没错，但是CodeBERT也是这两个字符吗？
+
         input_ids_ = torch.tensor([tokenizer_mlm.convert_tokens_to_ids(sub_words)])
         word_predictions = codebert_mlm(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
         word_pred_scores_all, word_predictions = torch.topk(word_predictions, k, -1)  # seq-len k
+        # 得到前k个结果.
 
         word_predictions = word_predictions[1:len(sub_words) + 1, :]
         word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
-
+        # 只取subwords的部分，忽略首尾的预测结果.
 
         importance_score = get_importance_score(example, 
                                                 codebert_tgt, 
@@ -360,18 +371,20 @@ def main():
                                                 batch_size=16, 
                                                 max_length=512, 
                                                 model_type='classification')
-        # print(importance_score)
-        # continue
+        # 得到importance_score.
         list_of_index = sorted(enumerate(importance_score), key=lambda x: x[1], reverse=True)
+        # 根据importance_score进行排序
 
         final_words = copy.deepcopy(words)
         change = 0 # 表示被修改的token数量
+        is_success = -1
         for top_index in list_of_index:
             if change > int(0.4 * (len(words))):
+                # 修改了超过40%的token
                 print("Too much change!")
                 continue
             tgt_word = words[top_index[0]]
-
+            # 得到需要被替换的词
 
             if tgt_word in python_keywords:
                 # 如果在filter_words中就不修改
@@ -379,10 +392,14 @@ def main():
 
             if keys[top_index[0]][0] > max_seq_length - 2:
                 # 看被修改的词在不在最大长度之外 在就跳过
+                # 这个条件可能要变化，因为可能出现，同一个identifier，一个在，但另一个不在
                 continue
 
             substitutes = word_predictions[keys[top_index[0]][0]:keys[top_index[0]][1]]  # L, k
-
+            # 得到每个subwords对应的prediction.
+            # keys[top_index[0]][0]: subwords的开头
+            # keys[top_index[0]][1]: subwords的末尾
+            
             word_pred_scores = word_pred_scores_all[keys[top_index[0]][0]:keys[top_index[0]][1]]
 
             substitutes = get_substitues(substitutes, 
@@ -392,8 +409,9 @@ def main():
                                         word_pred_scores, 
                                         threshold_pred_score)
 
-            # !!!! 这里有问题
-            # 输入是code + text，这里只有text.
+            # 得到substitues
+            # 感觉这一步并没有想象中地好并行，因为涉及到GPU，不知道是否能并行.
+
 
             most_gap = 0.0
             candidate = None
@@ -417,19 +435,13 @@ def main():
                     continue
                 temp_replace = final_words
                 temp_replace[top_index[0]] = substitute
-
                 # 对应的位置换掉
-                # print(temp_replace)
 
-                temp_text = " ".join(temp_replace)
-                # print("-------")
-                # print(substitute)
-                # print(example.text_b)
-                # print(temp_text)
-                # continue
+                temp_code = " ".join(temp_replace)
+
                 replace_example =  InputExample(0, 
                                                 example.text_a, 
-                                                temp_text, 
+                                                temp_code, 
                                                 example.label)
 
                 new_probs, leave_1_probs_argmax = get_results([replace_example], 
@@ -445,13 +457,8 @@ def main():
                 temp_prob = temp_probs.max()
 
                 if temp_label != orig_label:
-                    # 这里需要修改
-                    # 这里的temp_label是仅将代码放进去
-                    # 但是我们需要code + texts
-                    print("Success!!!")
-                    print(temp_text)
-                    print(example.text_b)
-                    # 感觉对第二个模型效果会好一点...
+                    is_success = 1
+                    # 表示攻击成功
                     break
                 else:
                     gap = current_prob - temp_probs[temp_label]
