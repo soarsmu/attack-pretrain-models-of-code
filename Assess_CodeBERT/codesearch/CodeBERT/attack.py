@@ -255,6 +255,156 @@ def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=1
     return importance_score
 
 
+def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, label_list, max_seq_length, use_bpe, threshold_pred_score, k):
+    '''
+    '''
+    orig_probs, leave_1_probs_argmax = get_results([example], 
+                                                    codebert_tgt, 
+                                                    tokenizer_tgt, 
+                                                    label_list, 
+                                                    batch_size=16, 
+                                                    max_length=max_seq_length, 
+                                                    model_type='classification')
+    
+    # 提取出结果
+    orig_probs = orig_probs[0]
+    orig_label = torch.argmax(orig_probs)
+    current_prob = orig_probs.max()
+    # 得到label以及对应的probability
+
+    code = example.text_b
+    words, sub_words, keys = _tokenize(code, tokenizer_mlm)
+    # words是用 ' ' 进行分割code得到的结果
+    # 对于words里的每一个词，使用tokenizer_mlm再进行tokenize
+    # 得到一组subwords，比如：'decimal_sep,' -> 'dec', 'imal', '_', 'se', 'p'
+    # keys用于将word和subwords对应起来，比如keys[1] 是[1,5]
+    # 这意味着，words中的第二个词，对应着subwords[1,5]
+    # [a,a] 意味着空
+
+    sub_words = ['[CLS]'] + sub_words[:max_seq_length - 2] + ['[SEP]']
+    # 如果长度超了，就截断；这里的max_length是BERT能接受的最大长度
+    # To-Do: BERT是这样没错，但是CodeBERT也是这两个字符吗？
+
+    input_ids_ = torch.tensor([tokenizer_mlm.convert_tokens_to_ids(sub_words)])
+    word_predictions = codebert_mlm(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
+    word_pred_scores_all, word_predictions = torch.topk(word_predictions, k, -1)  # seq-len k
+    # 得到前k个结果.
+
+    word_predictions = word_predictions[1:len(sub_words) + 1, :]
+    word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
+    # 只取subwords的部分，忽略首尾的预测结果.
+
+    importance_score = get_importance_score(example, 
+                                            codebert_tgt, 
+                                            tokenizer_tgt, 
+                                            label_list, 
+                                            batch_size=16, 
+                                            max_length=512, 
+                                            model_type='classification')
+    # 得到importance_score.
+    list_of_index = sorted(enumerate(importance_score), key=lambda x: x[1], reverse=True)
+    # 根据importance_score进行排序
+
+    final_words = copy.deepcopy(words)
+    
+    change = 0 # 表示被修改的token数量
+    is_success = -1
+    for top_index in list_of_index:
+        if change > int(0.4 * (len(words))):
+            # 修改了超过40%的token
+            print("Too much change!")
+            continue
+        tgt_word = words[top_index[0]]
+        # 得到需要被替换的词
+
+        if tgt_word in python_keywords:
+            # 如果在filter_words中就不修改
+            continue
+
+        if keys[top_index[0]][0] > max_seq_length - 2:
+            # 看被修改的词在不在最大长度之外 在就跳过
+            # 这个条件可能要变化，因为可能出现，同一个identifier，一个在，但另一个不在
+            continue
+
+        substitutes = word_predictions[keys[top_index[0]][0]:keys[top_index[0]][1]]  # L, k
+        # 得到每个subwords对应的prediction.
+        # keys[top_index[0]][0]: subwords的开头
+        # keys[top_index[0]][1]: subwords的末尾
+        
+        word_pred_scores = word_pred_scores_all[keys[top_index[0]][0]:keys[top_index[0]][1]]
+
+        substitutes = get_substitues(substitutes, 
+                                    tokenizer_mlm, 
+                                    codebert_mlm, 
+                                    use_bpe, 
+                                    word_pred_scores, 
+                                    threshold_pred_score)
+
+        # 得到substitues
+        # 感觉这一步并没有想象中地好并行，因为涉及到GPU，不知道是否能并行.
+
+
+        most_gap = 0.0
+        candidate = None
+        for substitute_ in substitutes:
+            substitute = substitute_
+
+            if substitute == tgt_word:
+                # 如果和原来的词相同
+                continue  # filter out original word
+            if '##' in substitute:
+                continue  # filter out sub-word
+
+            if substitute in python_keywords:
+                # 如果在filter words中也跳过
+                continue
+            if ' ' in substitute:
+                # Solve Error
+                # 发现substiute中可能会有空格
+                # 当有的时候，tokenizer_tgt.convert_tokens_to_string(temp_replace)
+                # 会报 ' ' 这个Key不存在的Error
+                continue
+            temp_replace = final_words
+            temp_replace[top_index[0]] = substitute
+            # 对应的位置换掉
+
+            temp_code = " ".join(temp_replace)
+
+            replace_example =  InputExample(0, 
+                                            example.text_a, 
+                                            temp_code, 
+                                            example.label)
+
+            new_probs, leave_1_probs_argmax = get_results([replace_example], 
+                                                            codebert_tgt, 
+                                                            tokenizer_tgt, 
+                                                            label_list, 
+                                                            batch_size=16, 
+                                                            max_length=512, 
+                                                            model_type='classification')
+
+            temp_probs = new_probs[0]
+            temp_label = torch.argmax(temp_probs)
+            temp_prob = temp_probs.max()
+
+            if temp_label != orig_label:
+                is_success = 1
+                # 表示攻击成功
+                break
+            else:
+                gap = current_prob - temp_probs[temp_label]
+                # BERT-ATTACK中有正有负，我这里都是负
+                # 这意味着，这些mutation，甚至还让模型更加确信自己的结果了...
+                # 这是为什么呢？
+                if gap > most_gap:
+                    most_gap = gap
+                    candidate = substitute
+        if most_gap > 0:
+            print(most_gap)
+            change += 1
+            current_prob = current_prob - most_gap
+            final_words[top_index[0]] = candidate
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_path", type=str, help="Path to datasets")
@@ -328,151 +478,9 @@ def main():
     # turn examples into BERT Tokenized Ids (features)
     for example in examples:
         # 得到tgt model针对原始example预测的label信息
-        orig_probs, leave_1_probs_argmax = get_results([example], 
-                                                        codebert_tgt, 
-                                                        tokenizer_tgt, 
-                                                        label_list, 
-                                                        batch_size=16, 
-                                                        max_length=512, 
-                                                        model_type='classification')
-        
-        # 提取出结果
-        orig_probs = orig_probs[0]
-        orig_label = torch.argmax(orig_probs)
-        current_prob = orig_probs.max()
-        # 得到label以及对应的probability
+        print(example)
+        attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, label_list, max_seq_length, use_bpe, threshold_pred_score, k)
 
-        code = example.text_b
-        words, sub_words, keys = _tokenize(code, tokenizer_mlm)
-        # words是用 ' ' 进行分割code得到的结果
-        # 对于words里的每一个词，使用tokenizer_mlm再进行tokenize
-        # 得到一组subwords，比如：'decimal_sep,' -> 'dec', 'imal', '_', 'se', 'p'
-        # keys用于将word和subwords对应起来，比如keys[1] 是[1,5]
-        # 这意味着，words中的第二个词，对应着subwords[1,5]
-        # [a,a] 意味着空
-
-        sub_words = ['[CLS]'] + sub_words[:max_seq_length - 2] + ['[SEP]']
-        # 如果长度超了，就截断；这里的max_length是BERT能接受的最大长度
-        # To-Do: BERT是这样没错，但是CodeBERT也是这两个字符吗？
-
-        input_ids_ = torch.tensor([tokenizer_mlm.convert_tokens_to_ids(sub_words)])
-        word_predictions = codebert_mlm(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
-        word_pred_scores_all, word_predictions = torch.topk(word_predictions, k, -1)  # seq-len k
-        # 得到前k个结果.
-
-        word_predictions = word_predictions[1:len(sub_words) + 1, :]
-        word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
-        # 只取subwords的部分，忽略首尾的预测结果.
-
-        importance_score = get_importance_score(example, 
-                                                codebert_tgt, 
-                                                tokenizer_tgt, 
-                                                label_list, 
-                                                batch_size=16, 
-                                                max_length=512, 
-                                                model_type='classification')
-        # 得到importance_score.
-        list_of_index = sorted(enumerate(importance_score), key=lambda x: x[1], reverse=True)
-        # 根据importance_score进行排序
-
-        final_words = copy.deepcopy(words)
-        change = 0 # 表示被修改的token数量
-        is_success = -1
-        for top_index in list_of_index:
-            if change > int(0.4 * (len(words))):
-                # 修改了超过40%的token
-                print("Too much change!")
-                continue
-            tgt_word = words[top_index[0]]
-            # 得到需要被替换的词
-
-            if tgt_word in python_keywords:
-                # 如果在filter_words中就不修改
-                continue
-
-            if keys[top_index[0]][0] > max_seq_length - 2:
-                # 看被修改的词在不在最大长度之外 在就跳过
-                # 这个条件可能要变化，因为可能出现，同一个identifier，一个在，但另一个不在
-                continue
-
-            substitutes = word_predictions[keys[top_index[0]][0]:keys[top_index[0]][1]]  # L, k
-            # 得到每个subwords对应的prediction.
-            # keys[top_index[0]][0]: subwords的开头
-            # keys[top_index[0]][1]: subwords的末尾
-            
-            word_pred_scores = word_pred_scores_all[keys[top_index[0]][0]:keys[top_index[0]][1]]
-
-            substitutes = get_substitues(substitutes, 
-                                        tokenizer_mlm, 
-                                        codebert_mlm, 
-                                        use_bpe, 
-                                        word_pred_scores, 
-                                        threshold_pred_score)
-
-            # 得到substitues
-            # 感觉这一步并没有想象中地好并行，因为涉及到GPU，不知道是否能并行.
-
-
-            most_gap = 0.0
-            candidate = None
-            for substitute_ in substitutes:
-                substitute = substitute_
-
-                if substitute == tgt_word:
-                    # 如果和原来的词相同
-                    continue  # filter out original word
-                if '##' in substitute:
-                    continue  # filter out sub-word
-
-                if substitute in python_keywords:
-                    # 如果在filter words中也跳过
-                    continue
-                if ' ' in substitute:
-                    # Solve Error
-                    # 发现substiute中可能会有空格
-                    # 当有的时候，tokenizer_tgt.convert_tokens_to_string(temp_replace)
-                    # 会报 ' ' 这个Key不存在的Error
-                    continue
-                temp_replace = final_words
-                temp_replace[top_index[0]] = substitute
-                # 对应的位置换掉
-
-                temp_code = " ".join(temp_replace)
-
-                replace_example =  InputExample(0, 
-                                                example.text_a, 
-                                                temp_code, 
-                                                example.label)
-
-                new_probs, leave_1_probs_argmax = get_results([replace_example], 
-                                                                codebert_tgt, 
-                                                                tokenizer_tgt, 
-                                                                label_list, 
-                                                                batch_size=16, 
-                                                                max_length=512, 
-                                                                model_type='classification')
-
-                temp_probs = new_probs[0]
-                temp_label = torch.argmax(temp_probs)
-                temp_prob = temp_probs.max()
-
-                if temp_label != orig_label:
-                    is_success = 1
-                    # 表示攻击成功
-                    break
-                else:
-                    gap = current_prob - temp_probs[temp_label]
-                    # BERT-ATTACK中有正有负，我这里都是负
-                    # 这意味着，这些mutation，甚至还让模型更加确信自己的结果了...
-                    # 这是为什么呢？
-                    if gap > most_gap:
-                        most_gap = gap
-                        candidate = substitute
-            if most_gap > 0:
-                print(most_gap)
-                change += 1
-                current_prob = current_prob - most_gap
-                final_words[top_index[0]] = candidate
 
 
 
