@@ -34,7 +34,7 @@ python run_classifier.py --do_train  \
 
  Example:
  ```
-python run_classifier.py --do_train  \
+python run_classifier.py --do_train --do_eval  \
       --data_dir '../data/CodeBERT/doc_code_dataset/' \
       --model_name_or_path 'microsoft/codebert-base' \
       --output_dir './models/doc_code_codebert'
