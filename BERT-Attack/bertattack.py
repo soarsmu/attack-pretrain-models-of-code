@@ -96,9 +96,11 @@ def _tokenize(seq, tokenizer):
     keys = []
     index = 0
     for word in words:
+        # 并非直接tokenize这句话，而是tokenize了每个splited words.
         sub = tokenizer.tokenize(word)
         sub_words += sub
         keys.append([index, index + len(sub)])
+        # 将subwords对齐
         index += len(sub)
 
     return words, sub_words, keys
@@ -157,7 +159,9 @@ def get_important_scores(words, tgt_model, orig_prob, orig_label, orig_probs, to
         leave_1_prob_batch = tgt_model(masked_input)[0]  # B num-label
         leave_1_probs.append(leave_1_prob_batch)
     leave_1_probs = torch.cat(leave_1_probs, dim=0)  # words, num-label
+    print(leave_1_probs)
     leave_1_probs = torch.softmax(leave_1_probs, -1)  #
+    print(leave_1_probs)
     leave_1_probs_argmax = torch.argmax(leave_1_probs, dim=-1)
     import_scores = (orig_prob
                      - leave_1_probs[:, orig_label]
@@ -165,6 +169,7 @@ def get_important_scores(words, tgt_model, orig_prob, orig_label, orig_probs, to
                      (leave_1_probs_argmax != orig_label).float()
                      * (leave_1_probs.max(dim=-1)[0] - torch.index_select(orig_probs, 0, leave_1_probs_argmax))
                      ).data.cpu().numpy()
+
     return import_scores
 
 
@@ -323,6 +328,9 @@ def attack(feature, tgt_model, mlm_model, tokenizer, k, batch_size, max_length=5
                 if cos_mat[w2i[substitute]][w2i[tgt_word]] < 0.4:
                     continue
             temp_replace = final_words
+            # 我觉得这里不对.
+            # 这里相当于final_words也变了
+            # 这就使得每个循环，至少最后一个mutant被采用了.
             temp_replace[top_index[0]] = substitute
             # 对应的位置换掉
             temp_text = tokenizer.convert_tokens_to_string(temp_replace)
