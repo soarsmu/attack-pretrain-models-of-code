@@ -22,7 +22,7 @@ To train a classification model, please use the run_glue.py script in the huggin
 To generate adversarial samples based on the masked-LM, run
 
 ```
-python bertattack.py --data_path data_defense/imdb_1k.tsv --mlm_path bert-base-uncased --tgt_path models/imdbclassifier --use_sim_mat 1 --output_dir data_defense/imdb_logs.tsv --num_label 2 --use_bpe 1 --k 48 --start 0 --end 1000 --threshold_pred_score 0
+python3 bertattack.py --data_path data_defense/imdb_1k.tsv --mlm_path bert-base-uncased --tgt_path models/my_imdb_model --use_sim_mat 0 --output_dir data_defense/imdb_logs.tsv --num_label 2 --use_bpe 1 --k 48 --start 0 --end 1000 --threshold_pred_score 0
 ```
 
 * --data_path: We take IMDB dataset as an example. Datasets can be obtained in [TextFooler](https://github.com/jind11/TextFooler).
