@@ -24,7 +24,6 @@ from transformers import RobertaForMaskedLM, pipeline
 from tqdm import tqdm
 import copy
 
-
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning
 MODEL_CLASSES = {'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)}
@@ -351,6 +350,7 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
 
         most_gap = 0.0
         candidate = None
+        replace_examples = []
         for substitute_ in substitutes:
             substitute = substitute_
 
@@ -378,34 +378,38 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
 
             temp_code = " ".join(temp_replace)
 
-            replace_example =  InputExample(0, 
+            replace_examples.append(InputExample(0, 
                                             example.text_a, 
                                             temp_code, 
-                                            example.label)
+                                            example.label))
+            # 先将他们拼接成拼接起来在进行预测，这样比一个个query要更快.
+        
+        new_probs, leave_1_probs_argmax = get_results(replace_examples, 
+                                                        codebert_tgt, 
+                                                        tokenizer_tgt, 
+                                                        label_list, 
+                                                        batch_size=32, 
+                                                        max_length=max_seq_length, 
+                                                        model_type='classification')
+        # 将这个substitue下的mutants
 
-            new_probs, leave_1_probs_argmax = get_results([replace_example], 
-                                                            codebert_tgt, 
-                                                            tokenizer_tgt, 
-                                                            label_list, 
-                                                            batch_size=16, 
-                                                            max_length=max_seq_length, 
-                                                            model_type='classification')
-
-            temp_probs = new_probs[0]
-            temp_label = torch.argmax(temp_probs)
-            temp_prob = temp_probs.max()
-
+        for temp_prob in new_probs:
+            temp_label = torch.argmax(temp_prob)
             if temp_label != orig_label:
+                # 如果label改变了，说明这个mutant攻击成功
                 is_success = 1
                 change += 1
-                # 表示攻击成功
                 return is_success
             else:
-                gap = current_prob - temp_probs[temp_label]
+                # 如果没有攻击成功，我们看probability的修改
+                gap = current_prob - temp_prob[temp_label]
+                # 并选择那个最大的gap.
                 if gap > most_gap:
                     most_gap = gap
                     candidate = substitute
+    
         if most_gap > 0:
+            # 如果most_gap > 0，说明有mutant可以让prob减少
             change += 1
             current_prob = current_prob - most_gap
             final_words[top_index[0]] = candidate
