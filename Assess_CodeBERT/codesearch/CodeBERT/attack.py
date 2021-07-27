@@ -257,7 +257,12 @@ def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=1
 
 def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, label_list, max_seq_length, use_bpe, threshold_pred_score, k):
     '''
+    返回is_success: 
+        -1: 尝试了所有可能，但没有成功
+         0: 修改数量到达了40%，没有成功
+         1: 攻击成功
     '''
+    # 得到tgt model针对原始example预测的label信息
     orig_probs, leave_1_probs_argmax = get_results([example], 
                                                     codebert_tgt, 
                                                     tokenizer_tgt, 
@@ -312,8 +317,8 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
     for top_index in list_of_index:
         if change > int(0.4 * (len(words))):
             # 修改了超过40%的token
-            print("Too much change!")
-            continue
+            is_success = 0
+            return is_success
         tgt_word = words[top_index[0]]
         # 得到需要被替换的词
 
@@ -364,7 +369,10 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
                 # 当有的时候，tokenizer_tgt.convert_tokens_to_string(temp_replace)
                 # 会报 ' ' 这个Key不存在的Error
                 continue
-            temp_replace = final_words
+            
+            # 下面是原来的语句，我觉得有错误，To-Do: 跟原作者确认一下
+            # temp_replace = final_words
+            temp_replace = copy.deepcopy(final_words)
             temp_replace[top_index[0]] = substitute
             # 对应的位置换掉
 
@@ -380,7 +388,7 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
                                                             tokenizer_tgt, 
                                                             label_list, 
                                                             batch_size=16, 
-                                                            max_length=512, 
+                                                            max_length=max_seq_length, 
                                                             model_type='classification')
 
             temp_probs = new_probs[0]
@@ -389,21 +397,20 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
 
             if temp_label != orig_label:
                 is_success = 1
+                change += 1
                 # 表示攻击成功
-                break
+                return is_success
             else:
                 gap = current_prob - temp_probs[temp_label]
-                # BERT-ATTACK中有正有负，我这里都是负
-                # 这意味着，这些mutation，甚至还让模型更加确信自己的结果了...
-                # 这是为什么呢？
                 if gap > most_gap:
                     most_gap = gap
                     candidate = substitute
         if most_gap > 0:
-            print(most_gap)
             change += 1
             current_prob = current_prob - most_gap
             final_words[top_index[0]] = candidate
+        
+    return is_success
 
 def main():
     parser = argparse.ArgumentParser()
@@ -477,23 +484,18 @@ def main():
     
     # turn examples into BERT Tokenized Ids (features)
     for example in examples:
-        # 得到tgt model针对原始example预测的label信息
-        print(example)
-        attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, label_list, max_seq_length, use_bpe, threshold_pred_score, k)
+        is_success = attack(example, 
+                            codebert_tgt, 
+                            tokenizer_tgt, 
+                            codebert_mlm, 
+                            tokenizer_mlm, 
+                            label_list, 
+                            max_seq_length, 
+                            use_bpe, 
+                            threshold_pred_score, 
+                            k)
+        print(is_success)
 
-
-
-
-
-
-
-
-
-
-
-
-    ## ----------------Attack------------------- ##
-    # 得到了importance_score，现在生成每个位置的candidate.
     
 
 
