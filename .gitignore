@@ -9,4 +9,3 @@ Assess_CodeBERT/codesearch/CodeBERT/models/
 Assess_CodeBERT/codesearch/CodeBERT/runs/
 *.coverage
 *.pyc
-Assess_CodeBERT/codesearch/CodeBERT/authorship_Datasets/
