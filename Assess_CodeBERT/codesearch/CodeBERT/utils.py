@@ -199,7 +199,7 @@ class AuthorshipAttributionProcessor(CodesearchProcessor):
     '''Process for the code authorship attribution'''
 
     def get_labels(self):
-        """See base class."""
+        ## python数据集有70个类别.
         return [str(i) for i in range(70)]
     pass
 
@@ -376,13 +376,16 @@ def compute_metrics(task_name, preds, labels):
 
 processors = {
     "codesearch": CodesearchProcessor,
+    "authorshipattribution": AuthorshipAttributionProcessor,
 }
 
 output_modes = {
     "codesearch": "classification",
+    "authorshipattribution": "classification",
 }
 
 GLUE_TASKS_NUM_LABELS = {
     "codesearch": 2,
+    "authorshipattribution": 2,
 }
 
