@@ -101,6 +101,8 @@ class DataProcessor(object):
             #print(type(s))
             return s
 
+
+
 class CodesearchProcessor(DataProcessor):
     """Processor for the MRPC data set (GLUE version)."""
 
@@ -190,6 +192,17 @@ class CodesearchProcessor(DataProcessor):
             return examples, lines
         else:
             return examples
+
+
+
+class AuthorshipAttributionProcessor(CodesearchProcessor):
+    '''Process for the code authorship attribution'''
+
+    def get_labels(self):
+        """See base class."""
+        return [str(i) for i in range(70)]
+    pass
+
 
 # use BERT tokenizer to turn tokens into Ids
 def convert_examples_to_features(examples, label_list, max_seq_length,
@@ -372,3 +385,4 @@ output_modes = {
 GLUE_TASKS_NUM_LABELS = {
     "codesearch": 2,
 }
+
