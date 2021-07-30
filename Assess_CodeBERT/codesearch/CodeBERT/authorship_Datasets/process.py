@@ -19,14 +19,15 @@ def preprocess():
     valid_example = []
     for index, name in enumerate(authors):
         files = os.listdir(os.path.join(folder, name))
+        tmp_example = []
         for file_name in files:
-            tmp_example = []
             with open(os.path.join(folder, name, file_name)) as code_file:
                 content = code_file.read()
                 new_content = content.replace('\n', ' ') + ' <CODESPLIT> ' + str(index) + '\n'
                 tmp_example.append(new_content)
-            train_example += tmp_example[0:8]
-            valid_example += tmp_example[8:]
+        train_example += tmp_example[0:8]
+        valid_example += tmp_example[8:]
+
             # 8 for train and 2 for validation
 
     with open(os.path.join(output_dir, "triple_train.txt"), 'w') as f:
