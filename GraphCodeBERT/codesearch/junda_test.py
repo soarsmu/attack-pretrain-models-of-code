@@ -19,6 +19,7 @@ import a
 def b(c: int):
     d = c + 10
     e = d + 10
+    f = d + 20
         """
 
 def extract_dataflow(code, parser):
@@ -58,10 +59,27 @@ def extract_dataflow(code, parser):
         if d[1] in indexs:
             new_DFG.append(d)
     dfg=new_DFG
+    dfg = sorted(dfg, key=lambda x:x[1])
     return dfg, index_table
 dfg, index_to_code = extract_dataflow(code, parser)
-dfg.sort()
-print("dfg")
-print(dfg)
-print("index to code")
-print(index_to_code)
+def dataflow_wrapper(dfg, index_table):
+    ret = []
+    for d in dfg:
+        if d[0].replace('.','',1).isdigit():
+            # skip if it is a number
+            continue
+        if len(d[-1]) == 0 or d[2] == 'computedFrom':
+            # create a new sublist in the return result
+            entry = [d[0], [d[1]], [index_table[d[1]]]]
+            # print(entry)
+            ret.append(entry)
+        else:
+            for r in ret:
+                if d[-1][0] in r[1]:
+                    r[1].append(d[1])
+                    r[2].append(index_table[d[1]])
+    print("final ret")
+    print(ret)
+    return ret
+
+dataflow_wrapper(dfg, index_to_code)
