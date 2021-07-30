@@ -40,6 +40,21 @@ python run_classifier.py --do_train --do_eval  \
       --output_dir './models/doc_code_codebert'
  ```
 
+  For Code Authorship Attribution:
+ ```
+python run_classifier.py --do_eval \
+      --task_name 'authorshipattribution' \
+      --data_dir './authorship_Datasets/' \
+      --model_name_or_path 'microsoft/codebert-base' \
+      --output_dir './models/authorship'
+ ```
+
+python run_classifier.py --do_eval \
+--task_name 'authorshipattribution' \
+--data_dir './fse_authorship/' \
+--model_name_or_path 'microsoft/codebert-base' \
+--output_dir './models/fse_authorship'
+
 ### Testing
       $$ python eval_run_classifier.py --do_predict  --data_dir [the path of testing data] --model_name_or_path [codebert or roberta]  --pred_model_dir [path of the trained model to do prediction]   --test_result_dir [where to store the result file]
 
