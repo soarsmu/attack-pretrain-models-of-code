@@ -14,3 +14,4 @@ GraphCodeBERT/codesearch/dataset/*
 Assess_CodeBERT/codesearch/CodeBERT/authorship_Datasets/
 Assess_CodeBERT/codesearch/CodeBERT/fse_authorship/
 GraphCodeBERT/codesearch/saved_models/
+Assess_CodeBERT/jit/data/
