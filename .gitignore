@@ -9,3 +9,10 @@ Assess_CodeBERT/codesearch/CodeBERT/models/
 Assess_CodeBERT/codesearch/CodeBERT/runs/
 *.coverage
 *.pyc
+.idea/workspace.xml
+/GraphCodeBERT/codesearch/parser/tree-sitter-*/
+/venv/
+/.idea/
+/GraphCodeBERT/codesearch/model.py
+/GraphCodeBERT/codesearch/README.md
+/GraphCodeBERT/codesearch/run.py
