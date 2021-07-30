@@ -9,3 +9,8 @@ Assess_CodeBERT/codesearch/CodeBERT/models/
 Assess_CodeBERT/codesearch/CodeBERT/runs/
 *.coverage
 *.pyc
+Assess_CodeBERT/codesearch/CodeBERT/authorship_Datasets/gcjpy/
+GraphCodeBERT/codesearch/dataset/*
+Assess_CodeBERT/codesearch/CodeBERT/authorship_Datasets/
+Assess_CodeBERT/codesearch/CodeBERT/fse_authorship/
+GraphCodeBERT/codesearch/saved_models/
