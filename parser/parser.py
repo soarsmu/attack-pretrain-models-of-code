@@ -58,7 +58,9 @@ def extract_dataflow(code, parser):
     dfg = sorted(dfg, key=lambda x:x[1])
     return dfg, index_table
 dfg, index_to_code = extract_dataflow(code, parser)
-def dataflow_wrapper(dfg, index_table):
+
+
+def get_identifiers(dfg, index_table):
     ret = []
     for d in dfg:
         if d[0].replace('.','',1).isdigit():
@@ -74,9 +76,12 @@ def dataflow_wrapper(dfg, index_table):
                 if d[-1][0] in r[1]:
                     r[1].append(d[1])
                     r[2].append(index_table[d[1]])
-    print("final ret")
-    for identifier in ret:
-        print(identifier)
+
     return ret
 
-dataflow_wrapper(dfg, index_to_code)
+
+if __name__ == '__main__':
+    data = get_identifiers(dfg, index_to_code)
+    print("final ret")
+    for identifier in data:
+        print(identifier)
