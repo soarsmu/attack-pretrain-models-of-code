@@ -1,5 +1,8 @@
-from parser import DFG_python
-from parser import (remove_comments_and_docstrings,
+import sys
+sys.path.append('.')
+
+from parser_folder.DFG import DFG_python
+from parser_folder import (remove_comments_and_docstrings,
                     tree_to_token_index,
                     index_to_code_token,
                     tree_to_variable_index)
@@ -10,15 +13,13 @@ dfg_function={
 }
 
 #load parsers
-LANGUAGE = Language('./parser/my-languages.so', 'python')
+LANGUAGE = Language('/workspace/codebases/attack-pretrain-models-of-code/python_parser/parser_folder/my-languages.so', 'python')
 parser = Parser()
 parser.set_language(LANGUAGE)
 parser = [parser,dfg_function['python']]
-code = """
-def _decode_value(stored_value, flags, do_unpickle):      assert isinstance(stored_value, str)     assert isinstance(flags, (int, long))     type_number = (flags & FLAG_TYPE_MASK)     value = stored_value     if (type_number == TYPE_STR):        return value     elif (type_number == TYPE_UNICODE):        return value.decode('utf-8')     elif (type_number == TYPE_PICKLED):        return do_unpickle(value)     elif (type_number == TYPE_BOOL):        return bool(int(value))     elif (type_number == TYPE_INT):        return int(value)     elif (type_number == TYPE_LONG):        return long(value)     else:        assert False, 'Unknown   stored   type'     assert False, "Shouldn't   get   here."
-        """
 
-def extract_dataflow(code, parser):
+
+def extract_dataflow(code):
     #remove comments
     try:
         code=remove_comments_and_docstrings(code, 'python')
@@ -57,10 +58,12 @@ def extract_dataflow(code, parser):
     dfg=new_DFG
     dfg = sorted(dfg, key=lambda x:x[1])
     return dfg, index_table
-dfg, index_to_code = extract_dataflow(code, parser)
 
 
-def get_identifiers(dfg, index_table):
+
+def get_identifiers(code):
+
+    dfg, index_table = extract_dataflow(code)
     ret = []
     for d in dfg:
         if d[0].replace('.','',1).isdigit():
@@ -81,6 +84,12 @@ def get_identifiers(dfg, index_table):
 
 
 if __name__ == '__main__':
+    code = """
+    def _decode_value(stored_value, flags, do_unpickle):      assert isinstance(stored_value, str)     assert isinstance(flags, (int, long))     type_number = (flags & FLAG_TYPE_MASK)     value = stored_value     if (type_number == TYPE_STR):        return value     elif (type_number == TYPE_UNICODE):        return value.decode('utf-8')     elif (type_number == TYPE_PICKLED):        return do_unpickle(value)     elif (type_number == TYPE_BOOL):        return bool(int(value))     elif (type_number == TYPE_INT):        return int(value)     elif (type_number == TYPE_LONG):        return long(value)     else:        assert False, 'Unknown   stored   type'     assert False, "Shouldn't   get   here."
+        """
+
+    dfg, index_to_code = extract_dataflow(code, parser)
+
     data = get_identifiers(dfg, index_to_code)
     print("final ret")
     for identifier in data:
