@@ -405,6 +405,10 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
         most_gap = 0.0
         candidate = None
         replace_examples = []
+
+        substitute_list = []
+        # 依次记录了被加进来的substitue
+        # 即，每个temp_replace对应的substitue.
         for substitute_ in all_substitues:
 
             substitute = substitute_
@@ -427,6 +431,10 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
             temp_replace = copy.deepcopy(final_words)
             for one_pos in tgt_positions:
                 temp_replace[one_pos] = substitute
+            
+            substitute_list.append(substitute)
+            # 记录了替换的顺序
+
             # 需要将几个位置都替换成sustitue_
             temp_code = " ".join(temp_replace)
             replace_examples.append(InputExample(0, 
@@ -441,14 +449,15 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
                                                         batch_size=32, 
                                                         max_length=max_seq_length, 
                                                         model_type='classification')
+        assert(len(new_probs) == len(substitute_list))
 
-        for temp_prob in new_probs:
+        for index, temp_prob in enumerate(new_probs):
             temp_label = torch.argmax(temp_prob)
             if temp_label != orig_label:
                 # 如果label改变了，说明这个mutant攻击成功
                 is_success = 1
                 change += 1
-                print(" ".join(final_words))
+                print(" ".join(temp_replace))
                 print("Number of Changes: ", change)
                 return is_success
             else:
@@ -457,17 +466,14 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
                 # 并选择那个最大的gap.
                 if gap > most_gap:
                     most_gap = gap
-                    candidate = substitute
-                    # To-Do: 这里有点问题，这貌似是加了最后一个substitue?
-                    # 但实际上我们想要影响最大的...
-                    # 所以可能还需要记录他们的gap，选gap最大的.
+                    candidate = substitute_list[index]
     
         if most_gap > 0:
             # 如果most_gap > 0，说明有mutant可以让prob减少
             change += 1
             current_prob = current_prob - most_gap
             for one_pos in tgt_positions:
-                final_words[one_pos] = substitute
+                final_words[one_pos] = candidate
     
     print("Number of Changes: ", change)
 
