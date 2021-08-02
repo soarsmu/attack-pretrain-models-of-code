@@ -5,6 +5,8 @@
 # @File    : attack.py
 '''For attacking CodeBERT models'''
 import sys
+
+from numpy.core.fromnumeric import sort
 sys.path.append('../../../')
 sys.path.append('../../../python_parser')
 
@@ -157,11 +159,13 @@ def get_masked_code_by_position(tokens: list, positions: dict):
             [a, b, <mask>]
     '''
     masked_token_list = []
+    replace_token_positions = []
     for variable_name in positions.keys():
         for pos in positions[variable_name]:
             masked_token_list.append(tokens[0:pos] + ['[UNK]'] + tokens[pos + 1:])
+            replace_token_positions.append(pos)
     
-    return masked_token_list
+    return masked_token_list, replace_token_positions
 
 def get_results(example: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
     '''
@@ -225,8 +229,8 @@ def get_importance_score(example, words_list: list, variable_names: list, tgt_mo
     new_example = []
 
     # 2. 得到Masked_tokens
-    masked_token_list = get_masked_code_by_position(words_list, positions)
-
+    masked_token_list, replace_token_positions = get_masked_code_by_position(words_list, positions)
+    # replace_token_positions 表示着，哪一个位置的token被替换了.
 
     for index, tokens in enumerate(masked_token_list):
         new_code = ' '.join(tokens)
@@ -262,8 +266,7 @@ def get_importance_score(example, words_list: list, variable_names: list, tgt_mo
         # 而BERT-ATTACK中的模型，值却没有这么极端，主要在0.99xx左右。
         # 这有什么合理的解释吗？
 
-
-    return importance_score
+    return importance_score, replace_token_positions, positions
 
 
 def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, label_list, max_seq_length, use_bpe, threshold_pred_score, k):
@@ -290,14 +293,18 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
 
     code = example.text_b
     words, sub_words, keys = _tokenize(code, tokenizer_mlm)
-
+    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>")
+    print(code)
 
     identifiers = get_identifiers(example.text_b)
+    print("提取出: ", len(identifiers))
     if len(identifiers) == 0:
         # 没有提取到identifier，直接退出
-        return -1
+        return -3
 
     variable_names = [names[0] for names in identifiers]
+
+    print(variable_names)
 
     # words是用 ' ' 进行分割code得到的结果
     # 对于words里的每一个词，使用tokenizer_mlm再进行tokenize
@@ -319,7 +326,7 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
     word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
     # 只取subwords的部分，忽略首尾的预测结果.
 
-    importance_score = get_importance_score(example, 
+    importance_score, replace_token_positions, names_positions_dict = get_importance_score(example, 
                                             words,
                                             variable_names,
                                             codebert_tgt, 
@@ -328,21 +335,153 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
                                             batch_size=16, 
                                             max_length=512, 
                                             model_type='classification')
-    # 得到importance_score.
-    list_of_index = sorted(enumerate(importance_score), key=lambda x: x[1], reverse=True)
+
+    assert len(importance_score) == len(replace_token_positions)
+    # replace_token_positions是一个list，表示着，对应位置的importance score
+    # 比如，可能的值为[5, 37, 53, 7, 39, 55, 23, 41, 57]
+    # 则，importance_score中的第i个值，是replace_token_positions[i]这个位置的importance score
+
+    token_pos_to_score_pos = {}
+    for i, token_pos in enumerate(replace_token_positions):
+        try:
+            token_pos_to_score_pos[token_pos].append(i)
+        except:
+            token_pos_to_score_pos[token_pos] = [i]
+
+    # 重新计算Importance score，将所有出现的位置加起来（而不是取平均）.
+
+    names_to_importance_score = {}
+
+    for name in names_positions_dict.keys():
+        total_score = 0.0
+        positions = names_positions_dict[name]
+        for token_pos in positions:
+            # 这个token在code中对应的位置
+            # importance_score中的位置：token_pos_to_score_pos[token_pos]
+            total_score += importance_score[token_pos_to_score_pos[token_pos]][0]
+        
+        names_to_importance_score[name] = total_score
+
+
+    sorted_list_of_names = sorted(names_to_importance_score.items(), key=lambda x: x[1], reverse=True)
     # 根据importance_score进行排序
+
+
+    ## 需要做出一些改变：
+    ## 1. 修改token的时候，得几个位置一起修改
+    ## 2. substitute应该是，几个位置的并集
+
+    list_of_index = sorted(enumerate(importance_score), key=lambda x: x[1], reverse=True)
 
     final_words = copy.deepcopy(words)
     
     change = 0 # 表示被修改的token数量
     is_success = -1
+
+    for name_and_score in sorted_list_of_names:
+        tgt_word = name_and_score[0]
+        tgt_positions = names_positions_dict[tgt_word] # 在words中对应的位置
+        if tgt_word in python_keywords:
+            # 如果在filter_words中就不修改
+            continue   
+
+        ## 得到substitues
+        all_substitues = []
+        for one_pos in tgt_positions:
+            ## 一个变量名会出现很多次
+            substitutes = word_predictions[keys[one_pos][0]:keys[one_pos][1]]  # L, k
+            word_pred_scores = word_pred_scores_all[keys[one_pos][0]:keys[one_pos][1]]
+
+            substitutes = get_substitues(substitutes, 
+                                        tokenizer_mlm, 
+                                        codebert_mlm, 
+                                        use_bpe, 
+                                        word_pred_scores, 
+                                        threshold_pred_score)
+            all_substitues += substitutes
+        all_substitues = set(all_substitues)
+        # 得到了所有位置的substitue，并使用set来去重
+
+        most_gap = 0.0
+        candidate = None
+        replace_examples = []
+        for substitute_ in all_substitues:
+
+            substitute = substitute_
+
+            if substitute == tgt_word:
+                # 如果和原来的词相同
+                continue  # filter out original word
+            if '##' in substitute:
+                continue  # filter out sub-word
+
+            if substitute in python_keywords:
+                # 如果在filter words中也跳过
+                continue
+            if ' ' in substitute:
+                # Solve Error
+                # 发现substiute中可能会有空格
+                # 当有的时候，tokenizer_tgt.convert_tokens_to_string(temp_replace)
+                # 会报 ' ' 这个Key不存在的Error
+                continue
+            temp_replace = copy.deepcopy(final_words)
+            for one_pos in tgt_positions:
+                temp_replace[one_pos] = substitute
+            # 需要将几个位置都替换成sustitue_
+            temp_code = " ".join(temp_replace)
+            replace_examples.append(InputExample(0, 
+                                            example.text_a, 
+                                            temp_code, 
+                                            example.label))
+        
+        new_probs, leave_1_probs_argmax = get_results(replace_examples, 
+                                                        codebert_tgt, 
+                                                        tokenizer_tgt, 
+                                                        label_list, 
+                                                        batch_size=32, 
+                                                        max_length=max_seq_length, 
+                                                        model_type='classification')
+
+        for temp_prob in new_probs:
+            temp_label = torch.argmax(temp_prob)
+            if temp_label != orig_label:
+                # 如果label改变了，说明这个mutant攻击成功
+                is_success = 1
+                change += 1
+                print(" ".join(final_words))
+                print("Number of Changes: ", change)
+                return is_success
+            else:
+                # 如果没有攻击成功，我们看probability的修改
+                gap = current_prob - temp_prob[temp_label]
+                # 并选择那个最大的gap.
+                if gap > most_gap:
+                    most_gap = gap
+                    candidate = substitute
+                    # To-Do: 这里有点问题，这貌似是加了最后一个substitue?
+                    # 但实际上我们想要影响最大的...
+                    # 所以可能还需要记录他们的gap，选gap最大的.
+    
+        if most_gap > 0:
+            # 如果most_gap > 0，说明有mutant可以让prob减少
+            change += 1
+            current_prob = current_prob - most_gap
+            for one_pos in tgt_positions:
+                final_words[one_pos] = substitute
+    
+    print("Number of Changes: ", change)
+
+    return is_success
+
     for top_index in list_of_index:
         if change > int(0.4 * (len(words))):
             # 修改了超过40%的token
             is_success = 0
             return is_success
         tgt_word = words[top_index[0]]
-        # 得到需要被替换的词
+        # 得到需要被替换的词，但我们需要替换多个词
+        # 也许可以现将这些所有的词都拼起来.
+        # 或者将他们的importance score取一个平均值？然后使用平均值重新进行排序.
 
         if tgt_word in python_keywords:
             # 如果在filter_words中就不修改
@@ -369,7 +508,6 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
 
         # 得到substitues
         # 感觉这一步并没有想象中地好并行，因为涉及到GPU，不知道是否能并行.
-
 
         most_gap = 0.0
         candidate = None
@@ -521,7 +659,7 @@ def main():
                             use_bpe, 
                             threshold_pred_score, 
                             k)
-        print(is_success)
+        print("是否成功： ", is_success)
 
     
 
