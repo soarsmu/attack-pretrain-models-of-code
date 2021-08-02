@@ -4,6 +4,11 @@
 # @Email   : zyang@smu.edu.sg
 # @File    : attack.py
 '''For attacking CodeBERT models'''
+import sys
+sys.path.append('../../../')
+sys.path.append('../../../python_parser')
+
+from python_parser import get_identifiers
 
 import argparse
 import enum
@@ -49,20 +54,25 @@ def _tokenize(seq, tokenizer):
 
     return words, sub_words, keys
 
-def get_identifier_posistions_from_code(code: str, language = 'python'):
+def get_identifier_posistions_from_code(words_list: list, variable_names: list, language = 'python') -> dict:
     '''
-    给定一串代码，要能够返回其中identifier的位置
-    这个问题和bertattack中的并不一样，因为代码中存在identifier的对应问题
-    这个数据的结构还得好好地思考和设计一下
+    给定一串代码，以及variable的变量名，如: a
+    返回这串代码中这些变量名对应的位置.
+
     此外，先需要对代码进行Parse并提取出token及其类型
     还不能单纯地用tokenization，比如导入某一个个package，这个package也会被认为是name
     但是这个name明显不能被修改
     因此还是更加明确地找到被声明的变量的identifier.
     '''
-    positions = []
-    for index, token in enumerate(code.split(' ')):
-        if token not in python_keywords:
-            positions.append(index)
+    positions = {}
+    for name in variable_names:
+        for index, token in enumerate(words_list):
+            if name == token:
+                try:
+                    positions[name].append(index)
+                except:
+                    positions[name] = [index]
+
     return positions
 
 def get_bpe_substitues(substitutes, tokenizer, mlm_model):
@@ -136,7 +146,7 @@ def get_substitues(substitutes, tokenizer, mlm_model, use_bpe, substitutes_score
     return words
 
 
-def get_masked_code_by_position(tokens: list, positions: list):
+def get_masked_code_by_position(tokens: list, positions: dict):
     '''
     给定一段文本，以及需要被mask的位置,返回一组masked后的text
     Example:
@@ -147,8 +157,9 @@ def get_masked_code_by_position(tokens: list, positions: list):
             [a, b, <mask>]
     '''
     masked_token_list = []
-    for pos in positions:
-        masked_token_list.append(tokens[0:pos] + ['[UNK]'] + tokens[pos + 1:])
+    for variable_name in positions.keys():
+        for pos in positions[variable_name]:
+            masked_token_list.append(tokens[0:pos] + ['[UNK]'] + tokens[pos + 1:])
     
     return masked_token_list
 
@@ -203,17 +214,18 @@ def get_results(example: list, tgt_model, tokenizer, label_list, batch_size=16, 
     return leave_1_probs, leave_1_probs_argmax
 
 
-def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
+def get_importance_score(example, words_list: list, variable_names: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
     '''
     计算importance score
     '''
     # 1. 过滤掉所有的keywords.
-    positions = get_identifier_posistions_from_code(example.text_b)
-    tokens = example.text_b.split(" ")
+    positions = get_identifier_posistions_from_code(words_list, variable_names)
+    
+    # tokens = example.text_b.split(" ")
     new_example = []
 
     # 2. 得到Masked_tokens
-    masked_token_list = get_masked_code_by_position(tokens, positions)
+    masked_token_list = get_masked_code_by_position(words_list, positions)
 
 
     for index, tokens in enumerate(masked_token_list):
@@ -278,6 +290,15 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
 
     code = example.text_b
     words, sub_words, keys = _tokenize(code, tokenizer_mlm)
+
+
+    identifiers = get_identifiers(example.text_b)
+    if len(identifiers) == 0:
+        # 没有提取到identifier，直接退出
+        return -1
+
+    variable_names = [names[0] for names in identifiers]
+
     # words是用 ' ' 进行分割code得到的结果
     # 对于words里的每一个词，使用tokenizer_mlm再进行tokenize
     # 得到一组subwords，比如：'decimal_sep,' -> 'dec', 'imal', '_', 'se', 'p'
@@ -299,6 +320,8 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
     # 只取subwords的部分，忽略首尾的预测结果.
 
     importance_score = get_importance_score(example, 
+                                            words,
+                                            variable_names,
                                             codebert_tgt, 
                                             tokenizer_tgt, 
                                             label_list, 
