@@ -1,28 +1,31 @@
-import sys
-sys.path.append('.')
-
-from parser_folder.DFG import DFG_python
+import argparse
+from parser_folder.DFG import DFG_python, DFG_java, DFG_c
 from parser_folder import (remove_comments_and_docstrings,
                     tree_to_token_index,
                     index_to_code_token,
                     tree_to_variable_index)
 from tree_sitter import Language, Parser
-import pprint
+
+path = 'parser_folder/my-languages.so'
 dfg_function={
     'python':DFG_python,
+    'java':DFG_java,
+    'c':DFG_c,
 }
 
 #load parsers
-LANGUAGE = Language('/workspace/codebases/attack-pretrain-models-of-code/python_parser/parser_folder/my-languages.so', 'python')
-parser = Parser()
-parser.set_language(LANGUAGE)
-parser = [parser,dfg_function['python']]
+parsers={}
+for lang in dfg_function:
+    LANGUAGE = Language('parser_folder/my-languages.so', lang)
+    parser = Parser()
+    parser.set_language(LANGUAGE)
+    parser = [parser,dfg_function[lang]]
+    parsers[lang]= parser
 
-
-def extract_dataflow(code):
+def extract_dataflow(code, parser, lang):
     #remove comments
     try:
-        code=remove_comments_and_docstrings(code, 'python')
+        code=remove_comments_and_docstrings(code, lang)
     except:
         pass
         #obtain dataflow
@@ -61,9 +64,9 @@ def extract_dataflow(code):
 
 
 
-def get_identifiers(code):
+def get_identifiers(code, parser, lang):
 
-    dfg, index_table = extract_dataflow(code)
+    dfg, index_table = extract_dataflow(code, parser, lang)
     ret = []
     for d in dfg:
         if d[0].replace('.','',1).isdigit():
@@ -83,11 +86,20 @@ def get_identifiers(code):
     return ret
 
 
-if __name__ == '__main__':
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--lang", default=None, type=str,
+                        help="language.")
+    args = parser.parse_args()
+    parser=parsers[args.lang]
     code = """
     testdata1 1 () t_uses_testdata1 () 1_finalizer () a2 () t_uses_testdata2 () ething_else () 2_finalizer () 1 () ething_else_that_uses_testdata1 () 1_finalizer ()
         """
-    data = get_identifiers(code)
+    #extract data flow
+    data = get_identifiers(code, parser, args.lang)
     print("final ret")
     for identifier in data:
         print(identifier)
+
+if __name__ == '__main__':
+    main()
