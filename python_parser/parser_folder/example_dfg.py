@@ -837,9 +837,6 @@ def DFG_go(root_node,index_to_code,states):
 
         return sorted(DFG,key=lambda x:x[1]),states
 
-
-
-
 def DFG_php(root_node,index_to_code,states):
     assignment=['assignment_expression','augmented_assignment_expression']
     def_statement=['simple_parameter']

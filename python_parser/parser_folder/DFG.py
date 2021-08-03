@@ -356,8 +356,8 @@ def DFG_java(root_node,index_to_code,states):
         return sorted(DFG,key=lambda x:x[1]),states
 
 def DFG_c(root_node, index_to_code, states):
-    assignment=['assignment_pattern','augmented_assignment_expression']
-    def_statement=['variable_declarator']
+    assignment=['assignment_expression']
+    def_statement=['init_declarator']
     increment_statement=['update_expression']
     if_statement=['if_statement','else']
     for_statement=['for_statement']
@@ -376,7 +376,7 @@ def DFG_c(root_node, index_to_code, states):
                 states[code]=[idx]
             return [(code,idx,'comesFrom',[],[])],states
     elif root_node.type in def_statement:
-        name=root_node.child_by_field_name('name')
+        name=root_node.child_by_field_name('declarator')
         print('name is {}'.format(name))
         value=root_node.child_by_field_name('value')
         print('value is {}'.format(value))
