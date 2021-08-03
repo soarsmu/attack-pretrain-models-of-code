@@ -12,6 +12,43 @@ dfg_function={
     'java':DFG_java,
     'c':DFG_c,
 }
+c_code = """
+#include <stdio.h>
+int main() {    
+    int number1, number2, sum;
+    printf("Enter two integers: ");
+    scanf("%d %d", &number1, &number2);
+    // calculating sum
+    sum = number1 + number2;      
+    printf("%d + %d = %d", number1, number2, sum);
+    return 0;
+}
+"""
+
+python_code = """
+    testdata1 1 () t_uses_testdata1 () 1_finalizer () a2 () t_uses_testdata2 () ething_else () 2_finalizer () 1 () ething_else_that_uses_testdata1 () 1_finalizer ()
+"""
+
+java_code = """
+public static void main(String[] args)   
+{   
+//declaration of different datatypes   
+int num = 122;   
+char ch = 'A';   
+String str = "Oracle";   
+double d = 190.98;   
+float f = 3.14f;   
+//prints the values on the console  
+System.out.println(); //prints nothing but throws the cursor to the next line  
+System.out.println(num); //prints integer  
+System.out.println(ch); //prints character   
+System.out.print(str+"\n");   
+System.out.print(d +"\n");   
+System.out.print(f+"\n");   
+System.out.printf("'%s' %n", "javatpoint");  
+System.out.printf("'%S' %n", "Jack");  
+}   
+"""
 
 #load parsers
 parsers={}
@@ -21,6 +58,13 @@ for lang in dfg_function:
     parser.set_language(LANGUAGE)
     parser = [parser,dfg_function[lang]]
     parsers[lang]= parser
+
+codes = {}
+codes ={
+    'python':python_code,
+    'java':java_code,
+    'c':c_code,
+}
 
 def extract_dataflow(code, parser, lang):
     #remove comments
@@ -73,23 +117,29 @@ def parse_string(input):
 
 def get_identifiers(code, parser, lang):
     dfg, index_table = extract_dataflow(code, parser, lang)
+    print("dfg")
+    for d in dfg:
+        print(d)
     ret = []
     for d in dfg:
         if d[0].replace('.','',1).isdigit() or parse_string(d[0]):
             # skip if it is a number
             continue
-
         if len(d[-1]) == 0 or d[2] == 'computedFrom':
             # create a new sublist in the return result
             entry = [d[0], [d[1]], [index_table[d[1]]]]
             # print(entry)
+            ret.append(entry)
+        elif d[2] == 'comesFrom' and d[0] != d[-2][0]:
+            entry = [d[0], [d[1]], [index_table[d[1]]]]
             ret.append(entry)
         else:
             for r in ret:
                 if d[-1][0] in r[1]:
                     r[1].append(d[1])
                     r[2].append(index_table[d[1]])
-
+    print("ret")
+    print(ret)
     return ret
 
 
@@ -99,31 +149,14 @@ def main():
                         help="language.")
     args = parser.parse_args()
     parser=parsers[args.lang]
-    code = """
-    a = '''Lorem ipsum dolor sit amet,
-consectetur adipiscing elit,
-sed do eiusmod tempor incididunt
-ut labore et dolore magna aliqua.'''
-    print(a)
-        """
+    code = codes[args.lang]
     #extract data flow
     data = get_identifiers(code, parser, args.lang)
     print("final ret")
     for identifier in data:
-        print(identifier[0])
+        print(identifier)
 
-def test():
-    lang = 'python'
-    parser=parsers[lang]
-    code = """
-    a = "Lorem ipsum dolor sit amet,
-consectetur adipiscing elit,
-sed do eiusmod tempor incididunt
-ut labore et dolore magna aliqua."
-print(a)
-        """
-    data = extract_dataflow(code, parser, lang)
-    print(data)
 
 if __name__ == '__main__':
     main()
+
