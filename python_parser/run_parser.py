@@ -62,16 +62,23 @@ def extract_dataflow(code, parser, lang):
     dfg = sorted(dfg, key=lambda x:x[1])
     return dfg, index_table
 
+def parse_string(input):
+    if (input.startswith("\"\"\"") and input.endswith("\"\"\"")) or \
+        (input.startswith("\'\'\'") and input.endswith("\'\'\'")) or \
+        (input.startswith("\'") and input.endswith("\'")) or \
+        (input.startswith("\"") and input.endswith("\"")):
+        return True
+    return False
 
 
 def get_identifiers(code, parser, lang):
-
     dfg, index_table = extract_dataflow(code, parser, lang)
     ret = []
     for d in dfg:
-        if d[0].replace('.','',1).isdigit():
+        if d[0].replace('.','',1).isdigit() or parse_string(d[0]):
             # skip if it is a number
             continue
+
         if len(d[-1]) == 0 or d[2] == 'computedFrom':
             # create a new sublist in the return result
             entry = [d[0], [d[1]], [index_table[d[1]]]]
@@ -93,13 +100,30 @@ def main():
     args = parser.parse_args()
     parser=parsers[args.lang]
     code = """
-    testdata1 1 () t_uses_testdata1 () 1_finalizer () a2 () t_uses_testdata2 () ething_else () 2_finalizer () 1 () ething_else_that_uses_testdata1 () 1_finalizer ()
+    a = '''Lorem ipsum dolor sit amet,
+consectetur adipiscing elit,
+sed do eiusmod tempor incididunt
+ut labore et dolore magna aliqua.'''
+    print(a)
         """
     #extract data flow
     data = get_identifiers(code, parser, args.lang)
     print("final ret")
     for identifier in data:
-        print(identifier)
+        print(identifier[0])
+
+def test():
+    lang = 'python'
+    parser=parsers[lang]
+    code = """
+    a = "Lorem ipsum dolor sit amet,
+consectetur adipiscing elit,
+sed do eiusmod tempor incididunt
+ut labore et dolore magna aliqua."
+print(a)
+        """
+    data = extract_dataflow(code, parser, lang)
+    print(data)
 
 if __name__ == '__main__':
     main()
