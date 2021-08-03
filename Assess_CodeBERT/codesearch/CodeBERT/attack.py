@@ -338,7 +338,7 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
                                             model_type='classification')
     if importance_score is None:
         # 如果在上一部中没有提取出任何可以mutante的位置
-        return -4 
+        return -3
     assert len(importance_score) == len(replace_token_positions)
     # replace_token_positions是一个list，表示着，对应位置的importance score
     # 比如，可能的值为[5, 37, 53, 7, 39, 55, 23, 41, 57]
@@ -557,6 +557,10 @@ def main():
         # examples[i].label  : label
     
     # turn examples into BERT Tokenized Ids (features)
+
+    sucess_cnt = 0
+    no_tokens_cnt = 0
+    fail_cnt = 0
     for index, example in enumerate(examples):
         if index < 218:
             continue
@@ -571,7 +575,18 @@ def main():
                             use_bpe, 
                             threshold_pred_score, 
                             k)
+        
         print("是否成功： ", is_success)
+        if is_success == 1:
+            sucess_cnt += 1
+        elif is_success == -3:
+            no_tokens_cnt += 1
+        else:
+            fail_cnt += 1
+            
+    print("Success count: ", sucess_cnt)
+    print("No token available to be replaced: ", no_tokens_cnt)
+    print("Fail to attack: ", fail_cnt)
 
     
 
