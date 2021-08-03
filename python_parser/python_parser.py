@@ -85,12 +85,9 @@ def get_identifiers(code):
 
 if __name__ == '__main__':
     code = """
-    def _decode_value(stored_value, flags, do_unpickle):      assert isinstance(stored_value, str)     assert isinstance(flags, (int, long))     type_number = (flags & FLAG_TYPE_MASK)     value = stored_value     if (type_number == TYPE_STR):        return value     elif (type_number == TYPE_UNICODE):        return value.decode('utf-8')     elif (type_number == TYPE_PICKLED):        return do_unpickle(value)     elif (type_number == TYPE_BOOL):        return bool(int(value))     elif (type_number == TYPE_INT):        return int(value)     elif (type_number == TYPE_LONG):        return long(value)     else:        assert False, 'Unknown   stored   type'     assert False, "Shouldn't   get   here."
+    testdata1 1 () t_uses_testdata1 () 1_finalizer () a2 () t_uses_testdata2 () ething_else () 2_finalizer () 1 () ething_else_that_uses_testdata1 () 1_finalizer ()
         """
-
-    dfg, index_to_code = extract_dataflow(code, parser)
-
-    data = get_identifiers(dfg, index_to_code)
+    data = get_identifiers(code)
     print("final ret")
     for identifier in data:
         print(identifier)
