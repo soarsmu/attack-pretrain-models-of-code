@@ -18,3 +18,5 @@ Assess_CodeBERT/jit/data/
 Assess_CodeBERT/jit/trained_model_op/
 parser/parser/my-languages.so
 my-languages.so
+.idea/
+venv/
