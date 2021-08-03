@@ -210,7 +210,6 @@ def get_results(example: list, tgt_model, tokenizer, label_list, batch_size=16, 
             tmp_eval_loss, logits = outputs[:2]
             leave_1_probs.append(logits)
 
-        
         leave_1_probs = torch.cat(leave_1_probs, dim=0)
         leave_1_probs = torch.softmax(leave_1_probs, -1) 
         leave_1_probs_argmax = torch.argmax(leave_1_probs, dim=-1)
@@ -224,7 +223,10 @@ def get_importance_score(example, words_list: list, variable_names: list, tgt_mo
     '''
     # 1. 过滤掉所有的keywords.
     positions = get_identifier_posistions_from_code(words_list, variable_names)
-    
+    if len(positions) == 0:
+        ## 没有提取出可以mutate的position
+        return None, None, None
+
     # tokens = example.text_b.split(" ")
     new_example = []
 
@@ -240,7 +242,6 @@ def get_importance_score(example, words_list: list, variable_names: list, tgt_mo
                                         example.label))
 
     # 3. 将他们转化成features
-
     leave_1_probs, leave_1_probs_argmax = get_results(new_example, 
                 tgt_model, 
                 tokenizer, 
@@ -335,7 +336,9 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
                                             batch_size=16, 
                                             max_length=512, 
                                             model_type='classification')
-
+    if importance_score is None:
+        # 如果在上一部中没有提取出任何可以mutante的位置
+        return -4 
     assert len(importance_score) == len(replace_token_positions)
     # replace_token_positions是一个list，表示着，对应位置的importance score
     # 比如，可能的值为[5, 37, 53, 7, 39, 55, 23, 41, 57]
@@ -411,7 +414,10 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
         # 即，每个temp_replace对应的substitue.
         for substitute_ in all_substitues:
 
-            substitute = substitute_
+            substitute = substitute_.strip()
+            # FIX: 有些substitue的开头或者末尾会产生空格
+            # 这些头部和尾部的空格在拼接的时候并不影响，但是因为下面的第4个if语句会被跳过
+            # 这导致了部分mutants为空，而引发了runtime error
 
             if substitute == tgt_word:
                 # 如果和原来的词相同
@@ -441,7 +447,7 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
                                             example.text_a, 
                                             temp_code, 
                                             example.label))
-        
+
         new_probs, leave_1_probs_argmax = get_results(replace_examples, 
                                                         codebert_tgt, 
                                                         tokenizer_tgt, 
@@ -551,7 +557,10 @@ def main():
         # examples[i].label  : label
     
     # turn examples into BERT Tokenized Ids (features)
-    for example in examples:
+    for index, example in enumerate(examples):
+        if index < 218:
+            continue
+        print("The index is: ", index)
         is_success = attack(example, 
                             codebert_tgt, 
                             tokenizer_tgt, 
