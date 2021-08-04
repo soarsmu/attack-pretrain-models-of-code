@@ -139,45 +139,27 @@ def set_seed(seed=42):
 
 def train(args, train_dataset, model, tokenizer):
     """ Train the model """ 
-    print("Start training process.")
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
-    print("1")
-
     train_sampler = RandomSampler(train_dataset) if args.local_rank == -1 else DistributedSampler(train_dataset)
-    print("2")
     
     train_dataloader = DataLoader(train_dataset, sampler=train_sampler, 
                                   batch_size=args.train_batch_size,num_workers=4,pin_memory=True)
-    print("3")
-
     args.max_steps=args.epoch*len( train_dataloader)
-    print("4")
-
     args.save_steps=len( train_dataloader)
-    print("5")
     args.warmup_steps=len( train_dataloader)
-    print("6")
     args.logging_steps=len( train_dataloader)
-    print("7")
     args.num_train_epochs=args.epoch
-    print("8")
-    print(args.device)
-    model.to('cpu')
+    model.to(args.device)
     # Prepare optimizer and schedule (linear warmup and decay)
-    print("9")
     no_decay = ['bias', 'LayerNorm.weight']
-    print("10")
     optimizer_grouped_parameters = [
         {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
          'weight_decay': args.weight_decay},
         {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
     ]
-    print("1")
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
-    print("1")
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.max_steps*0.1,
                                                 num_training_steps=args.max_steps)
-    print("???这么慢？？？")
     if args.fp16:
         try:
             from apex import amp
