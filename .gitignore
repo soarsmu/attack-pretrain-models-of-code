@@ -20,3 +20,7 @@ parser/parser/my-languages.so
 my-languages.so
 .idea/
 venv/
+CodeXGLUE/Code-Search-Adv/dataset/valid.txt
+CodeXGLUE/Code-Search-Adv/dataset/test.txt
+CodeXGLUE/Code-Search-Adv/dataset/train.txt
+CodeXGLUE/Code-Search-Adv/dataset/test_code.jsonl
