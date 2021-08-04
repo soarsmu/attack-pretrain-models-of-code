@@ -91,10 +91,28 @@ def convert_examples_to_features(js,tokenizer,args):
 class TextDataset(Dataset):
     def __init__(self, tokenizer, args, file_path=None):
         self.examples = []
-        with open(file_path) as f:
-            for line in f:
-                js=json.loads(line.strip())
-                self.examples.append(convert_examples_to_features(js,tokenizer,args))
+        # 首先看看有没有cache的文件.
+        file_type = file_path.split('/')[-1].split('.')[0]
+        folder = '/'.join(file_path.split('/')[:-1]) # 得到文件目录
+
+        cache_file_path = os.path.join(folder, 'cached_{}'.format(
+                                    file_type))
+
+        print('\n cached_features_file: ',cache_file_path)
+        try:
+            self.examples = torch.load(cache_file_path)
+            logger.info("Loading features from cached file %s", cache_file_path)
+        
+        except:
+            logger.info("Creating features from dataset file at %s", file_path)
+            with open(file_path) as f:
+                for line in f:
+                    js=json.loads(line.strip())
+                    self.examples.append(convert_examples_to_features(js,tokenizer,args))
+                    # 这里每次都是重新读取并处理数据集，能否cache然后load
+            logger.info("Saving features into cached file %s", cache_file_path)
+            torch.save(self.examples, cache_file_path)
+
         if 'train' in file_path:
             for idx, example in enumerate(self.examples[:3]):
                     logger.info("*** Example ***")
@@ -121,27 +139,45 @@ def set_seed(seed=42):
 
 def train(args, train_dataset, model, tokenizer):
     """ Train the model """ 
+    print("Start training process.")
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
+    print("1")
+
     train_sampler = RandomSampler(train_dataset) if args.local_rank == -1 else DistributedSampler(train_dataset)
+    print("2")
     
     train_dataloader = DataLoader(train_dataset, sampler=train_sampler, 
                                   batch_size=args.train_batch_size,num_workers=4,pin_memory=True)
+    print("3")
+
     args.max_steps=args.epoch*len( train_dataloader)
+    print("4")
+
     args.save_steps=len( train_dataloader)
+    print("5")
     args.warmup_steps=len( train_dataloader)
+    print("6")
     args.logging_steps=len( train_dataloader)
+    print("7")
     args.num_train_epochs=args.epoch
-    model.to(args.device)
+    print("8")
+    print(args.device)
+    model.to('cpu')
     # Prepare optimizer and schedule (linear warmup and decay)
+    print("9")
     no_decay = ['bias', 'LayerNorm.weight']
+    print("10")
     optimizer_grouped_parameters = [
         {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
          'weight_decay': args.weight_decay},
         {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
     ]
+    print("1")
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
+    print("1")
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.max_steps*0.1,
                                                 num_training_steps=args.max_steps)
+    print("???这么慢？？？")
     if args.fp16:
         try:
             from apex import amp
