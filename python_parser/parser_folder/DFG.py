@@ -199,8 +199,6 @@ def DFG_java(root_node,index_to_code,states):
             return [(code,idx,'comesFrom',[],[])],states
     elif root_node.type in def_statement:
         name=root_node.child_by_field_name('name')
-        print("name")
-        print(name)
         value=root_node.child_by_field_name('value')
         DFG=[]
         if value is None:
@@ -365,8 +363,8 @@ def DFG_c(root_node, index_to_code, states):
     while_statement=['while_statement']
     do_first_statement=[]
     states=states.copy()
-    if root_node.type == 'call_expression':
-        print(1)
+    types = root_node.type
+    ch = len(root_node.children)
     if (len(root_node.children)==0 or root_node.type=='string') and root_node.type!='comment':
         idx,code=index_to_code[(root_node.start_point,root_node.end_point)]
         if root_node.type==code:
@@ -503,13 +501,7 @@ def DFG_c(root_node, index_to_code, states):
     else:
         DFG=[]
         for child in root_node.children:
-            if child.type in do_first_statement:
-                temp,states=DFG_c(child,index_to_code,states)
-                DFG+=temp
-        for child in root_node.children:
             if child.type not in do_first_statement:
-                if child.type == 'call_expression':
-                    print(2)
                 temp,states=DFG_c(child,index_to_code,states)
                 DFG+=temp
 

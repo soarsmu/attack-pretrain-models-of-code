@@ -7,18 +7,13 @@ from parser_folder import (remove_comments_and_docstrings,
 from tree_sitter import Language, Parser
 
 path = 'parser_folder/my-languages.so'
-dfg_function={
-    'python':DFG_python,
-    'java':DFG_java,
-    'c':DFG_c,
-}
 c_code = """
 #include <stdio.h>
 int main() {    
     int number1, number2, sum;
-    printf("Enter two integers: ");
+    number1 = 1;
+    number2 = 2;
     scanf("%d %d", &number1, &number2);
-    // calculating sum
     sum = number1 + number2;      
     printf("%d + %d = %d", number1, number2, sum);
     return 0;
@@ -26,7 +21,8 @@ int main() {
 """
 
 python_code = """
-    testdata1 1 () t_uses_testdata1 () 1_finalizer () a2 () t_uses_testdata2 () ething_else () 2_finalizer () 1 () ething_else_that_uses_testdata1 () 1_finalizer ()
+print("Hello World");
+print("Hello World");
 """
 
 java_code = """
@@ -34,21 +30,16 @@ public static void main(String[] args)
 {   
 //declaration of different datatypes   
 int num = 122;   
-char ch = 'A';   
-String str = "Oracle";   
-double d = 190.98;   
-float f = 3.14f;   
-//prints the values on the console  
-System.out.println(); //prints nothing but throws the cursor to the next line  
-System.out.println(num); //prints integer  
-System.out.println(ch); //prints character   
-System.out.print(str+"\n");   
-System.out.print(d +"\n");   
-System.out.print(f+"\n");   
-System.out.printf("'%s' %n", "javatpoint");  
-System.out.printf("'%S' %n", "Jack");  
+char ch = 'A';
+int num1;
+num1 = num + 1;    
 }   
 """
+dfg_function={
+    'python':DFG_python,
+    'java':DFG_java,
+    'c':DFG_c,
+}
 
 #load parsers
 parsers={}
@@ -66,14 +57,14 @@ codes ={
     'c':c_code,
 }
 
-def extract_dataflow(code, parser, lang):
+def extract_dataflow(code, lang):
     #remove comments
     try:
         code=remove_comments_and_docstrings(code, lang)
     except:
         pass
         #obtain dataflow
-
+    parser=parsers[lang]
     tree = parser[0].parse(bytes(code,'utf8'))
     root_node = tree.root_node
     tokens_index=tree_to_token_index(root_node)
@@ -115,31 +106,31 @@ def parse_string(input):
     return False
 
 
-def get_identifiers(code, parser, lang):
-    dfg, index_table = extract_dataflow(code, parser, lang)
+def get_identifiers(code, lang):
+    parser=parsers[lang]
+    dfg, index_table = extract_dataflow(code, lang)
     print("dfg")
     for d in dfg:
         print(d)
     ret = []
+    ret_set = set()
     for d in dfg:
         if d[0].replace('.','',1).isdigit() or parse_string(d[0]):
             # skip if it is a number
             continue
-        if len(d[-1]) == 0 or d[2] == 'computedFrom':
-            # create a new sublist in the return result
-            entry = [d[0], [d[1]], [index_table[d[1]]]]
-            # print(entry)
-            ret.append(entry)
-        elif d[2] == 'comesFrom' and d[0] != d[-2][0]:
-            entry = [d[0], [d[1]], [index_table[d[1]]]]
-            ret.append(entry)
+        if len(d[-1]) == 0 or d[2] == 'computedFrom' or (d[2] == 'comesFrom' and d[0] != d[-2][0]):
+            if tuple([d[1]]) not in ret_set:
+                # create a new sublist in the return result
+                entry = [d[0], [d[1]], [index_table[d[1]]]]
+                # print(entry)
+                ret.append(entry)
+                ret_set.add(tuple([d[1]]))
+                sorted(ret, key=lambda x:x[1][0])
         else:
             for r in ret:
                 if d[-1][0] in r[1]:
                     r[1].append(d[1])
                     r[2].append(index_table[d[1]])
-    print("ret")
-    print(ret)
     return ret
 
 
@@ -151,7 +142,7 @@ def main():
     parser=parsers[args.lang]
     code = codes[args.lang]
     #extract data flow
-    data = get_identifiers(code, parser, args.lang)
+    data = get_identifiers(code, args.lang)
     print("final ret")
     for identifier in data:
         print(identifier)
