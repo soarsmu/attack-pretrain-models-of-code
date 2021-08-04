@@ -22,3 +22,6 @@ my-languages.so
 venv/
 CodeXGLUE/Code-Search-Adv/dataset/
 
+CodeXGLUE/Defect-detection/code/saved_models/
+*.log
+CodeXGLUE/Defect-detection/preprocess/dataset/
