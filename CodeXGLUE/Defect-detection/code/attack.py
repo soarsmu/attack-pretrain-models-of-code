@@ -7,6 +7,7 @@
 import sys
 import os
 from numpy.core.fromnumeric import sort
+from torch.utils.data.dataset import Dataset
 sys.path.append('../../../')
 sys.path.append('../../../python_parser')
 retval = os.getcwd()
@@ -33,7 +34,7 @@ from tqdm import tqdm
 import copy
 import json
 import numpy as np
-
+from run import InputFeatures
 
 from transformers import (WEIGHTS_NAME, AdamW, get_linear_schedule_with_warmup,
                           BertConfig, BertForMaskedLM, BertTokenizer,
@@ -55,6 +56,18 @@ logger = logging.getLogger(__name__)
 python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">", '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield']
 
 
+
+
+class CodeDataset(Dataset):
+    def __init__(self, examples):
+        self.examples = examples
+    
+    def __len__(self):
+        return len(self.examples)
+
+    def __getitem__(self, i):       
+        return torch.tensor(self.examples[i].input_ids),torch.tensor(self.examples[i].label)
+
 def _tokenize(seq, tokenizer):
     seq = seq.replace('\n', '').lower()
     words = seq.split(' ')
@@ -72,15 +85,10 @@ def _tokenize(seq, tokenizer):
 
     return words, sub_words, keys
 
-def get_identifier_posistions_from_code(words_list: list, variable_names: list, language = 'python') -> dict:
+def get_identifier_posistions_from_code(words_list: list, variable_names: list) -> dict:
     '''
     给定一串代码，以及variable的变量名，如: a
     返回这串代码中这些变量名对应的位置.
-
-    此外，先需要对代码进行Parse并提取出token及其类型
-    还不能单纯地用tokenization，比如导入某一个个package，这个package也会被认为是name
-    但是这个name明显不能被修改
-    因此还是更加明确地找到被声明的变量的identifier.
     '''
     positions = {}
     for name in variable_names:
@@ -159,8 +167,6 @@ def get_substitues(substitutes, tokenizer, mlm_model, use_bpe, substitutes_score
             words = get_bpe_substitues(substitutes, tokenizer, mlm_model)
         else:
             return words
-    #
-    # print(words)
     return words
 
 
@@ -182,6 +188,8 @@ def get_masked_code_by_position(tokens: list, positions: dict):
             replace_token_positions.append(pos)
     
     return masked_token_list, replace_token_positions
+
+
 
 def get_results(dataset, model, batch_size):
     '''
@@ -219,13 +227,22 @@ def get_results(dataset, model, batch_size):
 
     return probs, pred_labels
 
+def convert_code_to_features(code, tokenizer, label, args):
+    code_tokens=tokenizer.tokenize(code)[:args.block_size-2]
+    source_tokens =[tokenizer.cls_token]+code_tokens+[tokenizer.sep_token]
+    source_ids =  tokenizer.convert_tokens_to_ids(source_tokens)
+    padding_length = args.block_size - len(source_ids)
+    source_ids+=[tokenizer.pad_token_id]*padding_length
+    return InputFeatures(source_tokens,source_ids, 0, label)
 
-def get_importance_score(example, words_list: list, variable_names: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
+def get_importance_score(args, example, code, words_list: list, sub_words: list, variable_names: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
     '''
     计算importance score
     '''
+    # label: example[1] tensor(1)
     # 1. 过滤掉所有的keywords.
     positions = get_identifier_posistions_from_code(words_list, variable_names)
+    # 需要注意大小写.
     if len(positions) == 0:
         ## 没有提取出可以mutate的position
         return None, None, None
@@ -237,134 +254,106 @@ def get_importance_score(example, words_list: list, variable_names: list, tgt_mo
     masked_token_list, replace_token_positions = get_masked_code_by_position(words_list, positions)
     # replace_token_positions 表示着，哪一个位置的token被替换了.
 
-    for index, tokens in enumerate(masked_token_list):
-        new_code = ' '.join(tokens)
-        new_example.append(InputExample(index + 1, 
-                                        example.text_a, 
-                                        new_code, 
-                                        example.label))
 
+    for index, tokens in enumerate([words_list] + masked_token_list):
+        new_code = ' '.join(tokens)
+        new_feature = convert_code_to_features(new_code, tokenizer, example[1].item(), args)
+        new_example.append(new_feature)
+    new_dataset = CodeDataset(new_example)
     # 3. 将他们转化成features
-    leave_1_probs, leave_1_probs_argmax = get_results(new_example, 
-                tgt_model, 
-                tokenizer, 
-                label_list, 
-                batch_size=batch_size, 
-                max_length=512, 
-                model_type='classification')
+    logits, preds = get_results(new_dataset, tgt_model, args.eval_batch_size)
+    # leave_1_probs, leave_1_probs_argmax = get_results(new_example, 
+    #             tgt_model, 
+    #             tokenizer, 
+    #             label_list, 
+    #             batch_size=batch_size, 
+    #             max_length=512, 
+    #             model_type='classification')
     ## leave_1_probs_argmax
     ## 这个估计就是label.
-    orig_probs = leave_1_probs[0]
-    orig_label = torch.argmax(orig_probs)
-    orig_prob = orig_probs.max()
-        
-    importance_score = (orig_prob
-                    - leave_1_probs[:, orig_label]
-                    +
-                    (leave_1_probs_argmax != orig_label).float()
-                    * (leave_1_probs.max(dim=-1)[0] - torch.index_select(orig_probs, 0, leave_1_probs_argmax))
-                    ).data.cpu().numpy()
+    orig_probs = logits[0]
+    orig_label = preds[0]
+    # 第一个是original code的数据.
+    
+    orig_prob = max(orig_probs)
+    # predicted label对应的probability
 
-        # 从现在的结果来看，对于代码而言，每个token的importance score非常小
-        # 大概在-7数量级这样，但是原来是在-3数量
-        # 好像是因为，这个classifier生成的数值都非常极端，以方非常趋向于1，另一个趋向于0
-        # 而BERT-ATTACK中的模型，值却没有这么极端，主要在0.99xx左右。
-        # 这有什么合理的解释吗？
+    importance_score = []
+    for prob in logits[1:]:
+        importance_score.append(orig_prob - prob[orig_label])
 
     return importance_score, replace_token_positions, positions
 
 
-def attack(example, source_code, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, label_list, max_seq_length, use_bpe, threshold_pred_score, k, batch_size):
+def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, use_bpe, threshold_pred_score):
     '''
     返回is_success: 
         -1: 尝试了所有可能，但没有成功
          0: 修改数量到达了40%，没有成功
          1: 攻击成功
     '''
-    # 得到tgt model针对原始example预测的label信息
-    orig_probs, leave_1_probs_argmax = get_results([example], 
-                                                    codebert_tgt, 
-                                                    tokenizer_tgt, 
-                                                    label_list, 
-                                                    batch_size=batch_size, 
-                                                    max_length=max_seq_length, 
-                                                    model_type='classification')
-    
-    # 提取出结果
-    orig_probs = orig_probs[0]
-    orig_label = torch.argmax(orig_probs)
-    current_prob = orig_probs.max()
+        # 先得到tgt_model针对原始Example的预测信息.
+
+    logits, preds = get_results([example], codebert_tgt, args.eval_batch_size)
+    orig_prob = logits[0]
+    orig_label = preds[0]
+    current_prob = max(orig_prob)
     # 得到label以及对应的probability
 
-    code = example.text_b
-    words, sub_words, keys = _tokenize(code, tokenizer_mlm)
-    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>")
+    
+    print(">>>>>>>>\n\n")
     print(code)
 
-    identifiers = get_identifiers(example.text_b)
+    identifiers, code_tokens = get_identifiers(code, 'c')
+    processed_code = " ".join(code_tokens)
+    words, sub_words, keys = _tokenize(processed_code, tokenizer_mlm)
+    # 这里经过了小写处理..
 
+    print(identifiers)
 
     variable_names = []
     for name in identifiers:
-        if ' ' in name[0].strip():
+        if ' ' in name[0].strip() or name[0].lower() in variable_names:
             continue
-        variable_names.append(name[0])
+        variable_names.append(name[0].lower())
 
-    print("提取出: ", len(variable_names))
+    print("Number of identifiers extracted: ", len(variable_names))
     if len(variable_names) == 0:
         # 没有提取到identifier，直接退出
         return -3
 
-
-
-    print(variable_names)
-
-    # words是用 ' ' 进行分割code得到的结果
-    # 对于words里的每一个词，使用tokenizer_mlm再进行tokenize
-    # 得到一组subwords，比如：'decimal_sep,' -> 'dec', 'imal', '_', 'se', 'p'
-    # keys用于将word和subwords对应起来，比如keys[1] 是[1,5]
-    # 这意味着，words中的第二个词，对应着subwords[1,5]
-    # [a,a] 意味着空
-
-    sub_words = ['[CLS]'] + sub_words[:max_seq_length - 2] + ['[SEP]']
-    # 如果长度超了，就截断；这里的max_length是BERT能接受的最大长度
-    # To-Do: BERT是这样没错，但是CodeBERT也是这两个字符吗？
-
+    sub_words = [tokenizer_tgt.cls_token] + sub_words[:args.block_size - 2] + [tokenizer_tgt.sep_token]
+    # 如果长度超了，就截断；这里的block_size是CodeBERT能接受的输入长度
     input_ids_ = torch.tensor([tokenizer_mlm.convert_tokens_to_ids(sub_words)])
     word_predictions = codebert_mlm(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
-    word_pred_scores_all, word_predictions = torch.topk(word_predictions, k, -1)  # seq-len k
+    word_pred_scores_all, word_predictions = torch.topk(word_predictions, 30, -1)  # seq-len k
     # 得到前k个结果.
 
     word_predictions = word_predictions[1:len(sub_words) + 1, :]
     word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
     # 只取subwords的部分，忽略首尾的预测结果.
 
-    importance_score, replace_token_positions, names_positions_dict = get_importance_score(example, 
+    # 计算importance_score.
+
+    importance_score, replace_token_positions, names_positions_dict = get_importance_score(args, example, 
+                                            processed_code,
                                             words,
+                                            sub_words,
                                             variable_names,
                                             codebert_tgt, 
                                             tokenizer_tgt, 
-                                            label_list, 
-                                            batch_size=batch_size, 
-                                            max_length=512, 
+                                            [0,1], 
+                                            batch_size=args.eval_batch_size, 
+                                            max_length=args.block_size, 
                                             model_type='classification')
-    if importance_score is None:
-        # 如果在上一部中没有提取出任何可以mutante的位置
-        return -3
-    assert len(importance_score) == len(replace_token_positions)
-    # replace_token_positions是一个list，表示着，对应位置的importance score
-    # 比如，可能的值为[5, 37, 53, 7, 39, 55, 23, 41, 57]
-    # 则，importance_score中的第i个值，是replace_token_positions[i]这个位置的importance score
+
+    assert(len(importance_score) == len(replace_token_positions))
 
     token_pos_to_score_pos = {}
+
     for i, token_pos in enumerate(replace_token_positions):
-        try:
-            token_pos_to_score_pos[token_pos].append(i)
-        except:
-            token_pos_to_score_pos[token_pos] = [i]
-
+        token_pos_to_score_pos[token_pos] = i
     # 重新计算Importance score，将所有出现的位置加起来（而不是取平均）.
-
     names_to_importance_score = {}
 
     for name in names_positions_dict.keys():
@@ -373,18 +362,12 @@ def attack(example, source_code, codebert_tgt, tokenizer_tgt, codebert_mlm, toke
         for token_pos in positions:
             # 这个token在code中对应的位置
             # importance_score中的位置：token_pos_to_score_pos[token_pos]
-            total_score += importance_score[token_pos_to_score_pos[token_pos]][0]
+            total_score += importance_score[token_pos_to_score_pos[token_pos]]
         
         names_to_importance_score[name] = total_score
 
-
     sorted_list_of_names = sorted(names_to_importance_score.items(), key=lambda x: x[1], reverse=True)
     # 根据importance_score进行排序
-
-
-    ## 需要做出一些改变：
-    ## 1. 修改token的时候，得几个位置一起修改
-    ## 2. substitute应该是，几个位置的并集
 
     list_of_index = sorted(enumerate(importance_score), key=lambda x: x[1], reverse=True)
 
@@ -446,6 +429,8 @@ def attack(example, source_code, codebert_tgt, tokenizer_tgt, codebert_mlm, toke
                 # 当有的时候，tokenizer_tgt.convert_tokens_to_string(temp_replace)
                 # 会报 ' ' 这个Key不存在的Error
                 continue
+
+            
             temp_replace = copy.deepcopy(final_words)
             for one_pos in tgt_positions:
                 temp_replace[one_pos] = substitute
@@ -455,25 +440,21 @@ def attack(example, source_code, codebert_tgt, tokenizer_tgt, codebert_mlm, toke
 
             # 需要将几个位置都替换成sustitue_
             temp_code = " ".join(temp_replace)
-            replace_examples.append(InputExample(0, 
-                                            example.text_a, 
-                                            temp_code, 
-                                            example.label))
-        
+                                            
+            new_feature = convert_code_to_features(temp_code, tokenizer_tgt, example[1].item(), args)
+            replace_examples.append(new_feature)
         if len(replace_examples) == 0:
             # 并没有生成新的mutants，直接跳去下一个token
             continue
-        new_probs, leave_1_probs_argmax = get_results(replace_examples, 
-                                                        codebert_tgt, 
-                                                        tokenizer_tgt, 
-                                                        label_list, 
-                                                        batch_size=batch_size, 
-                                                        max_length=max_seq_length, 
-                                                        model_type='classification')
-        assert(len(new_probs) == len(substitute_list))
+        new_dataset = CodeDataset(replace_examples)
+            # 3. 将他们转化成features
+        logits, preds = get_results(new_dataset, codebert_tgt, args.eval_batch_size)
+        assert(len(logits) == len(substitute_list))
 
-        for index, temp_prob in enumerate(new_probs):
-            temp_label = torch.argmax(temp_prob)
+
+
+        for index, temp_prob in enumerate(logits):
+            temp_label = preds[index]
             if temp_label != orig_label:
                 # 如果label改变了，说明这个mutant攻击成功
                 is_success = 1
@@ -497,7 +478,6 @@ def attack(example, source_code, codebert_tgt, tokenizer_tgt, codebert_mlm, toke
                 final_words[one_pos] = candidate
     
     print("Number of Changes: ", change)
-
     return is_success
 
 
@@ -654,11 +634,30 @@ def main():
     # 会是因为模型不同吗？我看evaluate的时候模型是重新导入的.
 
 
-    ## Load MLM Model
+    ## Load CodeBERT (MLM) model
+    codebert_mlm = RobertaForMaskedLM.from_pretrained("microsoft/codebert-base-mlm")
+    tokenizer_mlm = RobertaTokenizer.from_pretrained("microsoft/codebert-base-mlm")
+    codebert_mlm.to('cuda') 
 
     ## Load Dataset
     eval_dataset = TextDataset(tokenizer, args,args.eval_data_file)
-    logits, preds = get_results(eval_dataset, model, args.eval_batch_size)
+
+    source_codes = []
+    with open(args.eval_data_file) as f:
+        for line in f:
+            js=json.loads(line.strip())
+            code = ' '.join(js['func'].split())
+            source_codes.append(code)
+    assert(len(source_codes) == len(eval_dataset))
+
+    # 现在要尝试计算importance_score了.
+    for index, example in enumerate(eval_dataset):
+        code = source_codes[index]
+        is_success = attack(args, example, code, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
+        print("Is success: ", is_success)
+        
+
+
 
 
 
