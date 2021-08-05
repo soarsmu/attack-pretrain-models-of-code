@@ -31,6 +31,8 @@ import torch.nn as nn
 from transformers import RobertaForMaskedLM, pipeline
 from tqdm import tqdm
 import copy
+import json
+
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning
@@ -270,7 +272,7 @@ def get_importance_score(example, words_list: list, variable_names: list, tgt_mo
     return importance_score, replace_token_positions, positions
 
 
-def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, label_list, max_seq_length, use_bpe, threshold_pred_score, k, batch_size):
+def attack(example, source_code, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, label_list, max_seq_length, use_bpe, threshold_pred_score, k, batch_size):
     '''
     返回is_success: 
         -1: 尝试了所有可能，但没有成功
@@ -595,198 +597,6 @@ def main():
 
     args = parser.parse_args()
 
-    device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
-    args.n_gpu = torch.cuda.device_count()
-
-    args.device = device
-    args.per_gpu_train_batch_size=args.train_batch_size//args.n_gpu
-    args.per_gpu_eval_batch_size=args.eval_batch_size//args.n_gpu
-    # Setup logging
-    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
-                        datefmt='%m/%d/%Y %H:%M:%S',
-                        level=logging.INFO if args.local_rank in [-1, 0] else logging.WARN)
-    logger.warning("Process rank: %s, device: %s, n_gpu: %s, distributed training: %s, 16-bits training: %s",
-                   args.local_rank, device, args.n_gpu, bool(args.local_rank != -1), args.fp16)
-    # Set seed
-    set_seed(args.seed)
-
-    args.start_epoch = 0
-    args.start_step = 0
-    checkpoint_last = os.path.join(args.output_dir, 'checkpoint-last')
-
-    args.start_epoch = 0
-    args.start_step = 0
-    checkpoint_last = os.path.join(args.output_dir, 'checkpoint-last')
-
-    if os.path.exists(checkpoint_last) and os.listdir(checkpoint_last):
-        args.model_name_or_path = os.path.join(checkpoint_last, 'pytorch_model.bin')
-        args.config_name = os.path.join(checkpoint_last, 'config.json')
-        idx_file = os.path.join(checkpoint_last, 'idx_file.txt')
-        with open(idx_file, encoding='utf-8') as idxf:
-            args.start_epoch = int(idxf.readlines()[0].strip()) + 1
-
-        step_file = os.path.join(checkpoint_last, 'step_file.txt')
-        if os.path.exists(step_file):
-            with open(step_file, encoding='utf-8') as stepf:
-                args.start_step = int(stepf.readlines()[0].strip())
-
-        logger.info("reload model from {}, resume from {} epoch".format(checkpoint_last, args.start_epoch))
-    
-
-    ## ------ Load models ------##
-    config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
-    config = config_class.from_pretrained(args.config_name if args.config_name else args.model_name_or_path,
-                                          cache_dir=args.cache_dir if args.cache_dir else None)
-    config.num_labels=1
-    tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name,
-                                                do_lower_case=args.do_lower_case,
-                                                cache_dir=args.cache_dir if args.cache_dir else None)
-    if args.block_size <= 0:
-        args.block_size = tokenizer.max_len_single_sentence  # Our input block size will be the max possible for the model
-    args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
-    if args.model_name_or_path:
-        model = model_class.from_pretrained(args.model_name_or_path,
-                                            from_tf=bool('.ckpt' in args.model_name_or_path),
-                                            config=config,
-                                            cache_dir=args.cache_dir if args.cache_dir else None)    
-    else:
-        model = model_class(config)
-
-    ## Load Target model
-    codebert_tgt = Model(model,config,tokenizer,args)
-    codebert_tgt.to('cuda')
-
-
-
-    ## Load CodeBERT (MLM) model
-    codebert_mlm = RobertaForMaskedLM.from_pretrained("microsoft/codebert-base-mlm")
-    tokenizer_mlm = RobertaTokenizer.from_pretrained("microsoft/codebert-base-mlm")
-    codebert_mlm.to('cuda') 
-
-    examples = TextDataset(tokenizer, args, args.test_data_file)
-    # 这个examples里面都是tokenize后的内容，没有办法直接拿来mutants
-    # 需要读取所有的code.
-    print('this is example:', len(examples))
-    print(examples[1])
-    exit()
-
-    sucess_cnt = 0
-    no_tokens_cnt = 0
-    fail_cnt = 0
-    for index, example in enumerate(examples):
-        print("The index is: ", index)
-        is_success = attack(example, 
-                            codebert_tgt, 
-                            tokenizer_mlm, 
-                            codebert_mlm, 
-                            tokenizer_mlm, 
-                            [0,1], 
-                            512, 
-                            1, 
-                            0, 
-                            48,
-                            8)
-        
-        print("是否成功： ", is_success)
-        if is_success == 1:
-            sucess_cnt += 1
-        elif is_success == -3:
-            no_tokens_cnt += 1
-        else:
-            fail_cnt += 1
-            
-    print("Success count: ", sucess_cnt)
-    print("No token available to be replaced: ", no_tokens_cnt)
-    print("Fail to attack: ", fail_cnt)
-
-    exit()
-
-    data_path = str(args.data_path)
-    model_type = args.model_type.lower()
-    mlm_path = str(args.mlm_path)
-    tgt_path = str(args.tgt_path)
-    output_dir = str(args.output_dir)
-    batch_size = args.batch_size
-    num_labels = args.num_label
-    use_bpe = args.use_bpe
-    k = args.k
-    threshold_pred_score = args.threshold_pred_score
-    max_seq_length = args.max_seq_length
-
-    ## ----------------Load Models------------------- ##
-
-    ## Load CodeBERT (MLM) model
-    codebert_mlm = RobertaForMaskedLM.from_pretrained("microsoft/codebert-base-mlm")
-    tokenizer_mlm = RobertaTokenizer.from_pretrained("microsoft/codebert-base-mlm")
-    codebert_mlm.to('cuda') 
-    # 这一步会导致使用 fill_mask = pipeline('fill-mask', model=model, tokenizer=tokenizer)
-    # 发生和cuda devices有关的错误
-    '''
-    CodeBERT MLM Model Usage Example (from CodeBERT README file):
-
-        CODE = "if (x is <mask> None) and (x > 1)"
-        # It only supports one <mask>
-        # Two masked_token, e.g. if (x is not None) <mask> (x <mask> 1) is not supported.
-        fill_mask = pipeline('fill-mask', model=codebert_mlm, tokenizer=tokenizer_mlm)
-
-        outputs = fill_mask(CODE)
-        for output in outputs:
-            print(output)
-    '''
-
-    ## Load CodeBERT Target Model
-    config_tgt = RobertaConfig.from_pretrained(tgt_path, num_labels=num_labels, finetuning_task='codesearch')
-    tokenizer_tgt = RobertaTokenizer.from_pretrained('roberta-base')
-    codebert_tgt = RobertaForSequenceClassification.from_pretrained(tgt_path, config=config_tgt)
-    codebert_tgt.to('cuda')
-
-    # TO-DO: 这里貌似有问题，具体看This IS NOT expected的那条消息
-    # Resolved: 我重新fune-tune了一个模型，从这个模型load就没有这个消息了
-
-    ## ----------------Load Datasets------------------- ##
-    processor = CodesearchProcessor()
-
-    label_list = processor.get_labels() # ['0', '1']
-    examples = processor.get_new_train_examples(data_path, "triple_dev.txt")
-
-    print('this is example:', len(examples))
-    ## structure of examples
-        # examples[i].text_a : text
-        # examples[i].text_b : code
-        # examples[i].label  : label
-    
-    # turn examples into BERT Tokenized Ids (features)
-
-    sucess_cnt = 0
-    no_tokens_cnt = 0
-    fail_cnt = 0
-    for index, example in enumerate(examples):
-        print("The index is: ", index)
-        is_success = attack(example, 
-                            codebert_tgt, 
-                            tokenizer_tgt, 
-                            codebert_mlm, 
-                            tokenizer_mlm, 
-                            label_list, 
-                            max_seq_length, 
-                            use_bpe, 
-                            threshold_pred_score, 
-                            k,
-                            batch_size)
-        
-        print("是否成功： ", is_success)
-        if is_success == 1:
-            sucess_cnt += 1
-        elif is_success == -3:
-            no_tokens_cnt += 1
-        else:
-            fail_cnt += 1
-            
-    print("Success count: ", sucess_cnt)
-    print("No token available to be replaced: ", no_tokens_cnt)
-    print("Fail to attack: ", fail_cnt)
-
-    
 
 
 if __name__ == '__main__':
