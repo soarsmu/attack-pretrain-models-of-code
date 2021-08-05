@@ -294,22 +294,26 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     '''
         # 先得到tgt_model针对原始Example的预测信息.
 
+
     logits, preds = get_results([example], codebert_tgt, args.eval_batch_size)
     orig_prob = logits[0]
     orig_label = preds[0]
     current_prob = max(orig_prob)
-    # 得到label以及对应的probability
+
+    if not orig_label == example[1].item():
+        # 说明原来就是错的
+        return -4
 
     
     print(">>>>>>>>\n\n")
-    print(code)
+
 
     identifiers, code_tokens = get_identifiers(code, 'c')
     processed_code = " ".join(code_tokens)
+    
     words, sub_words, keys = _tokenize(processed_code, tokenizer_mlm)
     # 这里经过了小写处理..
 
-    print(identifiers)
 
     variable_names = []
     for name in identifiers:
@@ -459,7 +463,6 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
                 # 如果label改变了，说明这个mutant攻击成功
                 is_success = 1
                 change += 1
-                print(" ".join(temp_replace))
                 print("Number of Changes: ", change)
                 return is_success
             else:
@@ -651,10 +654,21 @@ def main():
     assert(len(source_codes) == len(eval_dataset))
 
     # 现在要尝试计算importance_score了.
+    success_attack = 0
+    total_cnt = 0
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
         is_success = attack(args, example, code, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
-        print("Is success: ", is_success)
+
+        if is_success >= -1 :
+            # 如果原来正确
+            total_cnt += 1
+        if is_success == 1:
+            success_attack += 1
+
+        print("Success rate: ", 1.0 * success_attack / total_cnt)
+        print(success_attack)
+        print(total_cnt)
         
 
 
