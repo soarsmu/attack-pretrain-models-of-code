@@ -18,7 +18,7 @@ data and pre-trained models can be found here (https://drive.google.com/drive/fo
 
 Example:
 
-    $$ python main.py  -train -train_data './op_data/openstack_train_changed.pkl'  -save-dir './trained_model_op'  -dictionary_data './op_dict.pkl'
+    $$ python main.py  -train -train_data './data/op_data/openstack_train_changed.pkl'  -save-dir './trained_model_op'  -dictionary_data './data/op_dict.pkl'
         
 
 ## Validation
@@ -26,7 +26,7 @@ Example:
 
 Example:
 
-    $$  python main.py  -train -train_data './op_data/openstack_train_changed.pkl'  -save-dir './trained_model_op'  -dictionary_data './op_dict.pkl' -valid -load_model 'trained_model_op/epoch_1_step_600.pt' 
+    $$  python main.py  -train -train_data './data/op_data/openstack_train_changed.pkl'  -save-dir './trained_model_op'  -dictionary_data './data/op_dict.pkl' -valid -load_model 'trained_model_op/2021-07-30_04-42-06/epoch_1_step_600.pt' 
 
 
 ## Testing
