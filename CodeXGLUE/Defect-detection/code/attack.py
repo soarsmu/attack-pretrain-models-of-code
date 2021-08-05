@@ -34,9 +34,21 @@ import copy
 import json
 
 
+from transformers import (WEIGHTS_NAME, AdamW, get_linear_schedule_with_warmup,
+                          BertConfig, BertForMaskedLM, BertTokenizer,
+                          GPT2Config, GPT2LMHeadModel, GPT2Tokenizer,
+                          OpenAIGPTConfig, OpenAIGPTLMHeadModel, OpenAIGPTTokenizer,
+                          RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer,
+                          DistilBertConfig, DistilBertForMaskedLM, DistilBertTokenizer)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning
-MODEL_CLASSES = {'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)}
+MODEL_CLASSES = {
+    'gpt2': (GPT2Config, GPT2LMHeadModel, GPT2Tokenizer),
+    'openai-gpt': (OpenAIGPTConfig, OpenAIGPTLMHeadModel, OpenAIGPTTokenizer),
+    'bert': (BertConfig, BertForMaskedLM, BertTokenizer),
+    'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer),
+    'distilbert': (DistilBertConfig, DistilBertForMaskedLM, DistilBertTokenizer)
+}
 logger = logging.getLogger(__name__)
 
 python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">", '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield']
@@ -174,6 +186,7 @@ def get_results(example: list, tgt_model, tokenizer, label_list, batch_size=16, 
     '''
     给定example和tgt model，返回预测的label和probability
     '''
+    # 也许这个函数根本不需要...
     features = convert_examples_to_features(example, label_list, max_length, tokenizer, "classification",
                                             cls_token_at_end=bool(model_type in ['xlnet']),
                                             # xlnet has a cls token at the end
@@ -597,6 +610,89 @@ def main():
 
     args = parser.parse_args()
 
+
+    args.device = torch.device("cuda")
+    # Set seed
+    set_seed(args.seed)
+
+
+    args.start_epoch = 0
+    args.start_step = 0
+
+
+    ## Load Target Model
+    checkpoint_last = os.path.join(args.output_dir, 'checkpoint-last') # 读取model的路径
+    if os.path.exists(checkpoint_last) and os.listdir(checkpoint_last):
+        # 如果路径存在且有内容，则从checkpoint load模型
+        args.model_name_or_path = os.path.join(checkpoint_last, 'pytorch_model.bin')
+        args.config_name = os.path.join(checkpoint_last, 'config.json')
+        idx_file = os.path.join(checkpoint_last, 'idx_file.txt')
+        with open(idx_file, encoding='utf-8') as idxf:
+            args.start_epoch = int(idxf.readlines()[0].strip()) + 1
+
+        step_file = os.path.join(checkpoint_last, 'step_file.txt')
+        if os.path.exists(step_file):
+            with open(step_file, encoding='utf-8') as stepf:
+                args.start_step = int(stepf.readlines()[0].strip())
+        logger.info("reload model from {}, resume from {} epoch".format(checkpoint_last, args.start_epoch))
+
+
+    config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
+    config = config_class.from_pretrained(args.config_name if args.config_name else args.model_name_or_path,
+                                          cache_dir=args.cache_dir if args.cache_dir else None)
+    config.num_labels=1 # 只有一个label?
+    tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name,
+                                                do_lower_case=args.do_lower_case,
+                                                cache_dir=args.cache_dir if args.cache_dir else None)
+    if args.block_size <= 0:
+        args.block_size = tokenizer.max_len_single_sentence  # Our input block size will be the max possible for the model
+    args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
+    if args.model_name_or_path:
+        model = model_class.from_pretrained(args.model_name_or_path,
+                                            from_tf=bool('.ckpt' in args.model_name_or_path),
+                                            config=config,
+                                            cache_dir=args.cache_dir if args.cache_dir else None)    
+    else:
+        model = model_class(config)
+
+    model = Model(model,config,tokenizer,args)
+
+
+    checkpoint_prefix = 'checkpoint-best-acc/model.bin'
+    output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
+    model.load_state_dict(torch.load(output_dir))      
+    model.to(args.device)
+    # 会是因为模型不同吗？我看evaluate的时候模型是重新导入的.
+
+
+    ## Load MLM Model
+
+    ## Load Dataset
+    eval_dataset = TextDataset(tokenizer, args,args.eval_data_file)
+    eval_sampler = SequentialSampler(eval_dataset)
+    eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size,num_workers=4,pin_memory=True)
+
+    ## Evaluate Model
+    logger.info("***** Running evaluation *****")
+    logger.info("  Num examples = %d", len(eval_dataset))
+    logger.info("  Batch size = %d", args.eval_batch_size)
+    eval_loss = 0.0
+    nb_eval_steps = 0
+    model.eval()
+    logits=[] 
+    labels=[]
+    for batch in eval_dataloader:
+        inputs = batch[0].to(args.device)       
+        label=batch[1].to(args.device) 
+        with torch.no_grad():
+            lm_loss,logit = model(inputs,label)
+            # 调用这个模型. 重写了反前向传播模型.
+            eval_loss += lm_loss.mean().item()
+            logits.append(logit.cpu().numpy())
+            labels.append(label.cpu().numpy())
+            
+
+        nb_eval_steps += 1
 
 
 if __name__ == '__main__':
