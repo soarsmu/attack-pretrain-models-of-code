@@ -32,6 +32,7 @@ from transformers import RobertaForMaskedLM, pipeline
 from tqdm import tqdm
 import copy
 import json
+import numpy as np
 
 
 from transformers import (WEIGHTS_NAME, AdamW, get_linear_schedule_with_warmup,
@@ -182,54 +183,41 @@ def get_masked_code_by_position(tokens: list, positions: dict):
     
     return masked_token_list, replace_token_positions
 
-def get_results(example: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
+def get_results(dataset, model, batch_size):
     '''
     给定example和tgt model，返回预测的label和probability
     '''
-    # 也许这个函数根本不需要...
-    features = convert_examples_to_features(example, label_list, max_length, tokenizer, "classification",
-                                            cls_token_at_end=bool(model_type in ['xlnet']),
-                                            # xlnet has a cls token at the end
-                                            cls_token=tokenizer.cls_token,
-                                            sep_token=tokenizer.sep_token,
-                                            cls_token_segment_id=2 if model_type in ['xlnet'] else 1,
-                                            pad_on_left=bool(model_type in ['xlnet']),
-                                            # pad on the left for xlnet
-                                            pad_token_segment_id=4 if model_type in ['xlnet'] else 0)
-    
-    ###--------- Convert to Tensors and build dataset --------------------------
-    
-    all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)     #read input_ids of each data point; turn into tensor; store them in a list
-    all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
-    all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
-    all_label_ids = torch.tensor([f.label_id for f in features], dtype=torch.long)
 
-    dataset = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label_ids)
 
     eval_sampler = SequentialSampler(dataset)
-    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size)
+    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size,num_workers=4,pin_memory=True)
 
+    ## Evaluate Model
 
-    ## ----------------Evaluate------------------- ##
-    tgt_model.eval()
-    leave_1_probs = []
-    with torch.no_grad():
-        for index, batch in enumerate(eval_dataloader):
-            batch = tuple(t.to('cuda') for t in batch)
-            inputs = {'input_ids': batch[0],
-                        'attention_mask': batch[1],
-                        'token_type_ids': None,
-                        # XLM don't use segment_ids
-                        'labels': batch[3]}
+    eval_loss = 0.0
+    nb_eval_steps = 0
+    model.eval()
+    logits=[] 
+    labels=[]
+    for batch in eval_dataloader:
+        inputs = batch[0].to("cuda")       
+        label=batch[1].to("cuda") 
+        with torch.no_grad():
+            lm_loss,logit = model(inputs,label)
+            # 调用这个模型. 重写了反前向传播模型.
+            eval_loss += lm_loss.mean().item()
+            logits.append(logit.cpu().numpy())
+            labels.append(label.cpu().numpy())
+            
 
-            outputs = tgt_model(**inputs)
-            tmp_eval_loss, logits = outputs[:2]
-            leave_1_probs.append(logits)
-        leave_1_probs = torch.cat(leave_1_probs, dim=0)
-        leave_1_probs = torch.softmax(leave_1_probs, -1) 
-        leave_1_probs_argmax = torch.argmax(leave_1_probs, dim=-1)
+        nb_eval_steps += 1
+    logits=np.concatenate(logits,0)
+    labels=np.concatenate(labels,0)
 
-    return leave_1_probs, leave_1_probs_argmax
+    probs = [[1 - prob[0], prob[0]] for prob in logits]
+    pred_labels = [1 if label else 0 for label in logits[:,0]>0.5]
+
+    return probs, pred_labels
 
 
 def get_importance_score(example, words_list: list, variable_names: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
@@ -264,7 +252,8 @@ def get_importance_score(example, words_list: list, variable_names: list, tgt_mo
                 batch_size=batch_size, 
                 max_length=512, 
                 model_type='classification')
-
+    ## leave_1_probs_argmax
+    ## 这个估计就是label.
     orig_probs = leave_1_probs[0]
     orig_label = torch.argmax(orig_probs)
     orig_prob = orig_probs.max()
@@ -669,30 +658,10 @@ def main():
 
     ## Load Dataset
     eval_dataset = TextDataset(tokenizer, args,args.eval_data_file)
-    eval_sampler = SequentialSampler(eval_dataset)
-    eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size,num_workers=4,pin_memory=True)
+    logits, preds = get_results(eval_dataset, model, args.eval_batch_size)
 
-    ## Evaluate Model
-    logger.info("***** Running evaluation *****")
-    logger.info("  Num examples = %d", len(eval_dataset))
-    logger.info("  Batch size = %d", args.eval_batch_size)
-    eval_loss = 0.0
-    nb_eval_steps = 0
-    model.eval()
-    logits=[] 
-    labels=[]
-    for batch in eval_dataloader:
-        inputs = batch[0].to(args.device)       
-        label=batch[1].to(args.device) 
-        with torch.no_grad():
-            lm_loss,logit = model(inputs,label)
-            # 调用这个模型. 重写了反前向传播模型.
-            eval_loss += lm_loss.mean().item()
-            logits.append(logit.cpu().numpy())
-            labels.append(label.cpu().numpy())
-            
 
-        nb_eval_steps += 1
+
 
 
 if __name__ == '__main__':
