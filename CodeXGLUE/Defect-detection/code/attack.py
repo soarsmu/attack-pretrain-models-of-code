@@ -116,17 +116,17 @@ def get_bpe_substitues(substitutes, tokenizer, mlm_model):
             all_substitutes = [[int(c)] for c in lev_i]
         else:
             lev_i = []
-            for all_sub in all_substitutes:
+            for all_sub in all_substitutes[:24]: # 去掉不用的计算.
                 for j in substitutes[i]:
                     lev_i.append(all_sub + [int(j)])
             all_substitutes = lev_i
-
     # all substitutes  list of list of token-id (all candidates)
     c_loss = nn.CrossEntropyLoss(reduction='none')
     word_list = []
     # all_substitutes = all_substitutes[:24]
     all_substitutes = torch.tensor(all_substitutes) # [ N, L ]
     all_substitutes = all_substitutes[:24].to('cuda')
+    # 不是，这个总共不会超过24... 那之前生成那么多也没用....
     # print(substitutes.size(), all_substitutes.size())
     N, L = all_substitutes.size()
     word_predictions = mlm_model(all_substitutes)[0] # N L vocab-size
