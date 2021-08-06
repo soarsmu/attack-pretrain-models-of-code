@@ -101,6 +101,8 @@ class DataProcessor(object):
             #print(type(s))
             return s
 
+
+
 class CodesearchProcessor(DataProcessor):
     """Processor for the MRPC data set (GLUE version)."""
 
@@ -190,6 +192,49 @@ class CodesearchProcessor(DataProcessor):
             return examples, lines
         else:
             return examples
+
+
+
+class AuthorshipAttributionProcessor(CodesearchProcessor):
+    '''Process for the code authorship attribution'''
+
+    def get_new_train_examples(self, data_dir, train_file):
+        """重写这个函数"""
+        logger.info("LOOKING AT {}".format(os.path.join(data_dir, train_file)))
+        with open(os.path.join(data_dir, train_file)) as f:
+            lines = f.readlines()
+        return self._create_examples_newdata(lines)
+
+    def get_new_dev_examples(self, data_dir, dev_file):
+        logger.info("LOOKING AT {}".format(os.path.join(data_dir, dev_file)))
+        with open(os.path.join(data_dir, dev_file)) as f:
+            lines = f.readlines()
+        return self._create_examples_newdata(lines)
+
+    def _create_examples_newdata(self, lines):
+        """Creates examples for the training and dev sets."""
+        
+        '''
+        turn a list of tuple (label, url, tile_of_comment, comment, code) into
+        a list of InputExample(object)
+        '''
+        ### 这个函数也需要被重写，因为文件的格式并不相同
+        examples = []
+        for (i, line) in enumerate(lines):
+            source_code = line.split(' <CODESPLIT> ')[0]
+            label = line.split(' <CODESPLIT> ')[1].strip()
+            guid = "%s-%s" % ('new_data', i)  # built unique ID
+            examples.append(
+                InputExample(guid=guid, text_a='', text_b=source_code, label=label)) 
+    
+        return examples
+
+
+    def get_labels(self):
+        ## python数据集有70个类别.
+        return [str(i) for i in range(70)]
+    pass
+
 
 # use BERT tokenizer to turn tokens into Ids
 def convert_examples_to_features(examples, label_list, max_seq_length,
@@ -352,23 +397,32 @@ def acc_and_f1(preds, labels):
         "acc_and_f1": (acc + f1) / 2,
     }
 
+def analyze_authorship(preds, labels):
+    acc = simple_accuracy(preds, labels)
+    return {'acc': acc}
 
 def compute_metrics(task_name, preds, labels):
     assert len(preds) == len(labels)
     if task_name == "codesearch":
         return acc_and_f1(preds, labels)
+    elif task_name == "authorshipattribution":
+        return analyze_authorship(preds, labels)
     else:
         raise KeyError(task_name)
 
 
 processors = {
     "codesearch": CodesearchProcessor,
+    "authorshipattribution": AuthorshipAttributionProcessor,
 }
 
 output_modes = {
     "codesearch": "classification",
+    "authorshipattribution": "classification",
 }
 
 GLUE_TASKS_NUM_LABELS = {
     "codesearch": 2,
+    "authorshipattribution": 2,
 }
+

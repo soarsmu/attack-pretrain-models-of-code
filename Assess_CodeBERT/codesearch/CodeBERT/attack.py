@@ -4,6 +4,13 @@
 # @Email   : zyang@smu.edu.sg
 # @File    : attack.py
 '''For attacking CodeBERT models'''
+import sys
+
+from numpy.core.fromnumeric import sort
+sys.path.append('../../../')
+sys.path.append('../../../python_parser')
+
+from python_parser import get_identifiers
 
 import argparse
 import enum
@@ -49,20 +56,25 @@ def _tokenize(seq, tokenizer):
 
     return words, sub_words, keys
 
-def get_identifier_posistions_from_code(code: str, language = 'python'):
+def get_identifier_posistions_from_code(words_list: list, variable_names: list, language = 'python') -> dict:
     '''
-    给定一串代码，要能够返回其中identifier的位置
-    这个问题和bertattack中的并不一样，因为代码中存在identifier的对应问题
-    这个数据的结构还得好好地思考和设计一下
+    给定一串代码，以及variable的变量名，如: a
+    返回这串代码中这些变量名对应的位置.
+
     此外，先需要对代码进行Parse并提取出token及其类型
     还不能单纯地用tokenization，比如导入某一个个package，这个package也会被认为是name
     但是这个name明显不能被修改
     因此还是更加明确地找到被声明的变量的identifier.
     '''
-    positions = []
-    for index, token in enumerate(code.split(' ')):
-        if token not in python_keywords:
-            positions.append(index)
+    positions = {}
+    for name in variable_names:
+        for index, token in enumerate(words_list):
+            if name == token:
+                try:
+                    positions[name].append(index)
+                except:
+                    positions[name] = [index]
+
     return positions
 
 def get_bpe_substitues(substitutes, tokenizer, mlm_model):
@@ -136,7 +148,7 @@ def get_substitues(substitutes, tokenizer, mlm_model, use_bpe, substitutes_score
     return words
 
 
-def get_masked_code_by_position(tokens: list, positions: list):
+def get_masked_code_by_position(tokens: list, positions: dict):
     '''
     给定一段文本，以及需要被mask的位置,返回一组masked后的text
     Example:
@@ -147,10 +159,13 @@ def get_masked_code_by_position(tokens: list, positions: list):
             [a, b, <mask>]
     '''
     masked_token_list = []
-    for pos in positions:
-        masked_token_list.append(tokens[0:pos] + ['[UNK]'] + tokens[pos + 1:])
+    replace_token_positions = []
+    for variable_name in positions.keys():
+        for pos in positions[variable_name]:
+            masked_token_list.append(tokens[0:pos] + ['[UNK]'] + tokens[pos + 1:])
+            replace_token_positions.append(pos)
     
-    return masked_token_list
+    return masked_token_list, replace_token_positions
 
 def get_results(example: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
     '''
@@ -194,8 +209,6 @@ def get_results(example: list, tgt_model, tokenizer, label_list, batch_size=16, 
             outputs = tgt_model(**inputs)
             tmp_eval_loss, logits = outputs[:2]
             leave_1_probs.append(logits)
-
-        
         leave_1_probs = torch.cat(leave_1_probs, dim=0)
         leave_1_probs = torch.softmax(leave_1_probs, -1) 
         leave_1_probs_argmax = torch.argmax(leave_1_probs, dim=-1)
@@ -203,18 +216,22 @@ def get_results(example: list, tgt_model, tokenizer, label_list, batch_size=16, 
     return leave_1_probs, leave_1_probs_argmax
 
 
-def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
+def get_importance_score(example, words_list: list, variable_names: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
     '''
     计算importance score
     '''
     # 1. 过滤掉所有的keywords.
-    positions = get_identifier_posistions_from_code(example.text_b)
-    tokens = example.text_b.split(" ")
+    positions = get_identifier_posistions_from_code(words_list, variable_names)
+    if len(positions) == 0:
+        ## 没有提取出可以mutate的position
+        return None, None, None
+
+    # tokens = example.text_b.split(" ")
     new_example = []
 
     # 2. 得到Masked_tokens
-    masked_token_list = get_masked_code_by_position(tokens, positions)
-
+    masked_token_list, replace_token_positions = get_masked_code_by_position(words_list, positions)
+    # replace_token_positions 表示着，哪一个位置的token被替换了.
 
     for index, tokens in enumerate(masked_token_list):
         new_code = ' '.join(tokens)
@@ -224,12 +241,11 @@ def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=1
                                         example.label))
 
     # 3. 将他们转化成features
-
     leave_1_probs, leave_1_probs_argmax = get_results(new_example, 
                 tgt_model, 
                 tokenizer, 
                 label_list, 
-                batch_size=16, 
+                batch_size=batch_size, 
                 max_length=512, 
                 model_type='classification')
 
@@ -250,11 +266,10 @@ def get_importance_score(example, tgt_model, tokenizer, label_list, batch_size=1
         # 而BERT-ATTACK中的模型，值却没有这么极端，主要在0.99xx左右。
         # 这有什么合理的解释吗？
 
+    return importance_score, replace_token_positions, positions
 
-    return importance_score
 
-
-def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, label_list, max_seq_length, use_bpe, threshold_pred_score, k):
+def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, label_list, max_seq_length, use_bpe, threshold_pred_score, k, batch_size):
     '''
     返回is_success: 
         -1: 尝试了所有可能，但没有成功
@@ -266,7 +281,7 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
                                                     codebert_tgt, 
                                                     tokenizer_tgt, 
                                                     label_list, 
-                                                    batch_size=16, 
+                                                    batch_size=batch_size, 
                                                     max_length=max_seq_length, 
                                                     model_type='classification')
     
@@ -278,6 +293,27 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
 
     code = example.text_b
     words, sub_words, keys = _tokenize(code, tokenizer_mlm)
+    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>")
+    print(code)
+
+    identifiers = get_identifiers(example.text_b)
+
+
+    variable_names = []
+    for name in identifiers:
+        if ' ' in name[0].strip():
+            continue
+        variable_names.append(name[0])
+
+    print("提取出: ", len(variable_names))
+    if len(variable_names) == 0:
+        # 没有提取到identifier，直接退出
+        return -3
+
+
+
+    print(variable_names)
+
     # words是用 ' ' 进行分割code得到的结果
     # 对于words里的每一个词，使用tokenizer_mlm再进行tokenize
     # 得到一组subwords，比如：'decimal_sep,' -> 'dec', 'imal', '_', 'se', 'p'
@@ -298,61 +334,97 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
     word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
     # 只取subwords的部分，忽略首尾的预测结果.
 
-    importance_score = get_importance_score(example, 
+    importance_score, replace_token_positions, names_positions_dict = get_importance_score(example, 
+                                            words,
+                                            variable_names,
                                             codebert_tgt, 
                                             tokenizer_tgt, 
                                             label_list, 
-                                            batch_size=16, 
+                                            batch_size=batch_size, 
                                             max_length=512, 
                                             model_type='classification')
-    # 得到importance_score.
-    list_of_index = sorted(enumerate(importance_score), key=lambda x: x[1], reverse=True)
+    if importance_score is None:
+        # 如果在上一部中没有提取出任何可以mutante的位置
+        return -3
+    assert len(importance_score) == len(replace_token_positions)
+    # replace_token_positions是一个list，表示着，对应位置的importance score
+    # 比如，可能的值为[5, 37, 53, 7, 39, 55, 23, 41, 57]
+    # 则，importance_score中的第i个值，是replace_token_positions[i]这个位置的importance score
+
+    token_pos_to_score_pos = {}
+    for i, token_pos in enumerate(replace_token_positions):
+        try:
+            token_pos_to_score_pos[token_pos].append(i)
+        except:
+            token_pos_to_score_pos[token_pos] = [i]
+
+    # 重新计算Importance score，将所有出现的位置加起来（而不是取平均）.
+
+    names_to_importance_score = {}
+
+    for name in names_positions_dict.keys():
+        total_score = 0.0
+        positions = names_positions_dict[name]
+        for token_pos in positions:
+            # 这个token在code中对应的位置
+            # importance_score中的位置：token_pos_to_score_pos[token_pos]
+            total_score += importance_score[token_pos_to_score_pos[token_pos]][0]
+        
+        names_to_importance_score[name] = total_score
+
+
+    sorted_list_of_names = sorted(names_to_importance_score.items(), key=lambda x: x[1], reverse=True)
     # 根据importance_score进行排序
+
+
+    ## 需要做出一些改变：
+    ## 1. 修改token的时候，得几个位置一起修改
+    ## 2. substitute应该是，几个位置的并集
+
+    list_of_index = sorted(enumerate(importance_score), key=lambda x: x[1], reverse=True)
 
     final_words = copy.deepcopy(words)
     
     change = 0 # 表示被修改的token数量
     is_success = -1
-    for top_index in list_of_index:
-        if change > int(0.4 * (len(words))):
-            # 修改了超过40%的token
-            is_success = 0
-            return is_success
-        tgt_word = words[top_index[0]]
-        # 得到需要被替换的词
 
+    for name_and_score in sorted_list_of_names:
+        tgt_word = name_and_score[0]
+        tgt_positions = names_positions_dict[tgt_word] # 在words中对应的位置
         if tgt_word in python_keywords:
             # 如果在filter_words中就不修改
-            continue
+            continue   
 
-        if keys[top_index[0]][0] > max_seq_length - 2:
-            # 看被修改的词在不在最大长度之外 在就跳过
-            # 这个条件可能要变化，因为可能出现，同一个identifier，一个在，但另一个不在
-            continue
+        ## 得到substitues
+        all_substitues = []
+        for one_pos in tgt_positions:
+            ## 一个变量名会出现很多次
+            substitutes = word_predictions[keys[one_pos][0]:keys[one_pos][1]]  # L, k
+            word_pred_scores = word_pred_scores_all[keys[one_pos][0]:keys[one_pos][1]]
 
-        substitutes = word_predictions[keys[top_index[0]][0]:keys[top_index[0]][1]]  # L, k
-        # 得到每个subwords对应的prediction.
-        # keys[top_index[0]][0]: subwords的开头
-        # keys[top_index[0]][1]: subwords的末尾
-        
-        word_pred_scores = word_pred_scores_all[keys[top_index[0]][0]:keys[top_index[0]][1]]
-
-        substitutes = get_substitues(substitutes, 
-                                    tokenizer_mlm, 
-                                    codebert_mlm, 
-                                    use_bpe, 
-                                    word_pred_scores, 
-                                    threshold_pred_score)
-
-        # 得到substitues
-        # 感觉这一步并没有想象中地好并行，因为涉及到GPU，不知道是否能并行.
-
+            substitutes = get_substitues(substitutes, 
+                                        tokenizer_mlm, 
+                                        codebert_mlm, 
+                                        use_bpe, 
+                                        word_pred_scores, 
+                                        threshold_pred_score)
+            all_substitues += substitutes
+        all_substitues = set(all_substitues)
+        # 得到了所有位置的substitue，并使用set来去重
 
         most_gap = 0.0
         candidate = None
         replace_examples = []
-        for substitute_ in substitutes:
-            substitute = substitute_
+
+        substitute_list = []
+        # 依次记录了被加进来的substitue
+        # 即，每个temp_replace对应的substitue.
+        for substitute_ in all_substitues:
+
+            substitute = substitute_.strip()
+            # FIX: 有些substitue的开头或者末尾会产生空格
+            # 这些头部和尾部的空格在拼接的时候并不影响，但是因为下面的第4个if语句会被跳过
+            # 这导致了部分mutants为空，而引发了runtime error
 
             if substitute == tgt_word:
                 # 如果和原来的词相同
@@ -369,36 +441,40 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
                 # 当有的时候，tokenizer_tgt.convert_tokens_to_string(temp_replace)
                 # 会报 ' ' 这个Key不存在的Error
                 continue
-            
-            # 下面是原来的语句，我觉得有错误，To-Do: 跟原作者确认一下
-            # temp_replace = final_words
             temp_replace = copy.deepcopy(final_words)
-            temp_replace[top_index[0]] = substitute
-            # 对应的位置换掉
+            for one_pos in tgt_positions:
+                temp_replace[one_pos] = substitute
+            
+            substitute_list.append(substitute)
+            # 记录了替换的顺序
 
+            # 需要将几个位置都替换成sustitue_
             temp_code = " ".join(temp_replace)
-
             replace_examples.append(InputExample(0, 
                                             example.text_a, 
                                             temp_code, 
                                             example.label))
-            # 先将他们拼接成拼接起来在进行预测，这样比一个个query要更快.
         
+        if len(replace_examples) == 0:
+            # 并没有生成新的mutants，直接跳去下一个token
+            continue
         new_probs, leave_1_probs_argmax = get_results(replace_examples, 
                                                         codebert_tgt, 
                                                         tokenizer_tgt, 
                                                         label_list, 
-                                                        batch_size=32, 
+                                                        batch_size=batch_size, 
                                                         max_length=max_seq_length, 
                                                         model_type='classification')
-        # 将这个substitue下的mutants
+        assert(len(new_probs) == len(substitute_list))
 
-        for temp_prob in new_probs:
+        for index, temp_prob in enumerate(new_probs):
             temp_label = torch.argmax(temp_prob)
             if temp_label != orig_label:
                 # 如果label改变了，说明这个mutant攻击成功
                 is_success = 1
                 change += 1
+                print(" ".join(temp_replace))
+                print("Number of Changes: ", change)
                 return is_success
             else:
                 # 如果没有攻击成功，我们看probability的修改
@@ -406,15 +482,19 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
                 # 并选择那个最大的gap.
                 if gap > most_gap:
                     most_gap = gap
-                    candidate = substitute
+                    candidate = substitute_list[index]
     
         if most_gap > 0:
             # 如果most_gap > 0，说明有mutant可以让prob减少
             change += 1
             current_prob = current_prob - most_gap
-            final_words[top_index[0]] = candidate
-        
+            for one_pos in tgt_positions:
+                final_words[one_pos] = candidate
+    
+    print("Number of Changes: ", change)
+
     return is_success
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -426,6 +506,7 @@ def main():
     parser.add_argument("--output_dir", type=str, help="Directory to save results")
     parser.add_argument("--num_label", type=int, )
     parser.add_argument("--use_bpe", type=int, )
+    parser.add_argument("--batch_size", type=int, )
     parser.add_argument("--k", type=int, )
     parser.add_argument("--threshold_pred_score", type=float, )
     parser.add_argument("--max_seq_length", default=512, type=int,
@@ -438,6 +519,7 @@ def main():
     mlm_path = str(args.mlm_path)
     tgt_path = str(args.tgt_path)
     output_dir = str(args.output_dir)
+    batch_size = args.batch_size
     num_labels = args.num_label
     use_bpe = args.use_bpe
     k = args.k
@@ -487,7 +569,12 @@ def main():
         # examples[i].label  : label
     
     # turn examples into BERT Tokenized Ids (features)
-    for example in examples:
+
+    sucess_cnt = 0
+    no_tokens_cnt = 0
+    fail_cnt = 0
+    for index, example in enumerate(examples):
+        print("The index is: ", index)
         is_success = attack(example, 
                             codebert_tgt, 
                             tokenizer_tgt, 
@@ -497,8 +584,20 @@ def main():
                             max_seq_length, 
                             use_bpe, 
                             threshold_pred_score, 
-                            k)
-        print(is_success)
+                            k,
+                            batch_size)
+        
+        print("是否成功： ", is_success)
+        if is_success == 1:
+            sucess_cnt += 1
+        elif is_success == -3:
+            no_tokens_cnt += 1
+        else:
+            fail_cnt += 1
+            
+    print("Success count: ", sucess_cnt)
+    print("No token available to be replaced: ", no_tokens_cnt)
+    print("Fail to attack: ", fail_cnt)
 
     
 
