@@ -37,7 +37,7 @@ dfg_function={
 #load parsers
 parsers={}
 for lang in dfg_function:
-    LANGUAGE = Language('parser_folder/my-languages.so', lang)
+    LANGUAGE = Language(path, lang)
     parser = Parser()
     parser.set_language(LANGUAGE)
     parser = [parser,dfg_function[lang]]
@@ -76,7 +76,7 @@ def extract_dataflow(code, lang):
     except:
         DFG=[]
     DFG=sorted(DFG,key=lambda x:x[1])
-    return DFG, index_table
+    return DFG, index_table, code_tokens
 
 def parse_string(input):
     if (input.startswith("\"\"\"") and input.endswith("\"\"\"")) or \
@@ -89,7 +89,7 @@ def parse_string(input):
 
 def get_identifiers(code, lang):
     parser=parsers[lang]
-    dfg, index_table = extract_dataflow(code, lang)
+    dfg, index_table, code_tokens = extract_dataflow(code, lang)
     print("dfg")
     for d in dfg:
         print(d)
@@ -112,7 +112,7 @@ def get_identifiers(code, lang):
                 if d[-1][0] in r[1]:
                     r[1].append(d[1])
                     r[2].append(index_table[d[1]])
-    return ret
+    return ret, code_tokens
 
 
 def main():
