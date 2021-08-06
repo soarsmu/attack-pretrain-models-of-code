@@ -8,16 +8,9 @@ from tree_sitter import Language, Parser
 
 path = 'parser_folder/my-languages.so'
 c_code = """
-#include <stdio.h>
-int main() {    
-    int number1, number2, sum;
-    number1 = 1;
-    number2 = 2;
-    scanf("%d %d", &number1, &number2);
-    sum = number1 + number2;      
-    printf("%d + %d = %d", number1, number2, sum);
-    return 0;
-}
+struct vhost_net *vhost_net_init(int devfd) {
+int a = devfd + 1;
+return NULL; }
 """
 
 python_code = """
@@ -83,19 +76,7 @@ def extract_dataflow(code, lang):
     except:
         DFG=[]
     DFG=sorted(DFG,key=lambda x:x[1])
-    indexs=set()
-    for d in DFG:
-        if len(d[-1])!=0:
-            indexs.add(d[1])
-        for x in d[-1]:
-            indexs.add(x)
-    new_DFG=[]
-    for d in DFG:
-        if d[1] in indexs:
-            new_DFG.append(d)
-    dfg=new_DFG
-    dfg = sorted(dfg, key=lambda x:x[1])
-    return dfg, index_table
+    return DFG, index_table
 
 def parse_string(input):
     if (input.startswith("\"\"\"") and input.endswith("\"\"\"")) or \
