@@ -665,7 +665,9 @@ def main():
             total_cnt += 1
         if is_success == 1:
             success_attack += 1
-
+        
+        if total_cnt == 0:
+            continue
         print("Success rate: ", 1.0 * success_attack / total_cnt)
         print(success_attack)
         print(total_cnt)
