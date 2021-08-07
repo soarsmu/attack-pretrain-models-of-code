@@ -19,10 +19,7 @@ import enum
 from tokenize import tokenize
 import warnings
 from model import Model
-from transformers import (WEIGHTS_NAME, get_linear_schedule_with_warmup, AdamW,
-                          RobertaConfig,
-                          RobertaForSequenceClassification,
-                          RobertaTokenizer)
+
 from torch.utils.data import TensorDataset, SequentialSampler, DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from run import set_seed
@@ -40,7 +37,7 @@ from transformers import (WEIGHTS_NAME, AdamW, get_linear_schedule_with_warmup,
                           BertConfig, BertForMaskedLM, BertTokenizer,
                           GPT2Config, GPT2LMHeadModel, GPT2Tokenizer,
                           OpenAIGPTConfig, OpenAIGPTLMHeadModel, OpenAIGPTTokenizer,
-                          RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer,
+                          RobertaConfig, RobertaForSequenceClassification, RobertaModel, RobertaTokenizer,
                           DistilBertConfig, DistilBertForMaskedLM, DistilBertTokenizer)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning
@@ -48,7 +45,7 @@ MODEL_CLASSES = {
     'gpt2': (GPT2Config, GPT2LMHeadModel, GPT2Tokenizer),
     'openai-gpt': (OpenAIGPTConfig, OpenAIGPTLMHeadModel, OpenAIGPTTokenizer),
     'bert': (BertConfig, BertForMaskedLM, BertTokenizer),
-    'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer),
+    'roberta': (RobertaConfig, RobertaModel, RobertaTokenizer),
     'distilbert': (DistilBertConfig, DistilBertForMaskedLM, DistilBertTokenizer)
 }
 logger = logging.getLogger(__name__)
@@ -116,17 +113,17 @@ def get_bpe_substitues(substitutes, tokenizer, mlm_model):
             all_substitutes = [[int(c)] for c in lev_i]
         else:
             lev_i = []
-            for all_sub in all_substitutes[:24]: # 去掉不用的计算.
+            for all_sub in all_substitutes:
                 for j in substitutes[i]:
                     lev_i.append(all_sub + [int(j)])
             all_substitutes = lev_i
+
     # all substitutes  list of list of token-id (all candidates)
     c_loss = nn.CrossEntropyLoss(reduction='none')
     word_list = []
     # all_substitutes = all_substitutes[:24]
     all_substitutes = torch.tensor(all_substitutes) # [ N, L ]
     all_substitutes = all_substitutes[:24].to('cuda')
-    # 不是，这个总共不会超过24... 那之前生成那么多也没用....
     # print(substitutes.size(), all_substitutes.size())
     N, L = all_substitutes.size()
     word_predictions = mlm_model(all_substitutes)[0] # N L vocab-size
@@ -579,23 +576,24 @@ def main():
     parser.add_argument('--server_ip', type=str, default='', help="For distant debugging.")
     parser.add_argument('--server_port', type=str, default='', help="For distant debugging.")
 
+    
 
     args = parser.parse_args()
 
+    device = torch.device("cuda")
+    args.device = device
 
-    args.device = torch.device("cuda")
     # Set seed
     set_seed(args.seed)
 
+    # Load pretrained model and tokenizer
+    if args.local_rank not in [-1, 0]:
+        torch.distributed.barrier()  # Barrier to make sure only the first process in distributed training download model & vocab
 
     args.start_epoch = 0
     args.start_step = 0
-
-
-    ## Load Target Model
-    checkpoint_last = os.path.join(args.output_dir, 'checkpoint-last') # 读取model的路径
+    checkpoint_last = os.path.join(args.output_dir, 'checkpoint-last')
     if os.path.exists(checkpoint_last) and os.listdir(checkpoint_last):
-        # 如果路径存在且有内容，则从checkpoint load模型
         args.model_name_or_path = os.path.join(checkpoint_last, 'pytorch_model.bin')
         args.config_name = os.path.join(checkpoint_last, 'config.json')
         idx_file = os.path.join(checkpoint_last, 'idx_file.txt')
@@ -606,13 +604,13 @@ def main():
         if os.path.exists(step_file):
             with open(step_file, encoding='utf-8') as stepf:
                 args.start_step = int(stepf.readlines()[0].strip())
-        logger.info("reload model from {}, resume from {} epoch".format(checkpoint_last, args.start_epoch))
 
+        logger.info("reload model from {}, resume from {} epoch".format(checkpoint_last, args.start_epoch))
 
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
     config = config_class.from_pretrained(args.config_name if args.config_name else args.model_name_or_path,
                                           cache_dir=args.cache_dir if args.cache_dir else None)
-    config.num_labels=1 # 只有一个label?
+    config.num_labels=2
     tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name,
                                                 do_lower_case=args.do_lower_case,
                                                 cache_dir=args.cache_dir if args.cache_dir else None)
@@ -627,16 +625,15 @@ def main():
     else:
         model = model_class(config)
 
-    model = Model(model,config,tokenizer,args)
+    model=Model(model,config,tokenizer,args)
 
 
-    checkpoint_prefix = 'checkpoint-best-acc/model.bin'
+    checkpoint_prefix = 'checkpoint-best-f1/model.bin'
     output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
-    model.load_state_dict(torch.load(output_dir))      
+    model.load_state_dict(torch.load(output_dir))
     model.to(args.device)
-    # 会是因为模型不同吗？我看evaluate的时候模型是重新导入的.
 
-
+    
     ## Load CodeBERT (MLM) model
     codebert_mlm = RobertaForMaskedLM.from_pretrained("microsoft/codebert-base-mlm")
     tokenizer_mlm = RobertaTokenizer.from_pretrained("microsoft/codebert-base-mlm")
@@ -665,9 +662,7 @@ def main():
             total_cnt += 1
         if is_success == 1:
             success_attack += 1
-        
-        if total_cnt == 0:
-            continue
+
         print("Success rate: ", 1.0 * success_attack / total_cnt)
         print(success_attack)
         print(total_cnt)

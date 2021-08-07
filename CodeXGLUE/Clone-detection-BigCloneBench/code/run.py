@@ -126,30 +126,57 @@ class TextDataset(Dataset):
         index_filename=file_path
         logger.info("Creating features from index file at %s ", index_filename)
         url_to_code={}
-        with open('/'.join(index_filename.split('/')[:-1])+'/data.jsonl') as f:
-            for line in f:
-                line=line.strip()
-                js=json.loads(line)
-                url_to_code[js['idx']]=js['func']
+        folder = '/'.join(file_path.split('/')[:-1]) # 得到文件目录
 
-        data=[]
-        cache={}
-        f=open(index_filename)
-        with open(index_filename) as f:
-            for line in f:
-                line=line.strip()
-                url1,url2,label=line.split('\t')
-                if url1 not in url_to_code or url2 not in url_to_code:
-                    continue
-                if label=='0':
-                    label=0
-                else:
-                    label=1
-                data.append((url1,url2,label,tokenizer, args,cache,url_to_code))
-        if 'test' not in postfix:
-            data=random.sample(data,int(len(data)*0.1))
+        cache_file_path = os.path.join(folder, 'cached_{}'.format(
+                                    postfix))
+        # 保存下对应的code1和code2
+        code_pairs_file_path = os.path.join(folder, 'cached_{}.pkl'.format(
+                                    postfix))
+        code_pairs = []
+        try:
+            self.examples = torch.load(cache_file_path)
+            with open(code_pairs_file_path, 'rb') as f:
+                code_pairs = pickle.load(f)
+            logger.info("Loading features from cached file %s", cache_file_path)
+        except:
 
-        self.examples=pool.map(get_example,tqdm(data,total=len(data)))
+            # 读取了所有的数据集文件.
+            with open('/'.join(index_filename.split('/')[:-1])+'/data.jsonl') as f:
+                for line in f:
+                    line=line.strip()
+                    js=json.loads(line)
+                    url_to_code[js['idx']]=js['func']
+                    # idx 表示每段代码的id
+
+            data=[]
+            cache={} # 这个cache的意义何在？
+            f=open(index_filename)
+            with open(index_filename) as f:
+                for line in f:
+                    line=line.strip()
+                    url1,url2,label=line.split('\t')
+                    if url1 not in url_to_code or url2 not in url_to_code:
+                        # 在data.jsonl中不存在，直接跳过
+                        continue
+                    if label=='0':
+                        label=0
+                    else:
+                        label=1
+                    data.append((url1,url2,label,tokenizer, args,cache,url_to_code))
+                    # 所有东西都存进来内存不爆炸么....
+            if 'test' not in postfix:
+                data=random.sample(data,int(len(data)*0.1))
+            for sing_example in data:
+                code_pairs.append([sing_example[0], 
+                                    sing_example[1], 
+                                    url_to_code[sing_example[0]], 
+                                    url_to_code[sing_example[1]]])
+            with open(code_pairs_file_path, 'wb') as f:
+                pickle.dump(code_pairs, f)
+            self.examples=pool.map(get_example,tqdm(data,total=len(data)))
+            torch.save(self.examples, cache_file_path)
+        # 这应该就是处理数据的地方了.
         if 'train' in postfix:
             for idx, example in enumerate(self.examples[:3]):
                     logger.info("*** Example ***")
@@ -169,6 +196,7 @@ class TextDataset(Dataset):
 
 
 def load_and_cache_examples(args, tokenizer, evaluate=False,test=False,pool=None):
+    # 问题是，我寻思你们也没cache啊....
     dataset = TextDataset(tokenizer, args, file_path=args.test_data_file if test else (args.eval_data_file if evaluate else args.train_data_file),block_size=args.block_size,pool=pool)
     return dataset
 
@@ -321,6 +349,7 @@ def evaluate(args, model, tokenizer, prefix="",pool=None,eval_when_training=Fals
     # Loop to handle MNLI double evaluation (matched, mis-matched)
     eval_output_dir = args.output_dir
     eval_dataset = load_and_cache_examples(args, tokenizer, evaluate=True,pool=pool)
+    # 得到数据集.
     if not os.path.exists(eval_output_dir) and args.local_rank in [-1, 0]:
         os.makedirs(eval_output_dir)
 
@@ -342,19 +371,21 @@ def evaluate(args, model, tokenizer, prefix="",pool=None,eval_when_training=Fals
     model.eval()
     logits=[]  
     y_trues=[]
-    for batch in eval_dataloader:
+    for batch in tqdm(eval_dataloader):
         inputs = batch[0].to(args.device)        
-        labels=batch[1].to(args.device) 
+        labels = batch[1].to(args.device) 
         with torch.no_grad():
             lm_loss,logit = model(inputs,labels)
             eval_loss += lm_loss.mean().item()
             logits.append(logit.cpu().numpy())
             y_trues.append(labels.cpu().numpy())
+            # ground truth
         nb_eval_steps += 1
     logits=np.concatenate(logits,0)
     y_trues=np.concatenate(y_trues,0)
     best_threshold=0
     best_f1=0
+    # 在validation集上确定best_threshold的.
     for i in range(1,100):
         threshold=i/100
         y_preds=logits[:,1]>threshold
@@ -368,6 +399,7 @@ def evaluate(args, model, tokenizer, prefix="",pool=None,eval_when_training=Fals
             best_f1=f1
             best_threshold=threshold
 
+    # 使用best_threshold来计算指标.
     y_preds=logits[:,1]>best_threshold
     from sklearn.metrics import recall_score
     recall=recall_score(y_trues, y_preds, average='macro')
@@ -411,7 +443,7 @@ def test(args, model, tokenizer, prefix="",pool=None,best_threshold=0):
     model.eval()
     logits=[]  
     y_trues=[]
-    for batch in eval_dataloader:
+    for batch in tqdm(eval_dataloader):
         inputs = batch[0].to(args.device)        
         labels=batch[1].to(args.device) 
         with torch.no_grad():
@@ -598,6 +630,7 @@ def main():
         model = model_class(config)
 
     model=Model(model,config,tokenizer,args)
+    # load 模型.
     if args.local_rank == 0:
         torch.distributed.barrier()  # End of barrier to make sure only the first process in distributed training download model & vocab
 
