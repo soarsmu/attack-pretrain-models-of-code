@@ -168,10 +168,12 @@ class TextDataset(Dataset):
             if 'test' not in postfix:
                 data=random.sample(data,int(len(data)*0.1))
             for sing_example in data:
-                code_pairs.append([sing_example[0], sing_example[1]])
+                code_pairs.append([sing_example[0], 
+                                    sing_example[1], 
+                                    url_to_code[sing_example[0]], 
+                                    url_to_code[sing_example[1]]])
             with open(code_pairs_file_path, 'wb') as f:
                 pickle.dump(code_pairs, f)
-            exit()
             self.examples=pool.map(get_example,tqdm(data,total=len(data)))
             torch.save(self.examples, cache_file_path)
         # 这应该就是处理数据的地方了.
