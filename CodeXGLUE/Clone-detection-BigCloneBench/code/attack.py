@@ -19,7 +19,7 @@ import enum
 from tokenize import tokenize
 import warnings
 from model import Model
-
+import pickle
 from torch.utils.data import TensorDataset, SequentialSampler, DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from run import set_seed
@@ -188,7 +188,7 @@ def get_masked_code_by_position(tokens: list, positions: dict):
 
 
 
-def get_results(dataset, model, batch_size):
+def get_results(dataset, model, batch_size, threshold=0.5):
     '''
     给定example和tgt model，返回预测的label和probability
     '''
@@ -200,7 +200,6 @@ def get_results(dataset, model, batch_size):
     ## Evaluate Model
 
     eval_loss = 0.0
-    nb_eval_steps = 0
     model.eval()
     logits=[] 
     labels=[]
@@ -212,15 +211,14 @@ def get_results(dataset, model, batch_size):
             # 调用这个模型. 重写了反前向传播模型.
             eval_loss += lm_loss.mean().item()
             logits.append(logit.cpu().numpy())
+            # 和defect detection任务不一样，这个的输出就是softmax值，而非sigmoid值
             labels.append(label.cpu().numpy())
-            
-
-        nb_eval_steps += 1
     logits=np.concatenate(logits,0)
     labels=np.concatenate(labels,0)
 
-    probs = [[1 - prob[0], prob[0]] for prob in logits]
-    pred_labels = [1 if label else 0 for label in logits[:,0]>0.5]
+    probs = logits
+    pred_labels = [0 if first_softmax  > threshold else 1 for first_softmax in logits[:,0]]
+    # 如果logits中的一个元素，其一个softmax值 > threshold, 则说明其label为0，反之为1
 
     return probs, pred_labels
 
@@ -281,6 +279,14 @@ def get_importance_score(args, example, code, words_list: list, sub_words: list,
 
     return importance_score, replace_token_positions, positions
 
+def get_code_pairs(file_path):
+    postfix=file_path.split('/')[-1].split('.txt')[0]
+    folder = '/'.join(file_path.split('/')[:-1]) # 得到文件目录
+    code_pairs_file_path = os.path.join(folder, 'cached_{}.pkl'.format(
+                                    postfix))
+    with open(code_pairs_file_path, 'rb') as f:
+        code_pairs = pickle.load(f)
+    return code_pairs
 
 def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, use_bpe, threshold_pred_score):
     '''
@@ -290,10 +296,11 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
          1: 攻击成功
     '''
         # 先得到tgt_model针对原始Example的预测信息.
-
+    code_1 = code[2]
+    code_2 = code[3]
 
     logits, preds = get_results([example], codebert_tgt, args.eval_batch_size)
-    orig_prob = logits[0]
+    orig_prob = logits
     orig_label = preds[0]
     current_prob = max(orig_prob)
 
@@ -301,12 +308,14 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
         # 说明原来就是错的
         return -4
 
-    
     print(">>>>>>>>\n\n")
 
-
-    identifiers, code_tokens = get_identifiers(code, 'c')
+    # To-Do: 这里要注意一下
+    # 这个任务有两段code，我们暂时只攻击第一段.
+    identifiers, code_tokens = get_identifiers(code_1, 'c')
     processed_code = " ".join(code_tokens)
+    print(processed_code)
+    exit()
     
     words, sub_words, keys = _tokenize(processed_code, tokenizer_mlm)
     # 这里经过了小写处理..
@@ -633,36 +642,34 @@ def main():
     model.load_state_dict(torch.load(output_dir))
     model.to(args.device)
 
-    
+
     ## Load CodeBERT (MLM) model
     codebert_mlm = RobertaForMaskedLM.from_pretrained("microsoft/codebert-base-mlm")
     tokenizer_mlm = RobertaTokenizer.from_pretrained("microsoft/codebert-base-mlm")
     codebert_mlm.to('cuda') 
 
-    ## Load Dataset
+    ## Load tensor features
     eval_dataset = TextDataset(tokenizer, args,args.eval_data_file)
+    ## Load code pairs
+    source_codes = get_code_pairs(args.eval_data_file)
+    assert len(source_codes) == len(eval_dataset)
 
-    source_codes = []
-    with open(args.eval_data_file) as f:
-        for line in f:
-            js=json.loads(line.strip())
-            code = ' '.join(js['func'].split())
-            source_codes.append(code)
-    assert(len(source_codes) == len(eval_dataset))
 
     # 现在要尝试计算importance_score了.
     success_attack = 0
     total_cnt = 0
     for index, example in enumerate(eval_dataset):
-        code = source_codes[index]
-        is_success = attack(args, example, code, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
+        code_pair = source_codes[index]
+        is_success = attack(args, example, code_pair, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
 
         if is_success >= -1 :
             # 如果原来正确
             total_cnt += 1
         if is_success == 1:
             success_attack += 1
-
+        
+        if total_cnt == 0:
+            continue
         print("Success rate: ", 1.0 * success_attack / total_cnt)
         print(success_attack)
         print(total_cnt)
