@@ -7,6 +7,7 @@
 import sys
 import os
 from numpy.core.fromnumeric import sort
+from torch import tensor
 from torch.utils.data.dataset import Dataset
 sys.path.append('../../../')
 sys.path.append('../../../python_parser')
@@ -32,7 +33,7 @@ import copy
 import json
 import numpy as np
 from run import InputFeatures
-
+from run import convert_examples_to_features
 from transformers import (WEIGHTS_NAME, AdamW, get_linear_schedule_with_warmup,
                           BertConfig, BertForMaskedLM, BertTokenizer,
                           GPT2Config, GPT2LMHeadModel, GPT2Tokenizer,
@@ -50,7 +51,7 @@ MODEL_CLASSES = {
 }
 logger = logging.getLogger(__name__)
 
-python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">", '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield']
+python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">", '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield', 'void']
 
 
 
@@ -181,7 +182,7 @@ def get_masked_code_by_position(tokens: list, positions: dict):
     replace_token_positions = []
     for variable_name in positions.keys():
         for pos in positions[variable_name]:
-            masked_token_list.append(tokens[0:pos] + ['[UNK]'] + tokens[pos + 1:])
+            masked_token_list.append(tokens[0:pos] + ['<unk>'] + tokens[pos + 1:])
             replace_token_positions.append(pos)
     
     return masked_token_list, replace_token_positions
@@ -222,7 +223,7 @@ def get_results(dataset, model, batch_size, threshold=0.5):
 
     return probs, pred_labels
 
-def convert_code_to_features(code, tokenizer, label, args):
+def convert_code_to_features(code1_tokens,code2_tokens,label,tokenizer,args):
     code_tokens=tokenizer.tokenize(code)[:args.block_size-2]
     source_tokens =[tokenizer.cls_token]+code_tokens+[tokenizer.sep_token]
     source_ids =  tokenizer.convert_tokens_to_ids(source_tokens)
@@ -230,9 +231,11 @@ def convert_code_to_features(code, tokenizer, label, args):
     source_ids+=[tokenizer.pad_token_id]*padding_length
     return InputFeatures(source_tokens,source_ids, 0, label)
 
-def get_importance_score(args, example, code, words_list: list, sub_words: list, variable_names: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
+def get_importance_score(args, example, code, code_2, words_list: list, sub_words: list, variable_names: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
     '''
     计算importance score
+    clone detection的输入有两段代码，code和code_2
+    我们暂时只修改第一段.
     '''
     # label: example[1] tensor(1)
     # 1. 过滤掉所有的keywords.
@@ -249,22 +252,14 @@ def get_importance_score(args, example, code, words_list: list, sub_words: list,
     masked_token_list, replace_token_positions = get_masked_code_by_position(words_list, positions)
     # replace_token_positions 表示着，哪一个位置的token被替换了.
 
-
-    for index, tokens in enumerate([words_list] + masked_token_list):
-        new_code = ' '.join(tokens)
-        new_feature = convert_code_to_features(new_code, tokenizer, example[1].item(), args)
+    code2_tokens, _, _ = _tokenize(code_2, tokenizer)
+    for index, code1_tokens in enumerate([words_list] + masked_token_list):
+        new_feature = convert_examples_to_features(code1_tokens,code2_tokens,example[1].item(), None, None,tokenizer,args, None)
         new_example.append(new_feature)
+
     new_dataset = CodeDataset(new_example)
     # 3. 将他们转化成features
     logits, preds = get_results(new_dataset, tgt_model, args.eval_batch_size)
-    # leave_1_probs, leave_1_probs_argmax = get_results(new_example, 
-    #             tgt_model, 
-    #             tokenizer, 
-    #             label_list, 
-    #             batch_size=batch_size, 
-    #             max_length=512, 
-    #             model_type='classification')
-    ## leave_1_probs_argmax
     ## 这个估计就是label.
     orig_probs = logits[0]
     orig_label = preds[0]
@@ -302,7 +297,7 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     logits, preds = get_results([example], codebert_tgt, args.eval_batch_size)
     orig_prob = logits
     orig_label = preds[0]
-    current_prob = max(orig_prob)
+    current_prob = max(orig_prob[0])
 
     if not orig_label == example[1].item():
         # 说明原来就是错的
@@ -312,12 +307,18 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
 
     # To-Do: 这里要注意一下
     # 这个任务有两段code，我们暂时只攻击第一段.
-    identifiers, code_tokens = get_identifiers(code_1, 'c')
+    # 因此我们还需要将两段拼起来，再计算Imporance score.
+    # 或者，我们可以在<mask>的时候，以长度为分割，只mask第一段.
+    identifiers, code_tokens = get_identifiers(code_1, 'java') # 只得到code_1中的identifier
     processed_code = " ".join(code_tokens)
-    print(processed_code)
-    exit()
+
+    identifiers_2, code_tokens_2 = get_identifiers(code_2, 'java')
+    processed_code_2 = " ".join(code_tokens_2)
+    ### 第二段代码处理后的内容. 
     
     words, sub_words, keys = _tokenize(processed_code, tokenizer_mlm)
+    words_2, _, _ = _tokenize(processed_code_2, tokenizer_mlm)
+
     # 这里经过了小写处理..
 
 
@@ -326,11 +327,11 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
         if ' ' in name[0].strip() or name[0].lower() in variable_names:
             continue
         variable_names.append(name[0].lower())
-
     print("Number of identifiers extracted: ", len(variable_names))
     if len(variable_names) == 0:
         # 没有提取到identifier，直接退出
         return -3
+
 
     sub_words = [tokenizer_tgt.cls_token] + sub_words[:args.block_size - 2] + [tokenizer_tgt.sep_token]
     # 如果长度超了，就截断；这里的block_size是CodeBERT能接受的输入长度
@@ -342,11 +343,12 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     word_predictions = word_predictions[1:len(sub_words) + 1, :]
     word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
     # 只取subwords的部分，忽略首尾的预测结果.
+    # 得到了第一段代码的substitues.
 
     # 计算importance_score.
-
+    # 在计算Importance score时，我们只关心第一段代码中variable的score.
     importance_score, replace_token_positions, names_positions_dict = get_importance_score(args, example, 
-                                            processed_code,
+                                            processed_code, processed_code_2,
                                             words,
                                             sub_words,
                                             variable_names,
@@ -378,8 +380,6 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
 
     sorted_list_of_names = sorted(names_to_importance_score.items(), key=lambda x: x[1], reverse=True)
     # 根据importance_score进行排序
-
-    list_of_index = sorted(enumerate(importance_score), key=lambda x: x[1], reverse=True)
 
     final_words = copy.deepcopy(words)
     
@@ -418,7 +418,6 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
         # 依次记录了被加进来的substitue
         # 即，每个temp_replace对应的substitue.
         for substitute_ in all_substitues:
-
             substitute = substitute_.strip()
             # FIX: 有些substitue的开头或者末尾会产生空格
             # 这些头部和尾部的空格在拼接的时候并不影响，但是因为下面的第4个if语句会被跳过
@@ -449,9 +448,13 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
             # 记录了替换的顺序
 
             # 需要将几个位置都替换成sustitue_
-            temp_code = " ".join(temp_replace)
-                                            
-            new_feature = convert_code_to_features(temp_code, tokenizer_tgt, example[1].item(), args)
+            # 需要重新convert to features
+            new_feature = convert_examples_to_features(temp_replace, 
+                                                    words_2,
+                                                    example[1].item(), 
+                                                    None, None,
+                                                    tokenizer_tgt,
+                                                    args, None)
             replace_examples.append(new_feature)
         if len(replace_examples) == 0:
             # 并没有生成新的mutants，直接跳去下一个token
