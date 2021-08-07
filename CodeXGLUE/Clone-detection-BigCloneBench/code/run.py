@@ -130,8 +130,14 @@ class TextDataset(Dataset):
 
         cache_file_path = os.path.join(folder, 'cached_{}'.format(
                                     postfix))
+        # 保存下对应的code1和code2
+        code_pairs_file_path = os.path.join(folder, 'cached_{}.pkl'.format(
+                                    postfix))
+        code_pairs = []
         try:
             self.examples = torch.load(cache_file_path)
+            with open(code_pairs_file_path, 'rb') as f:
+                code_pairs = pickle.load(f)
             logger.info("Loading features from cached file %s", cache_file_path)
         except:
 
@@ -161,7 +167,11 @@ class TextDataset(Dataset):
                     # 所有东西都存进来内存不爆炸么....
             if 'test' not in postfix:
                 data=random.sample(data,int(len(data)*0.1))
-
+            for sing_example in data:
+                code_pairs.append([sing_example[0], sing_example[1]])
+            with open(code_pairs_file_path, 'wb') as f:
+                pickle.dump(code_pairs, f)
+            exit()
             self.examples=pool.map(get_example,tqdm(data,total=len(data)))
             torch.save(self.examples, cache_file_path)
         # 这应该就是处理数据的地方了.
