@@ -209,7 +209,6 @@ def get_results(example: list, tgt_model, tokenizer, label_list, batch_size=16, 
             outputs = tgt_model(**inputs)
             tmp_eval_loss, logits = outputs[:2]
             leave_1_probs.append(logits)
-
         leave_1_probs = torch.cat(leave_1_probs, dim=0)
         leave_1_probs = torch.softmax(leave_1_probs, -1) 
         leave_1_probs_argmax = torch.argmax(leave_1_probs, dim=-1)
@@ -246,7 +245,7 @@ def get_importance_score(example, words_list: list, variable_names: list, tgt_mo
                 tgt_model, 
                 tokenizer, 
                 label_list, 
-                batch_size=16, 
+                batch_size=batch_size, 
                 max_length=512, 
                 model_type='classification')
 
@@ -270,7 +269,7 @@ def get_importance_score(example, words_list: list, variable_names: list, tgt_mo
     return importance_score, replace_token_positions, positions
 
 
-def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, label_list, max_seq_length, use_bpe, threshold_pred_score, k):
+def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, label_list, max_seq_length, use_bpe, threshold_pred_score, k, batch_size):
     '''
     返回is_success: 
         -1: 尝试了所有可能，但没有成功
@@ -282,7 +281,7 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
                                                     codebert_tgt, 
                                                     tokenizer_tgt, 
                                                     label_list, 
-                                                    batch_size=16, 
+                                                    batch_size=batch_size, 
                                                     max_length=max_seq_length, 
                                                     model_type='classification')
     
@@ -298,12 +297,20 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
     print(code)
 
     identifiers = get_identifiers(example.text_b)
-    print("提取出: ", len(identifiers))
-    if len(identifiers) == 0:
+
+
+    variable_names = []
+    for name in identifiers:
+        if ' ' in name[0].strip():
+            continue
+        variable_names.append(name[0])
+
+    print("提取出: ", len(variable_names))
+    if len(variable_names) == 0:
         # 没有提取到identifier，直接退出
         return -3
 
-    variable_names = [names[0] for names in identifiers]
+
 
     print(variable_names)
 
@@ -333,12 +340,12 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
                                             codebert_tgt, 
                                             tokenizer_tgt, 
                                             label_list, 
-                                            batch_size=16, 
+                                            batch_size=batch_size, 
                                             max_length=512, 
                                             model_type='classification')
     if importance_score is None:
         # 如果在上一部中没有提取出任何可以mutante的位置
-        return -4 
+        return -3
     assert len(importance_score) == len(replace_token_positions)
     # replace_token_positions是一个list，表示着，对应位置的importance score
     # 比如，可能的值为[5, 37, 53, 7, 39, 55, 23, 41, 57]
@@ -447,12 +454,15 @@ def attack(example, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, la
                                             example.text_a, 
                                             temp_code, 
                                             example.label))
-
+        
+        if len(replace_examples) == 0:
+            # 并没有生成新的mutants，直接跳去下一个token
+            continue
         new_probs, leave_1_probs_argmax = get_results(replace_examples, 
                                                         codebert_tgt, 
                                                         tokenizer_tgt, 
                                                         label_list, 
-                                                        batch_size=32, 
+                                                        batch_size=batch_size, 
                                                         max_length=max_seq_length, 
                                                         model_type='classification')
         assert(len(new_probs) == len(substitute_list))
@@ -496,6 +506,7 @@ def main():
     parser.add_argument("--output_dir", type=str, help="Directory to save results")
     parser.add_argument("--num_label", type=int, )
     parser.add_argument("--use_bpe", type=int, )
+    parser.add_argument("--batch_size", type=int, )
     parser.add_argument("--k", type=int, )
     parser.add_argument("--threshold_pred_score", type=float, )
     parser.add_argument("--max_seq_length", default=512, type=int,
@@ -508,6 +519,7 @@ def main():
     mlm_path = str(args.mlm_path)
     tgt_path = str(args.tgt_path)
     output_dir = str(args.output_dir)
+    batch_size = args.batch_size
     num_labels = args.num_label
     use_bpe = args.use_bpe
     k = args.k
@@ -557,9 +569,11 @@ def main():
         # examples[i].label  : label
     
     # turn examples into BERT Tokenized Ids (features)
+
+    sucess_cnt = 0
+    no_tokens_cnt = 0
+    fail_cnt = 0
     for index, example in enumerate(examples):
-        if index < 218:
-            continue
         print("The index is: ", index)
         is_success = attack(example, 
                             codebert_tgt, 
@@ -570,8 +584,20 @@ def main():
                             max_seq_length, 
                             use_bpe, 
                             threshold_pred_score, 
-                            k)
+                            k,
+                            batch_size)
+        
         print("是否成功： ", is_success)
+        if is_success == 1:
+            sucess_cnt += 1
+        elif is_success == -3:
+            no_tokens_cnt += 1
+        else:
+            fail_cnt += 1
+            
+    print("Success count: ", sucess_cnt)
+    print("No token available to be replaced: ", no_tokens_cnt)
+    print("Fail to attack: ", fail_cnt)
 
     
 

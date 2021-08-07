@@ -20,3 +20,10 @@ parser/parser/my-languages.so
 my-languages.so
 .idea/
 venv/
+CodeXGLUE/Code-Search-Adv/dataset/
+
+CodeXGLUE/Defect-detection/code/saved_models/
+*.log
+CodeXGLUE/Defect-detection/preprocess/dataset/
+CodeXGLUE/Code-Search-Adv/code/saved_models/
+CodeXGLUE/Clone-detection-BigCloneBench/code/saved_models/
