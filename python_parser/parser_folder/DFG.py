@@ -182,11 +182,13 @@ def DFG_java(root_node,index_to_code,states):
     assignment=['assignment_expression']
     def_statement=['variable_declarator']
     increment_statement=['update_expression']
+    method_expression=['method_invocation']
     if_statement=['if_statement','else']
     for_statement=['for_statement']
     enhanced_for_statement=['enhanced_for_statement']
     while_statement=['while_statement']
-    do_first_statement=[]    
+    do_first_statement=[]
+    parent_exceptions = ['ERROR', 'catch_formal_parameter']
     states=states.copy()
     if (len(root_node.children)==0 or root_node.type=='string') and root_node.type!='comment':
         idx,code=index_to_code[(root_node.start_point,root_node.end_point)]
@@ -195,6 +197,8 @@ def DFG_java(root_node,index_to_code,states):
         elif code in states:
             return [(code,idx,'comesFrom',[code],states[code].copy())],states
         elif root_node.type=='identifier':
+            if root_node.parent.type in parent_exceptions:
+                return [],states
             states[code]=[idx]
             return [(code,idx,'comesFrom',[],[])],states
         else:
@@ -207,6 +211,9 @@ def DFG_java(root_node,index_to_code,states):
             indexs=tree_to_variable_index(name,index_to_code)
             for index in indexs:
                 idx,code=index_to_code[index]
+                if root_node.parent.parent.type == 'program':
+                    print(root_node)
+                    print(code)
                 DFG.append((code,idx,'comesFrom',[],[]))
                 states[code]=[idx]
             return sorted(DFG,key=lambda x:x[1]),states
@@ -327,7 +334,7 @@ def DFG_java(root_node,index_to_code,states):
                 dic[(x[0],x[1],x[2])][1]=sorted(list(set(dic[(x[0],x[1],x[2])][1]+x[4])))
         DFG=[(x[0],x[1],x[2],y[0],y[1]) for x,y in sorted(dic.items(),key=lambda t:t[0][1])]
         return sorted(DFG,key=lambda x:x[1]),states
-    elif root_node.type in while_statement:  
+    elif root_node.type in while_statement:
         DFG=[]
         for i in range(2):
             for child in root_node.children:
@@ -341,18 +348,22 @@ def DFG_java(root_node,index_to_code,states):
                 dic[(x[0],x[1],x[2])][0]=list(set(dic[(x[0],x[1],x[2])][0]+x[3]))
                 dic[(x[0],x[1],x[2])][1]=sorted(list(set(dic[(x[0],x[1],x[2])][1]+x[4])))
         DFG=[(x[0],x[1],x[2],y[0],y[1]) for x,y in sorted(dic.items(),key=lambda t:t[0][1])]
-        return sorted(DFG,key=lambda x:x[1]),states        
+        return sorted(DFG,key=lambda x:x[1]),states
+    elif root_node.type in method_expression and root_node.child_by_field_name('object') is not None:
+        DFG = []
+        obj_node = root_node.child_by_field_name('object')
+        arg_node = root_node.child_by_field_name('arguments')
+        temp,states = DFG_java(obj_node,index_to_code,states)
+        DFG += temp
+        temp,states = DFG_java(arg_node,index_to_code,states)
+        DFG += temp
+        return sorted(DFG,key=lambda x:x[1]),states
+
     else:
         DFG=[]
         for child in root_node.children:
-            if child.type in do_first_statement:
-                temp,states=DFG_java(child,index_to_code,states)
-                DFG+=temp
-        for child in root_node.children:
-            if child.type not in do_first_statement:
-                temp,states=DFG_java(child,index_to_code,states)
-                DFG+=temp
-        
+            temp,states=DFG_java(child,index_to_code,states)
+            DFG+=temp
         return sorted(DFG,key=lambda x:x[1]),states
 
 def DFG_c(root_node, index_to_code, states):

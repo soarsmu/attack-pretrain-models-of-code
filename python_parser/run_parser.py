@@ -14,19 +14,30 @@ return NULL; }
 """
 
 python_code = """
-print("Hello World");
-print("Hello World");
+def printl(a):
+    print("Hello World");
+    print("Hello World");
 """
 
 java_code = """
-public static void main(String[] args)   
-{   
-//declaration of different datatypes   
-int num = 122;   
-char ch = 'A';
-int num1;
-num1 = num + 1;    
-}   
+ private void updateHoraatendo(Integer codemp, Integer codfilial, Integer codatendo, String horaatendo, String horaatendofin) throws SQLException {
+        StringBuilder sql = new StringBuilder();
+        sql.append("update atatendimento set horaatendo=?, horaatendofin=? ");
+        sql.append("where codemp=? and codfilial=? and codatendo=?");
+        PreparedStatement ps = getConn().prepareStatement(sql.toString());
+        ps.setTime(1, Funcoes.strTimeToSqlTime(horaatendo, false));
+        ps.setTime(2, Funcoes.strTimeToSqlTime(horaatendofin, false));
+        ps.setInt(3, codemp);
+        ps.setInt(4, codfilial);
+        ps.setInt(5, codatendo);
+        ps.executeUpdate();
+        ps.close();
+        try {
+            getConn().commit();
+        } catch (SQLException e) {
+            getConn().rollback();
+        }
+    }  
 """
 dfg_function={
     'python':DFG_python,
