@@ -30,3 +30,4 @@ CodeXGLUE/Clone-detection-BigCloneBench/code/saved_models/
 CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_train
 CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test
 CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_valid
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/*.pkl
