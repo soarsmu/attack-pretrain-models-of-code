@@ -102,7 +102,9 @@ def get_identifier_posistions_from_code(words_list: list, variable_names: list) 
     return positions
 
 def get_bpe_substitues(substitutes, tokenizer, mlm_model):
-    # To-Do: 这里我并没有理解.
+    '''
+    得到substitues
+    '''
     # substitutes L, k
 
     substitutes = substitutes[0:12, 0:4] # maximum BPE candidates
@@ -184,7 +186,7 @@ def get_masked_code_by_position(tokens: list, positions: dict):
     replace_token_positions = []
     for variable_name in positions.keys():
         for pos in positions[variable_name]:
-            masked_token_list.append(tokens[0:pos] + ['[UNK]'] + tokens[pos + 1:])
+            masked_token_list.append(tokens[0:pos] + ['<unk>'] + tokens[pos + 1:])
             replace_token_positions.append(pos)
     
     return masked_token_list, replace_token_positions
@@ -247,7 +249,6 @@ def get_importance_score(args, example, code, words_list: list, sub_words: list,
         ## 没有提取出可以mutate的position
         return None, None, None
 
-    # tokens = example.text_b.split(" ")
     new_example = []
 
     # 2. 得到Masked_tokens
@@ -262,15 +263,6 @@ def get_importance_score(args, example, code, words_list: list, sub_words: list,
     new_dataset = CodeDataset(new_example)
     # 3. 将他们转化成features
     logits, preds = get_results(new_dataset, tgt_model, args.eval_batch_size)
-    # leave_1_probs, leave_1_probs_argmax = get_results(new_example, 
-    #             tgt_model, 
-    #             tokenizer, 
-    #             label_list, 
-    #             batch_size=batch_size, 
-    #             max_length=512, 
-    #             model_type='classification')
-    ## leave_1_probs_argmax
-    ## 这个估计就是label.
     orig_probs = logits[0]
     orig_label = preds[0]
     # 第一个是original code的数据.
