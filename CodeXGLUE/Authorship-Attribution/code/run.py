@@ -78,20 +78,19 @@ class InputFeatures(object):
         self.label=label
 
         
-def convert_examples_to_features(js,tokenizer,args):
+def convert_examples_to_features(code, label, tokenizer,args):
     #source
-    code=' '.join(js['func'].split())
     code_tokens=tokenizer.tokenize(code)[:args.block_size-2]
     source_tokens =[tokenizer.cls_token]+code_tokens+[tokenizer.sep_token]
     source_ids =  tokenizer.convert_tokens_to_ids(source_tokens)
     padding_length = args.block_size - len(source_ids)
     source_ids+=[tokenizer.pad_token_id]*padding_length
-    return InputFeatures(source_tokens,source_ids,js['idx'],js['target'])
+    return InputFeatures(source_tokens,source_ids,0,label)
 
 class TextDataset(Dataset):
     def __init__(self, tokenizer, args, file_path=None):
         self.examples = []
-        # 首先看看有没有cache的文件.
+        # To-Do: 这里需要根据code authorship的数据集重新做.
         file_type = file_path.split('/')[-1].split('.')[0]
         folder = '/'.join(file_path.split('/')[:-1]) # 得到文件目录
 
@@ -107,8 +106,10 @@ class TextDataset(Dataset):
             logger.info("Creating features from dataset file at %s", file_path)
             with open(file_path) as f:
                 for line in f:
-                    js=json.loads(line.strip())
-                    self.examples.append(convert_examples_to_features(js,tokenizer,args))
+                    code = line.split(" <CODESPLIT> ")[0]
+                    label = line.split(" <CODESPLIT> ")[1]
+                    # 将这俩内容转化成input.
+                    self.examples.append(convert_examples_to_features(code, int(label), tokenizer,args))
                     # 这里每次都是重新读取并处理数据集，能否cache然后load
             logger.info("Saving features into cached file %s", cache_file_path)
             torch.save(self.examples, cache_file_path)
