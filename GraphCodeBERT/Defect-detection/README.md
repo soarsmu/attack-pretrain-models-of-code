@@ -131,7 +131,7 @@ python run.py \
 python ../evaluator/evaluator.py -a ../preprocess/dataset/test.jsonl -p saved_models/predictions.txt
 ```
 
-{'Acc': 0.6478770131771596}
+{'Acc': 0.640190336749634}
 
 ## Result
 
