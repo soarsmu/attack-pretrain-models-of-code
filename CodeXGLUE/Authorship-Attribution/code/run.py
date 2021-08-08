@@ -29,12 +29,12 @@ import pickle
 import random
 import re
 import shutil
-
+import json
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampler,TensorDataset
 from torch.utils.data.distributed import DistributedSampler
-import json
+
 try:
     from torch.utils.tensorboard import SummaryWriter
 except:
@@ -43,12 +43,13 @@ except:
 from tqdm import tqdm, trange
 import multiprocessing
 from model import Model
-cpu_cont = multiprocessing.cpu_count()
+
+cpu_cont = 16
 from transformers import (WEIGHTS_NAME, AdamW, get_linear_schedule_with_warmup,
                           BertConfig, BertForMaskedLM, BertTokenizer,
                           GPT2Config, GPT2LMHeadModel, GPT2Tokenizer,
                           OpenAIGPTConfig, OpenAIGPTLMHeadModel, OpenAIGPTTokenizer,
-                          RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer,
+                          RobertaConfig, RobertaModel, RobertaTokenizer,
                           DistilBertConfig, DistilBertForMaskedLM, DistilBertTokenizer)
 
 logger = logging.getLogger(__name__)
@@ -57,10 +58,30 @@ MODEL_CLASSES = {
     'gpt2': (GPT2Config, GPT2LMHeadModel, GPT2Tokenizer),
     'openai-gpt': (OpenAIGPTConfig, OpenAIGPTLMHeadModel, OpenAIGPTTokenizer),
     'bert': (BertConfig, BertForMaskedLM, BertTokenizer),
-    'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer),
+    'roberta': (RobertaConfig, RobertaModel, RobertaTokenizer),
     'distilbert': (DistilBertConfig, DistilBertForMaskedLM, DistilBertTokenizer)
 }
 
+def get_example(item):
+    url1,url2,label,tokenizer,args,cache,url_to_code=item
+    if url1 in cache:
+        code1=cache[url1].copy()
+    else:
+        try:
+            code=' '.join(url_to_code[url1].split())
+        except:
+            code=""
+        code1=tokenizer.tokenize(code)
+    if url2 in cache:
+        code2=cache[url2].copy()
+    else:
+        try:
+            code=' '.join(url_to_code[url2].split())
+        except:
+            code=""
+        code2=tokenizer.tokenize(code)
+        
+    return convert_examples_to_features(code1,code2,label,url1,url2,tokenizer,args,cache)
 
 
 class InputFeatures(object):
@@ -76,7 +97,6 @@ class InputFeatures(object):
         self.input_ids = input_ids
         self.idx=str(idx)
         self.label=label
-
         
 def convert_examples_to_features(code, label, tokenizer,args):
     #source
@@ -122,12 +142,20 @@ class TextDataset(Dataset):
                     logger.info("input_tokens: {}".format([x.replace('\u0120','_') for x in example.input_tokens]))
                     logger.info("input_ids: {}".format(' '.join(map(str, example.input_ids))))
 
+
+
     def __len__(self):
         return len(self.examples)
 
-    def __getitem__(self, i):       
-        return torch.tensor(self.examples[i].input_ids),torch.tensor(self.examples[i].label)
-            
+    def __getitem__(self, item):
+        
+        return torch.tensor(self.examples[item].input_ids),torch.tensor(self.examples[item].label)
+
+
+def load_and_cache_examples(args, tokenizer, evaluate=False,test=False,pool=None):
+    # 问题是，我寻思你们也没cache啊....
+    dataset = TextDataset(tokenizer, args, file_path=args.test_data_file if test else (args.eval_data_file if evaluate else args.train_data_file),block_size=args.block_size,pool=pool)
+    return dataset
 
 def set_seed(seed=42):
     random.seed(seed)
@@ -137,14 +165,13 @@ def set_seed(seed=42):
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
 
+def train(args, train_dataset, model, tokenizer,pool):
+    """ Train the model """
 
-def train(args, train_dataset, model, tokenizer):
-    """ Train the model """ 
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
     train_sampler = RandomSampler(train_dataset) if args.local_rank == -1 else DistributedSampler(train_dataset)
     
-    train_dataloader = DataLoader(train_dataset, sampler=train_sampler, 
-                                  batch_size=args.train_batch_size,num_workers=4,pin_memory=True)
+    train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
     args.max_steps=args.epoch*len( train_dataloader)
     args.save_steps=len( train_dataloader)
     args.warmup_steps=len( train_dataloader)
@@ -159,7 +186,7 @@ def train(args, train_dataset, model, tokenizer):
         {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
     ]
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
-    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.max_steps*0.1,
+    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps,
                                                 num_training_steps=args.max_steps)
     if args.fp16:
         try:
@@ -199,9 +226,10 @@ def train(args, train_dataset, model, tokenizer):
     global_step = args.start_step
     tr_loss, logging_loss,avg_loss,tr_nb,tr_num,train_loss = 0.0, 0.0,0.0,0,0,0
     best_mrr=0.0
-    best_acc=0.0
+    best_f1=0
     # model.resize_token_embeddings(len(tokenizer))
     model.zero_grad()
+    set_seed(args.seed)  # Added here for reproducibility (even between python 2 and 3)
  
     for idx in range(args.start_epoch, int(args.num_train_epochs)): 
         bar = tqdm(train_dataloader,total=len(train_dataloader))
@@ -250,18 +278,16 @@ def train(args, train_dataset, model, tokenizer):
                 if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
                     
                     if args.local_rank == -1 and args.evaluate_during_training:  # Only evaluate when single GPU otherwise metrics may not average well
-                        results = evaluate(args, model, tokenizer,eval_when_training=True)
-                        for key, value in results.items():
-                            logger.info("  %s = %s", key, round(value,4))                    
+                        results = evaluate(args, model, tokenizer,pool=pool,eval_when_training=True)                 
                         # Save model checkpoint
-                        
-                    if results['eval_acc']>best_acc:
-                        best_acc=results['eval_acc']
+
+                    if results['eval_f1']>best_f1:
+                        best_f1=results['eval_f1']
                         logger.info("  "+"*"*20)  
-                        logger.info("  Best acc:%s",round(best_acc,4))
+                        logger.info("  Best f1:%s",round(best_f1,4))
                         logger.info("  "+"*"*20)                          
                         
-                        checkpoint_prefix = 'checkpoint-best-acc'
+                        checkpoint_prefix = 'checkpoint-best-f1'
                         output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))                        
                         if not os.path.exists(output_dir):
                             os.makedirs(output_dir)                        
@@ -270,15 +296,17 @@ def train(args, train_dataset, model, tokenizer):
                         torch.save(model_to_save.state_dict(), output_dir)
                         logger.info("Saving model checkpoint to %s", output_dir)
                         
+        if args.max_steps > 0 and global_step > args.max_steps:
+            train_iterator.close()
+            break
+    return global_step, tr_loss / global_step
 
 
-
-def evaluate(args, model, tokenizer,eval_when_training=False):
+def evaluate(args, model, tokenizer, prefix="",pool=None,eval_when_training=False):
     # Loop to handle MNLI double evaluation (matched, mis-matched)
     eval_output_dir = args.output_dir
-
-    eval_dataset = TextDataset(tokenizer, args,args.eval_data_file)
-
+    eval_dataset = load_and_cache_examples(args, tokenizer, evaluate=True,pool=pool)
+    # 得到数据集.
     if not os.path.exists(eval_output_dir) and args.local_rank in [-1, 0]:
         os.makedirs(eval_output_dir)
 
@@ -292,79 +320,107 @@ def evaluate(args, model, tokenizer,eval_when_training=False):
         model = torch.nn.DataParallel(model)
 
     # Eval!
-    logger.info("***** Running evaluation *****")
+    logger.info("***** Running evaluation {} *****".format(prefix))
     logger.info("  Num examples = %d", len(eval_dataset))
     logger.info("  Batch size = %d", args.eval_batch_size)
     eval_loss = 0.0
     nb_eval_steps = 0
     model.eval()
-    logits=[] 
-    labels=[]
-    for batch in eval_dataloader:
+    logits=[]  
+    y_trues=[]
+    for batch in tqdm(eval_dataloader):
         inputs = batch[0].to(args.device)        
-        label=batch[1].to(args.device) 
+        labels = batch[1].to(args.device) 
+        print(batch[1])
         with torch.no_grad():
-            lm_loss,logit = model(inputs,label)
+            lm_loss,logit = model(inputs,labels)
             eval_loss += lm_loss.mean().item()
             logits.append(logit.cpu().numpy())
-            labels.append(label.cpu().numpy())
+            y_trues.append(labels.cpu().numpy())
+            # ground truth
+        print(logits)
+        exit()
         nb_eval_steps += 1
     logits=np.concatenate(logits,0)
-    labels=np.concatenate(labels,0)
-    preds=logits[:,0]>0.5
-    eval_acc=np.mean(labels==preds)
-    eval_loss = eval_loss / nb_eval_steps
-    perplexity = torch.tensor(eval_loss)
-            
+    y_trues=np.concatenate(y_trues,0)
+    best_threshold=0
+    best_f1=0
+    # 在validation集上确定best_threshold的.
+    for i in range(1,100):
+        threshold=i/100
+        y_preds=logits[:,1]>threshold
+        from sklearn.metrics import recall_score
+        recall=recall_score(y_trues, y_preds, average='macro')
+        from sklearn.metrics import precision_score
+        precision=precision_score(y_trues, y_preds, average='macro')   
+        from sklearn.metrics import f1_score
+        f1=f1_score(y_trues, y_preds, average='macro') 
+        if f1>best_f1:
+            best_f1=f1
+            best_threshold=threshold
+
+    # 使用best_threshold来计算指标.
+    y_preds=logits[:,1]>best_threshold
+    from sklearn.metrics import recall_score
+    recall=recall_score(y_trues, y_preds, average='macro')
+    from sklearn.metrics import precision_score
+    precision=precision_score(y_trues, y_preds, average='macro')   
+    from sklearn.metrics import f1_score
+    f1=f1_score(y_trues, y_preds, average='macro')             
     result = {
-        "eval_loss": float(perplexity),
-        "eval_acc":round(eval_acc,4),
+        "eval_recall": float(recall),
+        "eval_precision": float(precision),
+        "eval_f1": float(f1),
+        "eval_threshold":best_threshold,
+        
     }
+
+    logger.info("***** Eval results {} *****".format(prefix))
+    for key in sorted(result.keys()):
+        logger.info("  %s = %s", key, str(round(result[key],4)))
+
     return result
 
-def test(args, model, tokenizer):
+def test(args, model, tokenizer, prefix="",pool=None,best_threshold=0):
     # Loop to handle MNLI double evaluation (matched, mis-matched)
-    eval_dataset = TextDataset(tokenizer, args,args.test_data_file)
-
+    eval_dataset = load_and_cache_examples(args, tokenizer, test=True,pool=pool)
 
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
     # Note that DistributedSampler samples randomly
     eval_sampler = SequentialSampler(eval_dataset) if args.local_rank == -1 else DistributedSampler(eval_dataset)
-    eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
+    eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size,num_workers=4,pin_memory=True)
 
     # multi-gpu evaluate
     if args.n_gpu > 1:
         model = torch.nn.DataParallel(model)
 
     # Eval!
-    logger.info("***** Running Test *****")
+    logger.info("***** Running Test {} *****".format(prefix))
     logger.info("  Num examples = %d", len(eval_dataset))
     logger.info("  Batch size = %d", args.eval_batch_size)
     eval_loss = 0.0
     nb_eval_steps = 0
     model.eval()
-    logits=[]   
-    labels=[]
-    for batch in tqdm(eval_dataloader,total=len(eval_dataloader)):
+    logits=[]  
+    y_trues=[]
+    for batch in tqdm(eval_dataloader):
         inputs = batch[0].to(args.device)        
-        label=batch[1].to(args.device) 
+        labels=batch[1].to(args.device) 
         with torch.no_grad():
-            logit = model(inputs)
+            lm_loss,logit = model(inputs,labels)
+            eval_loss += lm_loss.mean().item()
             logits.append(logit.cpu().numpy())
-            labels.append(label.cpu().numpy())
-
+            y_trues.append(labels.cpu().numpy())
+        nb_eval_steps += 1
     logits=np.concatenate(logits,0)
-    labels=np.concatenate(labels,0)
-    preds=logits[:,0]>0.5
+    y_preds=logits[:,1]>best_threshold
     with open(os.path.join(args.output_dir,"predictions.txt"),'w') as f:
-        for example,pred in zip(eval_dataset.examples,preds):
+        for example,pred in zip(eval_dataset.examples,y_preds):
             if pred:
-                f.write(example.idx+'\t1\n')
+                f.write(example.url1+'\t'+example.url2+'\t'+'1'+'\n')
             else:
-                f.write(example.idx+'\t0\n')    
-    
-                        
-                        
+                f.write(example.url1+'\t'+example.url2+'\t'+'0'+'\n')
+                                                
 def main():
     parser = argparse.ArgumentParser()
 
@@ -460,9 +516,8 @@ def main():
     parser.add_argument('--server_ip', type=str, default='', help="For distant debugging.")
     parser.add_argument('--server_port', type=str, default='', help="For distant debugging.")
 
-
     
-
+    pool = multiprocessing.Pool(cpu_cont)
     args = parser.parse_args()
 
     # Setup distant debugging if needed
@@ -492,8 +547,6 @@ def main():
     logger.warning("Process rank: %s, device: %s, n_gpu: %s, distributed training: %s, 16-bits training: %s",
                    args.local_rank, device, args.n_gpu, bool(args.local_rank != -1), args.fp16)
 
-
-
     # Set seed
     set_seed(args.seed)
 
@@ -521,7 +574,7 @@ def main():
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
     config = config_class.from_pretrained(args.config_name if args.config_name else args.model_name_or_path,
                                           cache_dir=args.cache_dir if args.cache_dir else None)
-    config.num_labels=1
+    config.num_labels=2
     tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name,
                                                 do_lower_case=args.do_lower_case,
                                                 cache_dir=args.cache_dir if args.cache_dir else None)
@@ -537,6 +590,7 @@ def main():
         model = model_class(config)
 
     model=Model(model,config,tokenizer,args)
+    # load 模型.
     if args.local_rank == 0:
         torch.distributed.barrier()  # End of barrier to make sure only the first process in distributed training download model & vocab
 
@@ -548,36 +602,32 @@ def main():
             torch.distributed.barrier()  # Barrier to make sure only the first process in distributed training process the dataset, and the others will use the cache
 
         train_dataset = TextDataset(tokenizer, args,args.train_data_file)
+
         if args.local_rank == 0:
             torch.distributed.barrier()
 
-        train(args, train_dataset, model, tokenizer)
-
+        global_step, tr_loss = train(args, train_dataset, model, tokenizer,pool)
 
 
     # Evaluation
     results = {}
     if args.do_eval and args.local_rank in [-1, 0]:
-            checkpoint_prefix = 'checkpoint-best-acc/model.bin'
-            output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
-            model.load_state_dict(torch.load(output_dir))      
-            model.to(args.device)
-            result=evaluate(args, model, tokenizer)
-            logger.info("***** Eval results *****")
-            for key in sorted(result.keys()):
-                logger.info("  %s = %s", key, str(round(result[key],4)))
-            
+        checkpoint_prefix = 'checkpoint-best-f1/model.bin'
+        output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
+        model.load_state_dict(torch.load(output_dir))
+        model.to(args.device)
+        result=evaluate(args, model, tokenizer,pool=pool)
+        
     if args.do_test and args.local_rank in [-1, 0]:
-            checkpoint_prefix = 'checkpoint-best-acc/model.bin'
-            output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
-            model.load_state_dict(torch.load(output_dir))                  
-            model.to(args.device)
-            test(args, model, tokenizer)
+        checkpoint_prefix = 'checkpoint-best-f1/model.bin'
+        output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
+        model.load_state_dict(torch.load(output_dir))
+        model.to(args.device)
+        test(args, model, tokenizer,pool=pool,best_threshold=0.5)
 
     return results
 
 
 if __name__ == "__main__":
     main()
-
 
