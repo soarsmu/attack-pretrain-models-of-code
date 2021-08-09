@@ -1,10 +1,11 @@
 import os
 
-def preprocess(data_name, split_pos):
+def preprocess_gcjpy(split_pos):
     '''
     预处理文件.
     需要将结果分成train和valid
     '''
+    data_name = "gcjpy"
     folder = os.path.join('./data_folder', data_name)
     output_dir = os.path.join('./data_folder', "processed_" + data_name)
     if not os.path.exists(output_dir):
@@ -43,4 +44,4 @@ def preprocess(data_name, split_pos):
 
 
 if __name__ == "__main__":
-    preprocess("gcjpy", 8)
+    preprocess_gcjpy(8)
