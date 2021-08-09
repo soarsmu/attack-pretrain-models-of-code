@@ -62,26 +62,6 @@ MODEL_CLASSES = {
     'distilbert': (DistilBertConfig, DistilBertForMaskedLM, DistilBertTokenizer)
 }
 
-def get_example(item):
-    url1,url2,label,tokenizer,args,cache,url_to_code=item
-    if url1 in cache:
-        code1=cache[url1].copy()
-    else:
-        try:
-            code=' '.join(url_to_code[url1].split())
-        except:
-            code=""
-        code1=tokenizer.tokenize(code)
-    if url2 in cache:
-        code2=cache[url2].copy()
-    else:
-        try:
-            code=' '.join(url_to_code[url2].split())
-        except:
-            code=""
-        code2=tokenizer.tokenize(code)
-        
-    return convert_examples_to_features(code1,code2,label,url1,url2,tokenizer,args,cache)
 
 
 class InputFeatures(object):
@@ -305,7 +285,7 @@ def train(args, train_dataset, model, tokenizer,pool):
 def evaluate(args, model, tokenizer, prefix="",pool=None,eval_when_training=False):
     # Loop to handle MNLI double evaluation (matched, mis-matched)
     eval_output_dir = args.output_dir
-    eval_dataset = load_and_cache_examples(args, tokenizer, evaluate=True,pool=pool)
+    eval_dataset = TextDataset(tokenizer, args,args.eval_data_file)
     # 得到数据集.
     if not os.path.exists(eval_output_dir) and args.local_rank in [-1, 0]:
         os.makedirs(eval_output_dir)
@@ -331,42 +311,31 @@ def evaluate(args, model, tokenizer, prefix="",pool=None,eval_when_training=Fals
     for batch in tqdm(eval_dataloader):
         inputs = batch[0].to(args.device)        
         labels = batch[1].to(args.device) 
-        print(batch[1])
         with torch.no_grad():
             lm_loss,logit = model(inputs,labels)
             eval_loss += lm_loss.mean().item()
             logits.append(logit.cpu().numpy())
             y_trues.append(labels.cpu().numpy())
             # ground truth
-        print(logits)
-        exit()
+        
         nb_eval_steps += 1
     logits=np.concatenate(logits,0)
     y_trues=np.concatenate(y_trues,0)
     best_threshold=0
     best_f1=0
-    # 在validation集上确定best_threshold的.
-    for i in range(1,100):
-        threshold=i/100
-        y_preds=logits[:,1]>threshold
-        from sklearn.metrics import recall_score
-        recall=recall_score(y_trues, y_preds, average='macro')
-        from sklearn.metrics import precision_score
-        precision=precision_score(y_trues, y_preds, average='macro')   
-        from sklearn.metrics import f1_score
-        f1=f1_score(y_trues, y_preds, average='macro') 
-        if f1>best_f1:
-            best_f1=f1
-            best_threshold=threshold
-
-    # 使用best_threshold来计算指标.
-    y_preds=logits[:,1]>best_threshold
+    
+    y_preds = []
+    for logit in logits:
+        y_preds.append(np.argmax(logit))
+    print(y_trues)
+    print(y_preds)
     from sklearn.metrics import recall_score
     recall=recall_score(y_trues, y_preds, average='macro')
     from sklearn.metrics import precision_score
     precision=precision_score(y_trues, y_preds, average='macro')   
     from sklearn.metrics import f1_score
-    f1=f1_score(y_trues, y_preds, average='macro')             
+    f1=f1_score(y_trues, y_preds, average='macro') 
+
     result = {
         "eval_recall": float(recall),
         "eval_precision": float(precision),
@@ -439,6 +408,8 @@ def main():
     parser.add_argument("--model_type", default="bert", type=str,
                         help="The model architecture to be fine-tuned.")
     parser.add_argument("--model_name_or_path", default=None, type=str,
+                        help="The model checkpoint for weights initialization.")
+    parser.add_argument("--number_labels", type=int,
                         help="The model checkpoint for weights initialization.")
 
     parser.add_argument("--mlm", action='store_true',
@@ -574,7 +545,7 @@ def main():
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
     config = config_class.from_pretrained(args.config_name if args.config_name else args.model_name_or_path,
                                           cache_dir=args.cache_dir if args.cache_dir else None)
-    config.num_labels=2
+    config.num_labels=args.number_labels
     tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name,
                                                 do_lower_case=args.do_lower_case,
                                                 cache_dir=args.cache_dir if args.cache_dir else None)
