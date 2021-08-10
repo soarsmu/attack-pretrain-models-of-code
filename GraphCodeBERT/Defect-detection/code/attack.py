@@ -9,11 +9,11 @@ import os
 from numpy.core.fromnumeric import sort
 from torch.utils.data.dataset import Dataset
 sys.path.append('../../../')
-sys.path.append('../../../python_parser')
+
 
 from utils import is_valid_substitue
-from run_parser import extract_dataflow
-from run_parser import get_identifiers
+from python_parser.run_parser import extract_dataflow
+from python_parser.run_parser import get_identifiers
 import logging
 import argparse
 import enum
