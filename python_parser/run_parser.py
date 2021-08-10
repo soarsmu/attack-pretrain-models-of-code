@@ -90,9 +90,6 @@ def parse_string(input):
 def get_identifiers(code, lang):
     parser=parsers[lang]
     dfg, index_table, code_tokens = extract_dataflow(code, lang)
-    print("dfg")
-    for d in dfg:
-        print(d)
     ret = []
     ret_set = set()
     for d in dfg:
