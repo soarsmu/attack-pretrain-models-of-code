@@ -279,10 +279,19 @@ def get_importance_score(args, example, code, words_list: list, sub_words: list,
 
 def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, use_bpe, threshold_pred_score):
     '''
-    返回is_success: 
-        -1: 尝试了所有可能，但没有成功
-         0: 修改数量到达了40%，没有成功
-         1: 攻击成功
+    return
+        original program: code
+        program length: prog_length
+        adversar program: 
+        true label: true_label
+        original prediction: orig_label
+        adversarial prediction: temp_label
+        is_attack_success: is_success
+        extracted variables: variable_names
+        importance score of variables: names_to_importance_score
+        number of changed variables: change
+        number of changed positions: 
+        substitues for variables:
     '''
         # 先得到tgt_model针对原始Example的预测信息.
 
@@ -292,15 +301,16 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     orig_label = preds[0]
     current_prob = max(orig_prob)
 
-    if not orig_label == example[1].item():
+    true_label = example[1].item()
+
+    if not orig_label == true_label:
         # 说明原来就是错的
-        return -4
-
-    
-    print(">>>>>>>>\n\n")
-
+        is_success = -4
+        return is_success
 
     identifiers, code_tokens = get_identifiers(code, 'c')
+    prog_length = len(code_tokens)
+
     processed_code = " ".join(code_tokens)
     
     words, sub_words, keys = _tokenize(processed_code, tokenizer_mlm)
@@ -371,6 +381,7 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     
     change = 0 # 表示被修改的token数量
     is_success = -1
+    replaced_words = {}
 
     for name_and_score in sorted_list_of_names:
         tgt_word = name_and_score[0]
@@ -471,7 +482,10 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
             current_prob = current_prob - most_gap
             for one_pos in tgt_positions:
                 final_words[one_pos] = candidate
+            replaced_words[tgt_word] = candidate
     
+    print(replaced_words)
+    exit()
     print("Number of Changes: ", change)
     return is_success
 
