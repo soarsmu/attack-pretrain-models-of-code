@@ -11,7 +11,7 @@ from torch.utils.data.dataset import Dataset
 sys.path.append('../../../')
 sys.path.append('../../../python_parser')
 retval = os.getcwd()
-
+from run_parser import extract_dataflow
 from run_parser import get_identifiers
 import logging
 import argparse
@@ -59,14 +59,42 @@ special_char = ['[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "
 
 
 class CodeDataset(Dataset):
-    def __init__(self, examples):
+    def __init__(self, examples, args):
         self.examples = examples
+        self.args=args
     
     def __len__(self):
         return len(self.examples)
 
-    def __getitem__(self, i):       
-        return torch.tensor(self.examples[i].input_ids),torch.tensor(self.examples[i].label)
+    def __getitem__(self, item):
+        #calculate graph-guided masked function
+        attn_mask=np.zeros((self.args.code_length+self.args.data_flow_length,
+                            self.args.code_length+self.args.data_flow_length),dtype=np.bool)
+        #calculate begin index of node and max length of input
+        
+        node_index=sum([i>1 for i in self.examples[item].position_idx])
+        max_length=sum([i!=1 for i in self.examples[item].position_idx])
+        #sequence can attend to sequence
+        attn_mask[:node_index,:node_index]=True
+        #special tokens attend to all tokens
+        for idx,i in enumerate(self.examples[item].input_ids):
+            if i in [0,2]:
+                attn_mask[idx,:max_length]=True
+        #nodes attend to code tokens that are identified from
+        for idx,(a,b) in enumerate(self.examples[item].dfg_to_code):
+            if a<node_index and b<node_index:
+                attn_mask[idx+node_index,a:b]=True
+                attn_mask[a:b,idx+node_index]=True
+        #nodes attend to adjacent nodes 
+        for idx,nodes in enumerate(self.examples[item].dfg_to_dfg):
+            for a in nodes:
+                if a+node_index<len(self.examples[item].position_idx):
+                    attn_mask[idx+node_index,a+node_index]=True
+              
+        return (torch.tensor(self.examples[item].input_ids),
+              torch.tensor(attn_mask),
+              torch.tensor(self.examples[item].position_idx),
+              torch.tensor(self.examples[item].label))
 
 def _tokenize(seq, tokenizer):
     seq = seq.replace('\n', '').lower()
@@ -200,7 +228,7 @@ def get_results(dataset, model, batch_size):
 
 
     eval_sampler = SequentialSampler(dataset)
-    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size,num_workers=4,pin_memory=True)
+    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size,num_workers=0,pin_memory=True)
 
     ## Evaluate Model
 
@@ -210,10 +238,12 @@ def get_results(dataset, model, batch_size):
     logits=[] 
     labels=[]
     for batch in eval_dataloader:
-        inputs = batch[0].to("cuda")       
-        label=batch[1].to("cuda") 
+        inputs_ids = batch[0].to("cuda")       
+        attn_mask = batch[1].to("cuda") 
+        position_idx = batch[2].to("cuda") 
+        label=batch[3].to("cuda") 
         with torch.no_grad():
-            lm_loss,logit = model(inputs,label)
+            lm_loss,logit = model(inputs_ids, attn_mask, position_idx, label)
             # 调用这个模型. 重写了反前向传播模型.
             eval_loss += lm_loss.mean().item()
             logits.append(logit.cpu().numpy())
@@ -230,12 +260,38 @@ def get_results(dataset, model, batch_size):
     return probs, pred_labels
 
 def convert_code_to_features(code, tokenizer, label, args):
-    code_tokens=tokenizer.tokenize(code)[:args.block_size-2]
+    # 这里要被修改..
+    dfg, index_table, code_tokens = extract_dataflow(code, "c")
+    code_tokens=[tokenizer.tokenize('@ '+x)[1:] if idx!=0 else tokenizer.tokenize(x) for idx,x in enumerate(code_tokens)]
+    ori2cur_pos={}
+    ori2cur_pos[-1]=(0,0)
+    for i in range(len(code_tokens)):
+        ori2cur_pos[i]=(ori2cur_pos[i-1][1],ori2cur_pos[i-1][1]+len(code_tokens[i]))    
+    code_tokens=[y for x in code_tokens for y in x]
+
+    code_tokens=code_tokens[:args.code_length+args.data_flow_length-2-min(len(dfg),args.data_flow_length)]
     source_tokens =[tokenizer.cls_token]+code_tokens+[tokenizer.sep_token]
     source_ids =  tokenizer.convert_tokens_to_ids(source_tokens)
-    padding_length = args.block_size - len(source_ids)
+    position_idx = [i+tokenizer.pad_token_id + 1 for i in range(len(source_tokens))]
+    dfg = dfg[:args.code_length+args.data_flow_length-len(source_tokens)]
+    source_tokens += [x[0] for x in dfg]
+    position_idx+=[0 for x in dfg]
+    source_ids+=[tokenizer.unk_token_id for x in dfg]
+    padding_length=args.code_length+args.data_flow_length-len(source_ids)
+    position_idx+=[tokenizer.pad_token_id]*padding_length
     source_ids+=[tokenizer.pad_token_id]*padding_length
-    return InputFeatures(source_tokens,source_ids, 0, label)
+
+    reverse_index={}
+    for idx,x in enumerate(dfg):
+        reverse_index[x[1]]=idx
+    for idx,x in enumerate(dfg):
+        dfg[idx]=x[:-1]+([reverse_index[i] for i in x[-1] if i in reverse_index],)    
+    dfg_to_dfg=[x[-1] for x in dfg]
+    dfg_to_code=[ori2cur_pos[x[1]] for x in dfg]
+    length=len([tokenizer.cls_token])
+    dfg_to_code=[(x[0]+length,x[1]+length) for x in dfg_to_code]
+    
+    return InputFeatures(source_tokens, source_ids, position_idx, dfg_to_code, dfg_to_dfg, 0, label)
 
 def get_importance_score(args, example, code, words_list: list, sub_words: list, variable_names: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
     '''
@@ -258,9 +314,9 @@ def get_importance_score(args, example, code, words_list: list, sub_words: list,
 
     for index, tokens in enumerate([words_list] + masked_token_list):
         new_code = ' '.join(tokens)
-        new_feature = convert_code_to_features(new_code, tokenizer, example[1].item(), args)
+        new_feature = convert_code_to_features(new_code, tokenizer, example[3].item(), args)
         new_example.append(new_feature)
-    new_dataset = CodeDataset(new_example)
+    new_dataset = CodeDataset(new_example, args)
     # 3. 将他们转化成features
     logits, preds = get_results(new_dataset, tgt_model, args.eval_batch_size)
     orig_probs = logits[0]
@@ -329,7 +385,7 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     orig_label = preds[0]
     current_prob = max(orig_prob)
 
-    true_label = example[1].item()
+    true_label = example[3].item()
     adv_code = ''
     temp_label = None
 
@@ -376,7 +432,7 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     # 计算importance_score.
 
     importance_score, replace_token_positions, names_positions_dict = get_importance_score(args, example, 
-                                            processed_code,
+                                            code,
                                             words,
                                             sub_words,
                                             variable_names,
@@ -468,12 +524,12 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
             # 需要将几个位置都替换成sustitue_
             temp_code = " ".join(temp_replace)
                                             
-            new_feature = convert_code_to_features(temp_code, tokenizer_tgt, example[1].item(), args)
+            new_feature = convert_code_to_features(temp_code, tokenizer_tgt, example[3].item(), args)
             replace_examples.append(new_feature)
         if len(replace_examples) == 0:
             # 并没有生成新的mutants，直接跳去下一个token
             continue
-        new_dataset = CodeDataset(replace_examples)
+        new_dataset = CodeDataset(replace_examples, args)
             # 3. 将他们转化成features
         logits, preds = get_results(new_dataset, codebert_tgt, args.eval_batch_size)
         assert(len(logits) == len(substitute_list))
@@ -574,7 +630,8 @@ def main():
                         help="Run evaluation during training at each logging step.")
     parser.add_argument("--do_lower_case", action='store_true',
                         help="Set this flag if you are using an uncased model.")
-
+    parser.add_argument("--data_flow_length", default=64, type=int,
+                        help="Optional Data Flow input sequence length after tokenization.") 
     parser.add_argument("--train_batch_size", default=4, type=int,
                         help="Batch size per GPU/CPU for training.")
     parser.add_argument("--eval_batch_size", default=4, type=int,
@@ -595,7 +652,8 @@ def main():
                         help="If > 0: set total number of training steps to perform. Override num_train_epochs.")
     parser.add_argument("--warmup_steps", default=0, type=int,
                         help="Linear warmup over warmup_steps.")
-
+    parser.add_argument("--code_length", default=256, type=int,
+                        help="Optional Code input sequence length after tokenization.") 
     parser.add_argument('--logging_steps', type=int, default=50,
                         help="Log every X updates steps.")
     parser.add_argument('--save_steps', type=int, default=50,
@@ -683,8 +741,8 @@ def main():
 
 
     ## Load CodeBERT (MLM) model
-    codebert_mlm = RobertaForMaskedLM.from_pretrained("microsoft/codebert-base-mlm")
-    tokenizer_mlm = RobertaTokenizer.from_pretrained("microsoft/codebert-base-mlm")
+    codebert_mlm = RobertaForMaskedLM.from_pretrained("microsoft/graphcodebert-base")
+    tokenizer_mlm = RobertaTokenizer.from_pretrained("microsoft/graphcodebert-base")
     codebert_mlm.to('cuda') 
 
     ## Load Dataset
