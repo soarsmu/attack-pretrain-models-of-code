@@ -49,8 +49,6 @@ CodeXGLUE/Clone-detection-BigCloneBench/dataset/*.pkl
 CodeXGLUE/Authorship-Attribution/dataset/data_folder
 CodeXGLUE/Authorship-Attribution/fse_authorship/
 CodeXGLUE/Authorship-Attribution/code/saved_models/
-<<<<<<< HEAD
 CodeXGLUE/Defect-detection/code/attack_result.csv
-=======
 
->>>>>>> d1d84b9c128d6e09af953e585c81ce5f73a6a21d
+GraphCodeBERT/Defect-detection/code/attack_result.csv
