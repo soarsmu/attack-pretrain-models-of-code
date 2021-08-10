@@ -98,7 +98,10 @@ python run.py \
     --seed 123456  2>&1 | tee train.log
 ```
 
-```
+### Attack
+
+```shell
+cd code
 python attack.py \
     --output_dir=./saved_models \
     --model_type=roberta \
@@ -115,7 +118,7 @@ python attack.py \
     --learning_rate 2e-5 \
     --max_grad_norm 1.0 \
     --evaluate_during_training \
-    --seed 123456  2>&1 | tee attack.log
+    --seed 123456  2>&1 | tee attack_store.log
 ```
 
 
