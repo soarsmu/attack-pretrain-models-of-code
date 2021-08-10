@@ -35,7 +35,7 @@ import copy
 import json
 import numpy as np
 from run import InputFeatures
-
+import csv
 from transformers import (WEIGHTS_NAME, AdamW, get_linear_schedule_with_warmup,
                           BertConfig, BertForMaskedLM, BertTokenizer,
                           GPT2Config, GPT2LMHeadModel, GPT2Tokenizer,
@@ -55,7 +55,7 @@ logger = logging.getLogger(__name__)
 
 python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">", '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield']
 
-special_char = ['[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">", '+', '-', '*', '/']
+special_char = ['[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">", '+', '-', '*', '/', '|']
 
 
 class CodeDataset(Dataset):
@@ -330,16 +330,14 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     current_prob = max(orig_prob)
 
     true_label = example[1].item()
+    adv_code = ''
+    temp_label = None
 
 
 
     identifiers, code_tokens = get_identifiers(code, 'c')
     prog_length = len(code_tokens)
 
-    if not orig_label == true_label:
-        # 说明原来就是错的
-        is_success = -4
-        return code, prog_length, None, true_label, orig_label, None, is_success, None, None, None, None, None
 
     processed_code = " ".join(code_tokens)
     
@@ -354,10 +352,15 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
         variable_names.append(name[0].lower())
 
     print("Number of identifiers extracted: ", len(variable_names))
+    if not orig_label == true_label:
+        # 说明原来就是错的
+        is_success = -4
+        return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, None, None, None, None
+        
     if len(variable_names) == 0:
         # 没有提取到identifier，直接退出
         is_success = -3
-        return code, prog_length, None, true_label, orig_label, None, is_success, None, None, None, None, None
+        return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, None, None, None, None
 
     sub_words = [tokenizer_tgt.cls_token] + sub_words[:args.block_size - 2] + [tokenizer_tgt.sep_token]
     # 如果长度超了，就截断；这里的block_size是CodeBERT能接受的输入长度
@@ -698,10 +701,50 @@ def main():
     # 现在要尝试计算importance_score了.
     success_attack = 0
     total_cnt = 0
+    f = open('./attack_result.csv', 'w')
+    writer = csv.writer(f)
+    # write table head.
+    writer.writerow(["Original Code", 
+                    "Program Length", 
+                    "Adversarial Code", 
+                    "True Label", 
+                    "Original Prediction", 
+                    "Adv Prediction", 
+                    "Is Success", 
+                    "Extracted Names",
+                    "Importance Score",
+                    "No. Changed Names",
+                    "No. Changed Tokens",
+                    "Replaced Names"])
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
         code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attack(args, example, code, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
 
+
+        score_info = ''
+        if names_to_importance_score is not None:
+            for key in names_to_importance_score.keys():
+                score_info += key + ':' + str(names_to_importance_score[key]) + ','
+
+        replace_info = ''
+        if replaced_words is not None:
+            for key in replaced_words.keys():
+                replace_info += key + ':' + replaced_words[key] + ','
+
+        writer.writerow([code, 
+                        prog_length, 
+                        adv_code, 
+                        true_label, 
+                        orig_label, 
+                        temp_label, 
+                        is_success, 
+                        ",".join(variable_names),
+                        score_info,
+                        nb_changed_var,
+                        nb_changed_pos,
+                        replace_info])
+        
+        
         if is_success >= -1 :
             # 如果原来正确
             total_cnt += 1
@@ -713,6 +756,7 @@ def main():
         print("Success rate: ", 1.0 * success_attack / total_cnt)
         print(success_attack)
         print(total_cnt)
+    
         
 
 
