@@ -147,7 +147,6 @@ class TextDataset(Dataset):
                     # 这里每次都是重新读取并处理数据集，能否cache然后load
             logger.info("Saving features into cached file %s", cache_file_path)
             torch.save(self.examples, cache_file_path)
-
         if 'train' in file_path:
             for idx, example in enumerate(self.examples[:3]):
                     logger.info("*** Example ***")
@@ -205,7 +204,7 @@ def train(args, train_dataset, model, tokenizer):
     train_sampler = RandomSampler(train_dataset) if args.local_rank == -1 else DistributedSampler(train_dataset)
     
     train_dataloader = DataLoader(train_dataset, sampler=train_sampler, 
-                                  batch_size=args.train_batch_size,num_workers=4,pin_memory=True)
+                                  batch_size=args.train_batch_size,num_workers=0,pin_memory=True)
     args.max_steps=args.epoch*len(train_dataloader)
     args.save_steps=len(train_dataloader)
     args.warmup_steps=len(train_dataloader)
@@ -348,7 +347,7 @@ def evaluate(args, model, tokenizer,eval_when_training=False):
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
     # Note that DistributedSampler samples randomly
     eval_sampler = SequentialSampler(eval_dataset) if args.local_rank == -1 else DistributedSampler(eval_dataset)
-    eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size,num_workers=4,pin_memory=True)
+    eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size,num_workers=0,pin_memory=True)
 
     # multi-gpu evaluate
     if args.n_gpu > 1 and eval_when_training is False:
@@ -368,6 +367,7 @@ def evaluate(args, model, tokenizer,eval_when_training=False):
         attn_mask = batch[1].to(args.device) 
         position_idx = batch[2].to(args.device) 
         label=batch[3].to(args.device) 
+        # 这里需要一些不同的东西.
         with torch.no_grad():
             lm_loss,logit = model(inputs_ids, attn_mask, position_idx, label)
             eval_loss += lm_loss.mean().item()
