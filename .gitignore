@@ -30,8 +30,27 @@ CodeXGLUE/Clone-detection-BigCloneBench/code/saved_models/
 CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_train
 CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test
 CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_valid
+
+GraphCodeBERT/Defect-detection/code/saved_models/
+GraphCodeBERT/Defect-detection/preprocess/dataset/
+GraphCodeBERT/clonedetection/saved_models/
+GraphCodeBERT/clonedetection/parser/tree-sitter-ruby
+GraphCodeBERT/clonedetection/parser/tree-sitter-c-sharp
+GraphCodeBERT/clonedetection/parser/tree-sitter-java
+GraphCodeBERT/clonedetection/parser/tree-sitter-php
+GraphCodeBERT/clonedetection/parser/tree-sitter-javascript
+GraphCodeBERT/clonedetection/parser/tree-sitter-python
+GraphCodeBERT/clonedetection/parser/tree-sitter-go
+GraphCodeBERT/Defect-detection/preprocess/function.json
+CodeXGLUE/Defect-detection/preprocess/function.json
+GraphCodeBERT/clonedetection/dataset/
+
 CodeXGLUE/Clone-detection-BigCloneBench/dataset/*.pkl
 CodeXGLUE/Authorship-Attribution/dataset/data_folder
 CodeXGLUE/Authorship-Attribution/fse_authorship/
 CodeXGLUE/Authorship-Attribution/code/saved_models/
+<<<<<<< HEAD
 CodeXGLUE/Defect-detection/code/attack_result.csv
+=======
+
+>>>>>>> d1d84b9c128d6e09af953e585c81ce5f73a6a21d

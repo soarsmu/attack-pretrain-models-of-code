@@ -13,18 +13,16 @@ The dataset we use comes from the paper [*Devign*: Effective Vulnerability Ident
 1.Download dataset from [website](https://drive.google.com/file/d/1x6hoF7G-tSYxg8AFybggypLZgMGDNHfF/view?usp=sharing) to "dataset" folder or run the following command:
 
 ```shell
-cd dataset
+mkdir dataset
 pip install gdown
 gdown https://drive.google.com/uc?id=1x6hoF7G-tSYxg8AFybggypLZgMGDNHfF
-cd ..
 ```
 
 2.Preprocess dataset
 
 ```shell
-cd dataset
 python preprocess.py
-cd ..
+mv *.jsonl ./dataset/
 ```
 
 ### Data Format
