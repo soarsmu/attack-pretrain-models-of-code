@@ -6,55 +6,42 @@
 '''For attacking CodeBERT models'''
 import sys
 import os
-from numpy.core.fromnumeric import sort
-from torch import tensor
-from torch.utils.data.dataset import Dataset
+
 sys.path.append('../../../')
 sys.path.append('../../../python_parser')
 retval = os.getcwd()
 
-from run_parser import get_identifiers
 import logging
 import argparse
-import enum
-from tokenize import tokenize
 import warnings
-from model import Model
 import pickle
-from torch.utils.data import TensorDataset, SequentialSampler, DataLoader
-from torch.utils.data.distributed import DistributedSampler
+import copy
+import numpy as np
+import torch
+
+from model import Model
 from run import set_seed
 from run import TextDataset
-import torch
-import torch.nn as nn
-from transformers import RobertaForMaskedLM, pipeline
-from tqdm import tqdm
-import copy
-import json
-import numpy as np
 from run import InputFeatures
 from run import convert_examples_to_features
-from transformers import (WEIGHTS_NAME, AdamW, get_linear_schedule_with_warmup,
-                          BertConfig, BertForMaskedLM, BertTokenizer,
-                          GPT2Config, GPT2LMHeadModel, GPT2Tokenizer,
-                          OpenAIGPTConfig, OpenAIGPTLMHeadModel, OpenAIGPTTokenizer,
-                          RobertaConfig, RobertaForSequenceClassification, RobertaModel, RobertaTokenizer,
-                          DistilBertConfig, DistilBertForMaskedLM, DistilBertTokenizer)
+from utils import python_keywords, is_valid_substitue, _tokenize
+from utils import get_identifier_posistions_from_code
+from utils import get_masked_code_by_position, get_substitues
+from run_parser import get_identifiers
+
+from torch.utils.data import SequentialSampler, DataLoader
+from torch.utils.data.dataset import Dataset
+from transformers import RobertaForMaskedLM
+from transformers import (RobertaConfig, RobertaModel, RobertaTokenizer)
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning
+
 MODEL_CLASSES = {
-    'gpt2': (GPT2Config, GPT2LMHeadModel, GPT2Tokenizer),
-    'openai-gpt': (OpenAIGPTConfig, OpenAIGPTLMHeadModel, OpenAIGPTTokenizer),
-    'bert': (BertConfig, BertForMaskedLM, BertTokenizer),
-    'roberta': (RobertaConfig, RobertaModel, RobertaTokenizer),
-    'distilbert': (DistilBertConfig, DistilBertForMaskedLM, DistilBertTokenizer)
+    'roberta': (RobertaConfig, RobertaModel, RobertaTokenizer)
 }
+
 logger = logging.getLogger(__name__)
-
-python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">", '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield', 'void']
-
-
-
 
 class CodeDataset(Dataset):
     def __init__(self, examples):
@@ -66,137 +53,12 @@ class CodeDataset(Dataset):
     def __getitem__(self, i):       
         return torch.tensor(self.examples[i].input_ids),torch.tensor(self.examples[i].label)
 
-def _tokenize(seq, tokenizer):
-    seq = seq.replace('\n', '').lower()
-    words = seq.split(' ')
-
-    sub_words = []
-    keys = []
-    index = 0
-    for word in words:
-        # 并非直接tokenize这句话，而是tokenize了每个splited words.
-        sub = tokenizer.tokenize(word)
-        sub_words += sub
-        keys.append([index, index + len(sub)])
-        # 将subwords对齐
-        index += len(sub)
-
-    return words, sub_words, keys
-
-def get_identifier_posistions_from_code(words_list: list, variable_names: list) -> dict:
-    '''
-    给定一串代码，以及variable的变量名，如: a
-    返回这串代码中这些变量名对应的位置.
-    '''
-    positions = {}
-    for name in variable_names:
-        for index, token in enumerate(words_list):
-            if name == token:
-                try:
-                    positions[name].append(index)
-                except:
-                    positions[name] = [index]
-
-    return positions
-
-def get_bpe_substitues(substitutes, tokenizer, mlm_model):
-    # To-Do: 这里我并没有理解.
-    # substitutes L, k
-
-    substitutes = substitutes[0:12, 0:4] # maximum BPE candidates
-
-    # find all possible candidates 
-
-    all_substitutes = []
-    for i in range(substitutes.size(0)):
-        if len(all_substitutes) == 0:
-            lev_i = substitutes[i]
-            all_substitutes = [[int(c)] for c in lev_i]
-        else:
-            lev_i = []
-            for all_sub in all_substitutes:
-                for j in substitutes[i]:
-                    lev_i.append(all_sub + [int(j)])
-            all_substitutes = lev_i
-
-    # all substitutes  list of list of token-id (all candidates)
-    c_loss = nn.CrossEntropyLoss(reduction='none')
-    word_list = []
-    # all_substitutes = all_substitutes[:24]
-    all_substitutes = torch.tensor(all_substitutes) # [ N, L ]
-    all_substitutes = all_substitutes[:24].to('cuda')
-    # print(substitutes.size(), all_substitutes.size())
-    N, L = all_substitutes.size()
-    word_predictions = mlm_model(all_substitutes)[0] # N L vocab-size
-    ppl = c_loss(word_predictions.view(N*L, -1), all_substitutes.view(-1)) # [ N*L ] 
-    ppl = torch.exp(torch.mean(ppl.view(N, L), dim=-1)) # N  
-    _, word_list = torch.sort(ppl)
-    word_list = [all_substitutes[i] for i in word_list]
-    final_words = []
-    for word in word_list:
-        tokens = [tokenizer._convert_id_to_token(int(i)) for i in word]
-        text = tokenizer.convert_tokens_to_string(tokens)
-        final_words.append(text)
-    return final_words
-
-def get_substitues(substitutes, tokenizer, mlm_model, use_bpe, substitutes_score=None, threshold=3.0):
-    '''
-    将生成的substitued subwords转化为words
-    '''
-    # substitues L,k
-    # from this matrix to recover a word
-    words = []
-    sub_len, k = substitutes.size()  # sub-len, k
-
-    if sub_len == 0:
-        # 比如空格对应的subwords就是[a,a]，长度为0
-        return words
-        
-    elif sub_len == 1:
-        # subwords就是本身
-        for (i,j) in zip(substitutes[0], substitutes_score[0]):
-            if threshold != 0 and j < threshold:
-                break
-            words.append(tokenizer._convert_id_to_token(int(i)))
-            # 将id转为token.
-    else:
-        # word被分解成了多个subwords
-        if use_bpe == 1:
-            words = get_bpe_substitues(substitutes, tokenizer, mlm_model)
-        else:
-            return words
-    return words
-
-
-def get_masked_code_by_position(tokens: list, positions: dict):
-    '''
-    给定一段文本，以及需要被mask的位置,返回一组masked后的text
-    Example:
-        tokens: [a,b,c]
-        positions: [0,2]
-        Return:
-            [<mask>, b, c]
-            [a, b, <mask>]
-    '''
-    masked_token_list = []
-    replace_token_positions = []
-    for variable_name in positions.keys():
-        for pos in positions[variable_name]:
-            masked_token_list.append(tokens[0:pos] + ['<unk>'] + tokens[pos + 1:])
-            replace_token_positions.append(pos)
-    
-    return masked_token_list, replace_token_positions
-
-
-
 def get_results(dataset, model, batch_size, threshold=0.5):
     '''
     给定example和tgt model，返回预测的label和probability
     '''
-
-
     eval_sampler = SequentialSampler(dataset)
-    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size,num_workers=4,pin_memory=True)
+    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size,num_workers=4,pin_memory=False)
 
     ## Evaluate Model
 
@@ -222,14 +84,6 @@ def get_results(dataset, model, batch_size, threshold=0.5):
     # 如果logits中的一个元素，其一个softmax值 > threshold, 则说明其label为0，反之为1
 
     return probs, pred_labels
-
-def convert_code_to_features(code1_tokens,code2_tokens,label,tokenizer,args):
-    code_tokens=tokenizer.tokenize(code)[:args.block_size-2]
-    source_tokens =[tokenizer.cls_token]+code_tokens+[tokenizer.sep_token]
-    source_ids =  tokenizer.convert_tokens_to_ids(source_tokens)
-    padding_length = args.block_size - len(source_ids)
-    source_ids+=[tokenizer.pad_token_id]*padding_length
-    return InputFeatures(source_tokens,source_ids, 0, label)
 
 def get_importance_score(args, example, code, code_2, words_list: list, sub_words: list, variable_names: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
     '''
@@ -422,24 +276,9 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
             # FIX: 有些substitue的开头或者末尾会产生空格
             # 这些头部和尾部的空格在拼接的时候并不影响，但是因为下面的第4个if语句会被跳过
             # 这导致了部分mutants为空，而引发了runtime error
-
-            if substitute == tgt_word:
-                # 如果和原来的词相同
-                continue  # filter out original word
-            if '##' in substitute:
-                continue  # filter out sub-word
-
-            if substitute in python_keywords:
-                # 如果在filter words中也跳过
-                continue
-            if ' ' in substitute:
-                # Solve Error
-                # 发现substiute中可能会有空格
-                # 当有的时候，tokenizer_tgt.convert_tokens_to_string(temp_replace)
-                # 会报 ' ' 这个Key不存在的Error
+            if not is_valid_substitue(substitute, tgt_word):
                 continue
 
-            
             temp_replace = copy.deepcopy(final_words)
             for one_pos in tgt_positions:
                 temp_replace[one_pos] = substitute
@@ -664,7 +503,7 @@ def main():
     for index, example in enumerate(eval_dataset):
         code_pair = source_codes[index]
         is_success = attack(args, example, code_pair, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
-
+        print(is_success)
         if is_success >= -1 :
             # 如果原来正确
             total_cnt += 1
@@ -676,12 +515,6 @@ def main():
         print("Success rate: ", 1.0 * success_attack / total_cnt)
         print(success_attack)
         print(total_cnt)
-        
-
-
-
-
-
 
 
 if __name__ == '__main__':

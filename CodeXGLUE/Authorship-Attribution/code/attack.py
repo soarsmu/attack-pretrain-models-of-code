@@ -378,11 +378,6 @@ def main():
     parser.add_argument("--model_name_or_path", default=None, type=str,
                         help="The model checkpoint for weights initialization.")
 
-    parser.add_argument("--base_model", default=None, type=str,
-                        help="Base Model")
-    parser.add_argument("--csv_store_path", default=None, type=str,
-                        help="Base Model")
-
     parser.add_argument("--mlm", action='store_true',
                         help="Train with masked-language modeling loss instead of language modeling.")
     parser.add_argument("--mlm_probability", type=float, default=0.15,
@@ -517,8 +512,8 @@ def main():
 
 
     ## Load CodeBERT (MLM) model
-    codebert_mlm = RobertaForMaskedLM.from_pretrained(args.base_model)
-    tokenizer_mlm = RobertaTokenizer.from_pretrained(args.base_model)
+    codebert_mlm = RobertaForMaskedLM.from_pretrained("microsoft/codebert-base-mlm")
+    tokenizer_mlm = RobertaTokenizer.from_pretrained("microsoft/codebert-base-mlm")
     codebert_mlm.to('cuda') 
 
     ## Load Dataset
@@ -535,8 +530,7 @@ def main():
     # 现在要尝试计算importance_score了.
     success_attack = 0
     total_cnt = 0
-    f = open(args.csv_store_path, 'w')
-    
+    f = open('./attack_result.csv', 'w')
     writer = csv.writer(f)
     # write table head.
     writer.writerow(["Original Code", 
