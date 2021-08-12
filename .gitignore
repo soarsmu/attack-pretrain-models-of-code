@@ -52,6 +52,7 @@ CodeXGLUE/Authorship-Attribution/code/saved_models/
 CodeXGLUE/Defect-detection/code/attack_result.csv
 CodeXGLUE/Clone-detection-BigCloneBench/code/attack_result.csv
 
+GraphCodeBERT/clonedetection/attack_result.csv
 GraphCodeBERT/Defect-detection/code/attack_result.csv
 GraphCodeBERT/Authorship-Attribution/code/saved_models/
 GraphCodeBERT/Authorship-Attribution/dataset/data_folder
