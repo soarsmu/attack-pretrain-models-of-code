@@ -3,7 +3,7 @@
 # @Author  : Zhou Yang
 # @Email   : zyang@smu.edu.sg
 # @File    : attack.py
-'''For attacking CodeBERT models'''
+'''For attacking GraphCodeBERT models'''
 import sys
 import os
 
