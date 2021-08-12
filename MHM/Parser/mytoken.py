@@ -12,16 +12,19 @@ import pickle
 import pycparser
 import tqdm
 import re
-    
+
+# 解压文件夹
 def unzip(file="./data/oj.tar.gz", dir="./tmp",
           done_file="unzip.done"):
     
     if os.path.isdir(dir):
+        # 检查文件夹是否存在
         if not os.path.isfile(os.path.join(dir, done_file)):
             shutil.rmtree(dir)
         else:
             return True
     if not os.path.isdir(dir):
+        # 打开失败则创建文件夹
         os.mkdir(dir)
     try:
         with tarfile.open(file) as t:

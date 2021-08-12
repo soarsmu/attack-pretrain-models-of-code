@@ -105,19 +105,19 @@ class POJ104(object):
         with open(path, "rb") as f:
             d = pickle.load(f)
         
-        self.__idx2token = d['idx2token'][:vocab_size]
+        self.__idx2token = d['idx2txt'][:vocab_size]
         self.__token2idx = {}
         for i, t in zip(range(vocab_size), self.__idx2token):
             self.__token2idx[t] = i
-            assert self.__token2idx[t] == d['token2idx'][t]
+            assert self.__token2idx[t] == d['txt2idx'][t]
             
-        idxs = random.sample(range(len(d['train']['raw'])), len(d['train']['raw']))
-        n_valid = int(len(d['train']['raw'])*valid_ratio)
+        idxs = random.sample(range(len(d['raw_tr'])), len(d['raw_tr']))
+        n_valid = int(len(d['raw_tr'])*valid_ratio)
         raw, seq, label = ([], [], [])
         for i in idxs[:n_valid]:
-            raw.append(d['train']['raw'][i])
-            seq.append(d['train']['rep'][i])
-            label.append(d['train']['label'][i])
+            raw.append(d['raw_tr'][i])
+            seq.append(d['x_tr'][i])
+            label.append(d['y_tr'][i])
         self.dev = Dataset(seq=seq,
                            raw=raw,
                            label=label,
@@ -128,9 +128,9 @@ class POJ104(object):
                            dtype=self.__dtypes)
         raw, seq, label = ([], [], [])
         for i in idxs[n_valid:]:
-            raw.append(d['train']['raw'][i])
-            seq.append(d['train']['rep'][i])
-            label.append(d['train']['label'][i])
+            raw.append(d['raw_tr'][i])
+            seq.append(d['x_tr'][i])
+            label.append(d['y_label'][i])
         self.train = Dataset(seq=seq,
                              raw=raw,
                              label=label,
@@ -139,9 +139,9 @@ class POJ104(object):
                              max_len=max_len,
                              vocab_size=vocab_size,
                              dtype=self.__dtypes)
-        self.test = Dataset(seq=d['test']['rep'],
-                            raw=d['test']['raw'],
-                            label=d['test']['label'],
+        self.test = Dataset(seq=d['x_te'],
+                            raw=d['raw_te'],
+                            label=d['y_te'],
                             idx2token=self.__idx2token,
                             token2idx=self.__token2idx,
                             max_len=max_len,
@@ -190,6 +190,6 @@ class POJ104(object):
 
 if __name__ == "__main__":
     
-    poj = POJ104("./poj104_seq.pkl")
+    poj = POJ104("../data/poj104.pkl")
     b = poj.train.next_batch(32)
     print (poj.train.indices2seq(b['x'], b['l']))
