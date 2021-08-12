@@ -34,7 +34,7 @@ from transformers import RobertaForMaskedLM
 from transformers import (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning
+warnings.simplefilter(action='ignore') # Only report warning
 
 MODEL_CLASSES = {
     'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
