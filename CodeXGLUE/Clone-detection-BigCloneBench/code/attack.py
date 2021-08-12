@@ -59,7 +59,7 @@ def get_results(dataset, model, batch_size, threshold=0.5):
     给定example和tgt model，返回预测的label和probability
     '''
     eval_sampler = SequentialSampler(dataset)
-    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size,num_workers=4,pin_memory=True)
+    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size,num_workers=4,pin_memory=False)
 
     ## Evaluate Model
 
@@ -85,14 +85,6 @@ def get_results(dataset, model, batch_size, threshold=0.5):
     # 如果logits中的一个元素，其一个softmax值 > threshold, 则说明其label为0，反之为1
 
     return probs, pred_labels
-
-def convert_code_to_features(code1_tokens,code2_tokens,label,tokenizer,args):
-    code_tokens=tokenizer.tokenize(code)[:args.block_size-2]
-    source_tokens =[tokenizer.cls_token]+code_tokens+[tokenizer.sep_token]
-    source_ids =  tokenizer.convert_tokens_to_ids(source_tokens)
-    padding_length = args.block_size - len(source_ids)
-    source_ids+=[tokenizer.pad_token_id]*padding_length
-    return InputFeatures(source_tokens,source_ids, 0, label)
 
 def get_importance_score(args, example, code, code_2, words_list: list, sub_words: list, variable_names: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
     '''
