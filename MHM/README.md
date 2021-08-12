@@ -21,11 +21,10 @@ python 3.5 with package requirements:
 ```
 jupyterlab
 numpy
-pytorch
+torch
 pandas
 pycparser
 gensim
-tensorflow
 ```
 
 #### Acknowledgement
