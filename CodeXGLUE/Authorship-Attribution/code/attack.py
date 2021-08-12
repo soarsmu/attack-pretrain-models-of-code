@@ -83,7 +83,7 @@ def get_results(dataset, model, batch_size):
     logits=np.concatenate(logits,0)
     labels=np.concatenate(labels,0)
 
-    probs = [[1 - prob[0], prob[0]] for prob in logits]
+    probs = logits
     pred_labels = []
     for logit in logits:
         pred_labels.append(np.argmax(logit))
@@ -127,7 +127,6 @@ def get_importance_score(args, example, code, words_list: list, sub_words: list,
     orig_probs = logits[0]
     orig_label = preds[0]
     # 第一个是original code的数据.
-    
     orig_prob = max(orig_probs)
     # predicted label对应的probability
 
@@ -164,9 +163,18 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     adv_code = ''
     temp_label = None
 
+    code = code.replace("")
 
+    identifiers, code_tokens = get_identifiers(code, 'python')
+    '''
+    Issues:
+    get_identifiers会删除注释，而接受的“code”也是被处理过的。
+    code中的所有换行符都被替换成了空格，这导致当#出现时
+    parser没有办法判断其终止位置在哪里（因为所有内容都在一行）
+    需要修改预处理部分的内容.
+    现在已经修改了
+    '''
 
-    identifiers, code_tokens = get_identifiers(code, 'java')
     prog_length = len(code_tokens)
 
 
