@@ -88,7 +88,7 @@ python run.py \
     --test_data_file=../preprocess/dataset/test.jsonl \
     --epoch 5 \
     --block_size 400 \
-    --train_batch_size 8 \
+    --train_batch_size 16 \
     --eval_batch_size 64 \
     --learning_rate 2e-5 \
     --max_grad_norm 1.0 \

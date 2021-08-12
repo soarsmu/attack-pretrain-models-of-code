@@ -18,14 +18,13 @@ import pickle
 import copy
 import numpy as np
 import torch
-import torch.nn as nn
 
 from model import Model
 from run import set_seed
 from run import TextDataset
 from run import InputFeatures
 from run import convert_examples_to_features
-from utils import python_keywords, _tokenize
+from utils import python_keywords, is_valid_substitue, _tokenize
 from utils import get_identifier_posistions_from_code
 from utils import get_masked_code_by_position, get_substitues
 from run_parser import get_identifiers
@@ -277,24 +276,9 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
             # FIX: 有些substitue的开头或者末尾会产生空格
             # 这些头部和尾部的空格在拼接的时候并不影响，但是因为下面的第4个if语句会被跳过
             # 这导致了部分mutants为空，而引发了runtime error
-
-            if substitute == tgt_word:
-                # 如果和原来的词相同
-                continue  # filter out original word
-            if '##' in substitute:
-                continue  # filter out sub-word
-
-            if substitute in python_keywords:
-                # 如果在filter words中也跳过
-                continue
-            if ' ' in substitute:
-                # Solve Error
-                # 发现substiute中可能会有空格
-                # 当有的时候，tokenizer_tgt.convert_tokens_to_string(temp_replace)
-                # 会报 ' ' 这个Key不存在的Error
+            if not is_valid_substitue(substitute, tgt_word):
                 continue
 
-            
             temp_replace = copy.deepcopy(final_words)
             for one_pos in tgt_positions:
                 temp_replace[one_pos] = substitute
