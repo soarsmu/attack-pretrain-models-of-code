@@ -11,13 +11,14 @@ sys.path.append('../../../')
 sys.path.append('../../../python_parser')
 retval = os.getcwd()
 
+import csv
 import logging
 import argparse
 import warnings
 import pickle
 import copy
-import numpy as np
 import torch
+import numpy as np
 
 from model import Model
 from run import set_seed
@@ -139,10 +140,19 @@ def get_code_pairs(file_path):
 
 def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, use_bpe, threshold_pred_score):
     '''
-    返回is_success: 
-        -1: 尝试了所有可能，但没有成功
-         0: 修改数量到达了40%，没有成功
-         1: 攻击成功
+    return
+        original program: code
+        program length: prog_length
+        adversar program: adv_program
+        true label: true_label
+        original prediction: orig_label
+        adversarial prediction: temp_label
+        is_attack_success: is_success
+        extracted variables: variable_names
+        importance score of variables: names_to_importance_score
+        number of changed variables: nb_changed_var
+        number of changed positions: nb_changed_pos
+        substitues for variables: replaced_words
     '''
         # 先得到tgt_model针对原始Example的预测信息.
     code_1 = code[2]
@@ -153,11 +163,9 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     orig_label = preds[0]
     current_prob = max(orig_prob[0])
 
-    if not orig_label == example[1].item():
-        # 说明原来就是错的
-        return -4
-
-    print(">>>>>>>>\n\n")
+    true_label = example[1].item()
+    adv_code = ''
+    temp_label = None
 
     # To-Do: 这里要注意一下
     # 这个任务有两段code，我们暂时只攻击第一段.
@@ -170,11 +178,12 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     processed_code_2 = " ".join(code_tokens_2)
     ### 第二段代码处理后的内容. 
     
+    prog_length = len(code_tokens)
+
     words, sub_words, keys = _tokenize(processed_code, tokenizer_mlm)
     words_2, _, _ = _tokenize(processed_code_2, tokenizer_mlm)
 
     # 这里经过了小写处理..
-
 
     variable_names = []
     for name in identifiers:
@@ -182,10 +191,16 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
             continue
         variable_names.append(name[0].lower())
     print("Number of identifiers extracted: ", len(variable_names))
+
+    if not orig_label == example[1].item():
+        is_success = -4
+        # 说明原来就是错的
+        return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, None, None, None, None
+    
     if len(variable_names) == 0:
         # 没有提取到identifier，直接退出
-        return -3
-
+        is_success = -3
+        return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, None, None, None, None
 
     sub_words = [tokenizer_tgt.cls_token] + sub_words[:args.block_size - 2] + [tokenizer_tgt.sep_token]
     # 如果长度超了，就截断；这里的block_size是CodeBERT能接受的输入长度
@@ -237,8 +252,10 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
 
     final_words = copy.deepcopy(words)
     
-    change = 0 # 表示被修改的token数量
+    nb_changed_var = 0 # 表示被修改的variable数量
+    nb_changed_pos = 0
     is_success = -1
+    replaced_words = {}
 
     for name_and_score in sorted_list_of_names:
         tgt_word = name_and_score[0]
@@ -310,9 +327,15 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
             if temp_label != orig_label:
                 # 如果label改变了，说明这个mutant攻击成功
                 is_success = 1
-                change += 1
-                print("Number of Changes: ", change)
-                return is_success
+                nb_changed_var += 1
+                nb_changed_pos += len(names_positions_dict[tgt_word])
+                candidate = substitute_list[index]
+                replaced_words[tgt_word] = candidate
+                for one_pos in tgt_positions:
+                    final_words[one_pos] = candidate
+                adv_code = " ".join(final_words)
+
+                return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words
             else:
                 # 如果没有攻击成功，我们看probability的修改
                 gap = current_prob - temp_prob[temp_label]
@@ -323,13 +346,16 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     
         if most_gap > 0:
             # 如果most_gap > 0，说明有mutant可以让prob减少
-            change += 1
+            nb_changed_var += 1
+            nb_changed_pos += len(names_positions_dict[tgt_word])
             current_prob = current_prob - most_gap
             for one_pos in tgt_positions:
                 final_words[one_pos] = candidate
+            replaced_words[tgt_word] = candidate
+        
+        adv_code = " ".join(final_words)
     
-    print("Number of Changes: ", change)
-    return is_success
+    return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words
 
 
 def main():
@@ -500,10 +526,50 @@ def main():
     # 现在要尝试计算importance_score了.
     success_attack = 0
     total_cnt = 0
+    f = open('./attack_result.csv', 'w')
+    writer = csv.writer(f)
+    # write table head.
+    writer.writerow(["Original Code", 
+                    "Program Length of 1st code", 
+                    "Adversarial Code of 1st code", 
+                    "True Label", 
+                    "Original Prediction", 
+                    "Adv Prediction", 
+                    "Is Success", 
+                    "Extracted Names of 1st code",
+                    "Importance Score",
+                    "No. Changed Names of 1st code",
+                    "No. Changed Tokens of 1st code",
+                    "Replaced Names"])
+
     for index, example in enumerate(eval_dataset):
         code_pair = source_codes[index]
-        is_success = attack(args, example, code_pair, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
-        print(is_success)
+        code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attack(args, example, code_pair, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
+
+        score_info = ''
+        if names_to_importance_score is not None:
+            for key in names_to_importance_score.keys():
+                score_info += key + ':' + str(names_to_importance_score[key]) + ','
+
+        replace_info = ''
+        if replaced_words is not None:
+            for key in replaced_words.keys():
+                replace_info += key + ':' + replaced_words[key] + ','
+
+        writer.writerow([code[-2:], 
+                        prog_length, 
+                        adv_code, 
+                        true_label, 
+                        orig_label, 
+                        temp_label, 
+                        is_success, 
+                        ",".join(variable_names),
+                        score_info,
+                        nb_changed_var,
+                        nb_changed_pos,
+                        replace_info])
+
+
         if is_success >= -1 :
             # 如果原来正确
             total_cnt += 1

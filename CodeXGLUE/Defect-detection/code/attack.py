@@ -20,13 +20,13 @@ import warnings
 import torch
 import numpy as np
 
+from model import Model
 from run import set_seed
 from run import TextDataset
 from run import InputFeatures
 from utils import python_keywords, is_valid_substitue, _tokenize
 from utils import get_identifier_posistions_from_code
 from utils import get_masked_code_by_position, get_substitues
-from model import Model
 from run_parser import get_identifiers
 
 from torch.utils.data.dataset import Dataset
