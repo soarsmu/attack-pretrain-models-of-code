@@ -88,7 +88,7 @@ python run.py \
     --test_data_file=../preprocess/dataset/test.jsonl \
     --epoch 5 \
     --block_size 400 \
-    --train_batch_size 8 \
+    --train_batch_size 12 \
     --eval_batch_size 64 \
     --learning_rate 2e-5 \
     --max_grad_norm 1.0 \
@@ -98,13 +98,16 @@ python run.py \
 
 ### Attack
 
+#### microsoft/codebert-base
 ```shell
 cd code
-python attack.py \
+CUDA_VISIBLE_DEVICES=0 python attack.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --tokenizer_name=microsoft/codebert-base \
     --model_name_or_path=microsoft/codebert-base \
+    --csv_store_path ./attack_base_result.csv \
+    --base_model=microsoft/codebert-base \
     --do_train \
     --train_data_file=../preprocess/dataset/train.jsonl \
     --eval_data_file=../preprocess/dataset/valid.jsonl \
@@ -116,9 +119,32 @@ python attack.py \
     --learning_rate 2e-5 \
     --max_grad_norm 1.0 \
     --evaluate_during_training \
-    --seed 123456  2>&1 | tee attack_store.log
+    --seed 123456  2>&1 | tee attack_base.log
 ```
 
+#### microsoft/codebert-base-mlm
+```shell
+cd code
+CUDA_VISIBLE_DEVICES=1 python attack.py \
+    --output_dir=./saved_models \
+    --model_type=roberta \
+    --tokenizer_name=microsoft/codebert-base \
+    --model_name_or_path=microsoft/codebert-base \
+    --csv_store_path ./attack_base_mlm_result.csv \
+    --base_model=microsoft/codebert-base-mlm \
+    --do_train \
+    --train_data_file=../preprocess/dataset/train.jsonl \
+    --eval_data_file=../preprocess/dataset/valid.jsonl \
+    --test_data_file=../preprocess/dataset/test.jsonl \
+    --epoch 5 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 2e-5 \
+    --max_grad_norm 1.0 \
+    --evaluate_during_training \
+    --seed 123456  2>&1 | tee attack_base_mlm.log
+```
 
 ### Inference
 
@@ -137,7 +163,7 @@ python run.py \
     --epoch 5 \
     --block_size 400 \
     --train_batch_size 8 \
-    --eval_batch_size 8 \
+    --eval_batch_size 128 \
     --learning_rate 2e-5 \
     --max_grad_norm 1.0 \
     --evaluate_during_training \
