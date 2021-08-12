@@ -15,16 +15,14 @@ def DFG_python(root_node, index_to_code, states):
     while_statement = ['while_statement']
     do_first_statement = ['for_in_clause']
     def_statement = ['default_parameter']
+    parent_exceptions = ['ERROR', 'catch_formal_parameter', 'dotted_name']
     states = states.copy()
     if (len(root_node.children) == 0 or root_node.type == 'string') and root_node.type != 'comment':
         idx, code = index_to_code[(root_node.start_point, root_node.end_point)]
-        if root_node.type == code:
+        if root_node.type == code or root_node.type == 'string':
             return [], states
         elif code in states:
             return [(code, idx, 'comesFrom', [code], states[code].copy())], states
-        elif root_node.type == 'identifier':
-            states[code] = [idx]
-            return [(code, idx, 'comesFrom', [], [])], states
         else:
             return [], states
     elif root_node.type in def_statement:
@@ -188,19 +186,14 @@ def DFG_java(root_node, index_to_code, states):
     enhanced_for_statement = ['enhanced_for_statement']
     while_statement = ['while_statement']
     do_first_statement = []
-    parent_exceptions = ['ERROR', 'catch_formal_parameter']
+    parent_exceptions = ['ERROR', 'catch_formal_parameter', 'import_declaration']
     states = states.copy()
     if (len(root_node.children) == 0 or root_node.type == 'string') and root_node.type != 'comment':
         idx, code = index_to_code[(root_node.start_point, root_node.end_point)]
-        if root_node.type == code:
+        if root_node.type == code or root_node.type == 'string':
             return [], states
         elif code in states:
             return [(code, idx, 'comesFrom', [code], states[code].copy())], states
-        elif root_node.type == 'identifier':
-            if root_node.parent.type in parent_exceptions:
-                return [], states
-            states[code] = [idx]
-            return [(code, idx, 'comesFrom', [], [])], states
         else:
             return [], states
     elif root_node.type in def_statement:
@@ -211,9 +204,6 @@ def DFG_java(root_node, index_to_code, states):
             indexs = tree_to_variable_index(name, index_to_code)
             for index in indexs:
                 idx, code = index_to_code[index]
-                if root_node.parent.parent.type == 'program':
-                    print(root_node)
-                    print(code)
                 DFG.append((code, idx, 'comesFrom', [], []))
                 states[code] = [idx]
             return sorted(DFG, key=lambda x: x[1]), states
@@ -383,14 +373,9 @@ def DFG_c(root_node, index_to_code, states):
         idx, code = index_to_code[(root_node.start_point, root_node.end_point)]
         if root_node.type == code or (root_node.parent.type == 'function_declarator' and root_node):
             return [], states
-        elif code in states:
+        elif code in states or root_node.type == 'string':
             return [(code, idx, 'comesFrom', [code], states[code].copy())], states
-        elif root_node.type == 'identifier':
-            states[code] = [idx]
-            return [(code, idx, 'comesFrom', [], [])], states
         else:
-            print(code)
-            print(root_node.type)
             return [], states
     elif root_node.type in def_statement:
         name = root_node.child_by_field_name('declarator')

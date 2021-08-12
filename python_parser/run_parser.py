@@ -13,10 +13,40 @@ int a = devfd + 1;
 return NULL; }
 """
 
-python_code = """
-def printl(a):
-    print("Hello World");
-    print("Hello World");
+python_code = """ import sys
+n = int(sys.stdin.readline())
+n1 = "strsdf"
+n2 = 2
+n3 = 5.667
+for i in range(n):
+    inputline = sys.stdin.readline().strip()
+    inputparams = inputline.split()
+    a = int(inputparams[0])
+    b = int(inputparams[1])
+    k = a
+    ndigits = 0
+while k > 0:
+    k /= 10
+    ndigits += 1
+    cnt = 0
+    dic = {}
+    for n1digits in range(1, ndigits / 2 + 1):
+        n2digits = ndigits - n1digits
+        for n1 in range(a / (10 ** n2digits), b / (10 ** n2digits) + 1):
+for n2 in range(a / (10 ** n1digits), b / (10 ** n1digits) + 1):
+    k1 = n1 * 10 ** n2digits + n2
+    k2 = n2 * 10 ** n1digits + n1
+    if (n1digits == n2digits) and (n1 >= n2):
+        continue
+    if (k1 != k2) and (k1 >= a) and (k2 >= a) and (k1 <= b) and (k2 <= b):
+        if min(k1, k2) not in dic:
+            dic[min(k1, k2)] = set()
+        if max(k1, k2) not in dic[min(k1, k2)]:
+            dic[min(k1, k2)].add(max(k1, k2))
+            cnt += 1
+            print
+            "Case #%d: %d" % (i + 1, cnt)
+
 """
 
 java_code = """
@@ -107,23 +137,8 @@ def get_identifiers(code, lang):
     ret = []
     ret_set = set()
     for d in dfg:
-        if d[0].replace('.', '', 1).isdigit() or parse_string(d[0]):
-            # skip if it is a number
-            continue
-        if len(d[-1]) == 0 or d[2] == 'computedFrom' or (d[2] == 'comesFrom' and d[0] != d[-2][0]):
-            if tuple([d[1]]) not in ret_set:
-                # create a new sublist in the return result
-                entry = [d[0], [d[1]], [index_table[d[1]]]]
-                # print(entry)
-                ret.append(entry)
-                ret_set.add(tuple([d[1]]))
-                sorted(ret, key=lambda x: x[1][0])
-        else:
-            for r in ret:
-                if d[-1][0] in r[1]:
-                    r[1].append(d[1])
-                    r[2].append(index_table[d[1]])
-    return ret, code_tokens
+        ret_set.add(d[0])
+    return ret_set, code_tokens
 
 
 def main():
@@ -134,7 +149,7 @@ def main():
     parser = parsers[args.lang]
     code = codes[args.lang]
     # extract data flow
-    data = get_identifiers(code, args.lang)
+    data, _ = get_identifiers(code, args.lang)
     print("final ret")
     for identifier in data:
         print(identifier)
