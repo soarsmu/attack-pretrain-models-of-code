@@ -578,7 +578,7 @@ def main():
         if replaced_words is not None:
             for key in replaced_words.keys():
                 replace_info += key + ':' + replaced_words[key] + ','
-        
+        print(1)
         writer.writerow([code, 
                         prog_length, 
                         adv_code, 
@@ -601,7 +601,7 @@ def main():
         
         if total_cnt == 0:
             continue
-        print("Success rate: ", 1.0 * success_attack / total_cnt)
+        print("Success rate: ", 1.0 * success_attack / total_cnt, flush=True) # 因为不知名的原因可能不会print，加了打印缓冲区的语句flush = True
         print(success_attack)
         print(total_cnt)
     
