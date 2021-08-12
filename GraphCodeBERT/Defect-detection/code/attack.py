@@ -6,60 +6,41 @@
 '''For attacking CodeBERT models'''
 import sys
 import os
-from numpy.core.fromnumeric import sort
-from torch.utils.data.dataset import Dataset
+
 sys.path.append('../../../')
 sys.path.append('../../../python_parser')
 
-
-
-from utils import (is_valid_substitue, _tokenize, 
-                    get_identifier_posistions_from_code, 
-                    get_substitues, get_masked_code_by_position)
-from python_parser.run_parser import get_identifiers, extract_dataflow
-
-import logging
-import argparse
-import enum
-from tokenize import tokenize
-import warnings
-from model import Model
-from transformers import (WEIGHTS_NAME, get_linear_schedule_with_warmup, AdamW,
-                          RobertaConfig,
-                          RobertaForSequenceClassification,
-                          RobertaTokenizer)
-from torch.utils.data import TensorDataset, SequentialSampler, DataLoader
-from torch.utils.data.distributed import DistributedSampler
-from run import set_seed
-from run import TextDataset
-import torch
-import torch.nn as nn
-from transformers import RobertaForMaskedLM, pipeline
+import csv
 import copy
 import json
+import logging
+import argparse
+import warnings
+import torch
 import numpy as np
+
+from model import Model
+from run import set_seed
+from run import TextDataset
 from run import InputFeatures
-import csv
-from transformers import (WEIGHTS_NAME, AdamW, get_linear_schedule_with_warmup,
-                          BertConfig, BertForMaskedLM, BertTokenizer,
-                          GPT2Config, GPT2LMHeadModel, GPT2Tokenizer,
-                          OpenAIGPTConfig, OpenAIGPTLMHeadModel, OpenAIGPTTokenizer,
-                          RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer,
-                          DistilBertConfig, DistilBertForMaskedLM, DistilBertTokenizer)
+from utils import python_keywords, is_valid_substitue, _tokenize
+from utils import get_identifier_posistions_from_code
+from utils import get_masked_code_by_position, get_substitues
+from python_parser.run_parser import get_identifiers, extract_dataflow
+
+from torch.utils.data.dataset import Dataset
+from torch.utils.data import SequentialSampler, DataLoader
+from transformers import RobertaForMaskedLM
+from transformers import (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning
+
 MODEL_CLASSES = {
-    'gpt2': (GPT2Config, GPT2LMHeadModel, GPT2Tokenizer),
-    'openai-gpt': (OpenAIGPTConfig, OpenAIGPTLMHeadModel, OpenAIGPTTokenizer),
-    'bert': (BertConfig, BertForMaskedLM, BertTokenizer),
-    'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer),
-    'distilbert': (DistilBertConfig, DistilBertForMaskedLM, DistilBertTokenizer)
+    'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
 }
+
 logger = logging.getLogger(__name__)
-
-python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">", '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield']
-
-
 
 class CodeDataset(Dataset):
     def __init__(self, examples, args):
