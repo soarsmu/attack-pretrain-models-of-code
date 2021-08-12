@@ -77,7 +77,7 @@ We also provide a pipeline that fine-tunes [CodeBERT](https://arxiv.org/pdf/2002
 
 ```shell
 cd code
-python run.py \
+CUDA_VISIBLE_DEVICES=0,1 python run.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --config_name=microsoft/graphcodebert-base \
@@ -90,7 +90,7 @@ python run.py \
     --epoch 5 \
     --code_length 350 \
     --data_flow_length 128 \
-    --train_batch_size 16 \
+    --train_batch_size 10 \
     --eval_batch_size 32 \
     --learning_rate 2e-5 \
     --max_grad_norm 1.0 \
@@ -98,6 +98,28 @@ python run.py \
     --seed 123456  2>&1 | tee train.log
 ```
 
+### Attack
+
+```shell
+cd code
+python attack.py \
+    --output_dir=./saved_models \
+    --model_type=roberta \
+    --config_name=microsoft/graphcodebert-base \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --do_train \
+    --train_data_file=../preprocess/dataset/train.jsonl \
+    --eval_data_file=../preprocess/dataset/valid.jsonl \
+    --test_data_file=../preprocess/dataset/test.jsonl \
+    --epoch 5 \
+    --block_size 350 \
+    --code_length 350 \
+    --data_flow_length 128 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --seed 123456  2>&1 | tee attack_store.log
+```
 
 ### Inference
 
@@ -107,8 +129,8 @@ python run.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --config_name=microsoft/graphcodebert-base \
-    --tokenizer_name=microsoft/codebert-base \
-    --model_name_or_path=microsoft/codebert-base \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
     --do_eval \
     --do_test \
     --train_data_file=../preprocess/dataset/train.jsonl \

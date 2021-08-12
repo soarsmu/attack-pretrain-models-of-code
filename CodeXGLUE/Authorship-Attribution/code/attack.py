@@ -6,108 +6,60 @@
 '''For attacking CodeBERT models'''
 import sys
 import os
-from numpy.core.fromnumeric import sort
-from torch.utils.data.dataset import Dataset
+
 sys.path.append('../../../')
 sys.path.append('../../../python_parser')
+retval = os.getcwd()
 
-
-
-from utils import (is_valid_substitue, _tokenize, 
-                    get_identifier_posistions_from_code, 
-                    get_substitues, get_masked_code_by_position)
-from python_parser.run_parser import get_identifiers, extract_dataflow
-
-import logging
-import argparse
-import enum
-from tokenize import tokenize
-import warnings
-from model import Model
-from transformers import (WEIGHTS_NAME, get_linear_schedule_with_warmup, AdamW,
-                          RobertaConfig,
-                          RobertaForSequenceClassification,
-                          RobertaTokenizer)
-from torch.utils.data import TensorDataset, SequentialSampler, DataLoader
-from torch.utils.data.distributed import DistributedSampler
-from run import set_seed
-from run import TextDataset
-import torch
-import torch.nn as nn
-from transformers import RobertaForMaskedLM, pipeline
+import csv
 import copy
 import json
+import logging
+import argparse
+import warnings
+import torch
 import numpy as np
+import pickle
+from run import set_seed
+from run import TextDataset
 from run import InputFeatures
-import csv
-from transformers import (WEIGHTS_NAME, AdamW, get_linear_schedule_with_warmup,
-                          BertConfig, BertForMaskedLM, BertTokenizer,
-                          GPT2Config, GPT2LMHeadModel, GPT2Tokenizer,
-                          OpenAIGPTConfig, OpenAIGPTLMHeadModel, OpenAIGPTTokenizer,
-                          RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer,
-                          DistilBertConfig, DistilBertForMaskedLM, DistilBertTokenizer)
+from utils import python_keywords, is_valid_substitue, _tokenize
+from utils import get_identifier_posistions_from_code
+from utils import get_masked_code_by_position, get_substitues
+from model import Model
+from run_parser import get_identifiers
+
+from torch.utils.data.dataset import Dataset
+from torch.utils.data import SequentialSampler, DataLoader
+from transformers import RobertaForMaskedLM
+from transformers import (RobertaConfig, RobertaModel, RobertaTokenizer)
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning
+warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning\
+
 MODEL_CLASSES = {
-    'gpt2': (GPT2Config, GPT2LMHeadModel, GPT2Tokenizer),
-    'openai-gpt': (OpenAIGPTConfig, OpenAIGPTLMHeadModel, OpenAIGPTTokenizer),
-    'bert': (BertConfig, BertForMaskedLM, BertTokenizer),
-    'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer),
-    'distilbert': (DistilBertConfig, DistilBertForMaskedLM, DistilBertTokenizer)
+    'roberta': (RobertaConfig, RobertaModel, RobertaTokenizer),
 }
+
 logger = logging.getLogger(__name__)
 
-python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">", '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield']
-
-
-
 class CodeDataset(Dataset):
-    def __init__(self, examples, args):
+    def __init__(self, examples):
         self.examples = examples
-        self.args=args
     
     def __len__(self):
         return len(self.examples)
 
-    def __getitem__(self, item):
-        #calculate graph-guided masked function
-        attn_mask=np.zeros((self.args.code_length+self.args.data_flow_length,
-                            self.args.code_length+self.args.data_flow_length),dtype=np.bool)
-        #calculate begin index of node and max length of input
-        
-        node_index=sum([i>1 for i in self.examples[item].position_idx])
-        max_length=sum([i!=1 for i in self.examples[item].position_idx])
-        #sequence can attend to sequence
-        attn_mask[:node_index,:node_index]=True
-        #special tokens attend to all tokens
-        for idx,i in enumerate(self.examples[item].input_ids):
-            if i in [0,2]:
-                attn_mask[idx,:max_length]=True
-        #nodes attend to code tokens that are identified from
-        for idx,(a,b) in enumerate(self.examples[item].dfg_to_code):
-            if a<node_index and b<node_index:
-                attn_mask[idx+node_index,a:b]=True
-                attn_mask[a:b,idx+node_index]=True
-        #nodes attend to adjacent nodes 
-        for idx,nodes in enumerate(self.examples[item].dfg_to_dfg):
-            for a in nodes:
-                if a+node_index<len(self.examples[item].position_idx):
-                    attn_mask[idx+node_index,a+node_index]=True
-              
-        return (torch.tensor(self.examples[item].input_ids),
-              torch.tensor(attn_mask),
-              torch.tensor(self.examples[item].position_idx),
-              torch.tensor(self.examples[item].label))
-
+    def __getitem__(self, i):       
+        return torch.tensor(self.examples[i].input_ids),torch.tensor(self.examples[i].label)
 
 def get_results(dataset, model, batch_size):
     '''
     给定example和tgt model，返回预测的label和probability
     '''
 
-
     eval_sampler = SequentialSampler(dataset)
-    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size,num_workers=0,pin_memory=True)
+    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size,num_workers=4,pin_memory=False)
 
     ## Evaluate Model
 
@@ -117,12 +69,10 @@ def get_results(dataset, model, batch_size):
     logits=[] 
     labels=[]
     for batch in eval_dataloader:
-        inputs_ids = batch[0].to("cuda")       
-        attn_mask = batch[1].to("cuda") 
-        position_idx = batch[2].to("cuda") 
-        label=batch[3].to("cuda") 
+        inputs = batch[0].to("cuda")       
+        label=batch[1].to("cuda") 
         with torch.no_grad():
-            lm_loss,logit = model(inputs_ids, attn_mask, position_idx, label)
+            lm_loss,logit = model(inputs,label)
             # 调用这个模型. 重写了反前向传播模型.
             eval_loss += lm_loss.mean().item()
             logits.append(logit.cpu().numpy())
@@ -139,38 +89,12 @@ def get_results(dataset, model, batch_size):
     return probs, pred_labels
 
 def convert_code_to_features(code, tokenizer, label, args):
-    # 这里要被修改..
-    dfg, index_table, code_tokens = extract_dataflow(code, "c")
-    code_tokens=[tokenizer.tokenize('@ '+x)[1:] if idx!=0 else tokenizer.tokenize(x) for idx,x in enumerate(code_tokens)]
-    ori2cur_pos={}
-    ori2cur_pos[-1]=(0,0)
-    for i in range(len(code_tokens)):
-        ori2cur_pos[i]=(ori2cur_pos[i-1][1],ori2cur_pos[i-1][1]+len(code_tokens[i]))    
-    code_tokens=[y for x in code_tokens for y in x]
-
-    code_tokens=code_tokens[:args.code_length+args.data_flow_length-2-min(len(dfg),args.data_flow_length)]
+    code_tokens=tokenizer.tokenize(code)[:args.block_size-2]
     source_tokens =[tokenizer.cls_token]+code_tokens+[tokenizer.sep_token]
     source_ids =  tokenizer.convert_tokens_to_ids(source_tokens)
-    position_idx = [i+tokenizer.pad_token_id + 1 for i in range(len(source_tokens))]
-    dfg = dfg[:args.code_length+args.data_flow_length-len(source_tokens)]
-    source_tokens += [x[0] for x in dfg]
-    position_idx+=[0 for x in dfg]
-    source_ids+=[tokenizer.unk_token_id for x in dfg]
-    padding_length=args.code_length+args.data_flow_length-len(source_ids)
-    position_idx+=[tokenizer.pad_token_id]*padding_length
+    padding_length = args.block_size - len(source_ids)
     source_ids+=[tokenizer.pad_token_id]*padding_length
-
-    reverse_index={}
-    for idx,x in enumerate(dfg):
-        reverse_index[x[1]]=idx
-    for idx,x in enumerate(dfg):
-        dfg[idx]=x[:-1]+([reverse_index[i] for i in x[-1] if i in reverse_index],)    
-    dfg_to_dfg=[x[-1] for x in dfg]
-    dfg_to_code=[ori2cur_pos[x[1]] for x in dfg]
-    length=len([tokenizer.cls_token])
-    dfg_to_code=[(x[0]+length,x[1]+length) for x in dfg_to_code]
-    
-    return InputFeatures(source_tokens, source_ids, position_idx, dfg_to_code, dfg_to_dfg, 0, label)
+    return InputFeatures(source_tokens,source_ids, 0, label)
 
 def get_importance_score(args, example, code, words_list: list, sub_words: list, variable_names: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
     '''
@@ -193,9 +117,9 @@ def get_importance_score(args, example, code, words_list: list, sub_words: list,
 
     for index, tokens in enumerate([words_list] + masked_token_list):
         new_code = ' '.join(tokens)
-        new_feature = convert_code_to_features(new_code, tokenizer, example[3].item(), args)
+        new_feature = convert_code_to_features(new_code, tokenizer, example[1].item(), args)
         new_example.append(new_feature)
-    new_dataset = CodeDataset(new_example, args)
+    new_dataset = CodeDataset(new_example)
     # 3. 将他们转化成features
     logits, preds = get_results(new_dataset, tgt_model, args.eval_batch_size)
     orig_probs = logits[0]
@@ -210,8 +134,6 @@ def get_importance_score(args, example, code, words_list: list, sub_words: list,
         importance_score.append(orig_prob - prob[orig_label])
 
     return importance_score, replace_token_positions, positions
-
-
 
 def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, use_bpe, threshold_pred_score):
     '''
@@ -236,13 +158,13 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     orig_label = preds[0]
     current_prob = max(orig_prob)
 
-    true_label = example[3].item()
+    true_label = example[1].item()
     adv_code = ''
     temp_label = None
 
 
 
-    identifiers, code_tokens = get_identifiers(code, 'c')
+    identifiers, code_tokens = get_identifiers(code, 'java')
     prog_length = len(code_tokens)
 
 
@@ -283,7 +205,7 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     # 计算importance_score.
 
     importance_score, replace_token_positions, names_positions_dict = get_importance_score(args, example, 
-                                            code,
+                                            processed_code,
                                             words,
                                             sub_words,
                                             variable_names,
@@ -375,12 +297,12 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
             # 需要将几个位置都替换成sustitue_
             temp_code = " ".join(temp_replace)
                                             
-            new_feature = convert_code_to_features(temp_code, tokenizer_tgt, example[3].item(), args)
+            new_feature = convert_code_to_features(temp_code, tokenizer_tgt, example[1].item(), args)
             replace_examples.append(new_feature)
         if len(replace_examples) == 0:
             # 并没有生成新的mutants，直接跳去下一个token
             continue
-        new_dataset = CodeDataset(replace_examples, args)
+        new_dataset = CodeDataset(replace_examples)
             # 3. 将他们转化成features
         logits, preds = get_results(new_dataset, codebert_tgt, args.eval_batch_size)
         assert(len(logits) == len(substitute_list))
@@ -456,16 +378,21 @@ def main():
     parser.add_argument("--model_name_or_path", default=None, type=str,
                         help="The model checkpoint for weights initialization.")
 
+    parser.add_argument("--mlm", action='store_true',
+                        help="Train with masked-language modeling loss instead of language modeling.")
+    parser.add_argument("--mlm_probability", type=float, default=0.15,
+                        help="Ratio of tokens to mask for masked language modeling loss")
+
     parser.add_argument("--config_name", default="", type=str,
                         help="Optional pretrained config name or path if not the same as model_name_or_path")
     parser.add_argument("--tokenizer_name", default="", type=str,
                         help="Optional pretrained tokenizer name or path if not the same as model_name_or_path")
+    parser.add_argument("--cache_dir", default="", type=str,
+                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
     parser.add_argument("--block_size", default=-1, type=int,
                         help="Optional input sequence length after tokenization."
                              "The training dataset will be truncated in block of this size for training."
                              "Default to the model max input length for single sentence inputs (take into account special tokens).")
-    parser.add_argument("--cache_dir", default="", type=str,
-                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
     parser.add_argument("--do_train", action='store_true',
                         help="Whether to run training.")
     parser.add_argument("--do_eval", action='store_true',
@@ -476,20 +403,56 @@ def main():
                         help="Run evaluation during training at each logging step.")
     parser.add_argument("--do_lower_case", action='store_true',
                         help="Set this flag if you are using an uncased model.")
-    parser.add_argument("--data_flow_length", default=64, type=int,
-                        help="Optional Data Flow input sequence length after tokenization.") 
+    parser.add_argument("--number_labels", type=int,
+                        help="The model checkpoint for weights initialization.")
     parser.add_argument("--train_batch_size", default=4, type=int,
                         help="Batch size per GPU/CPU for training.")
     parser.add_argument("--eval_batch_size", default=4, type=int,
                         help="Batch size per GPU/CPU for evaluation.")
-    parser.add_argument("--code_length", default=256, type=int,
-                        help="Optional Code input sequence length after tokenization.") 
+    parser.add_argument('--gradient_accumulation_steps', type=int, default=1,
+                        help="Number of updates steps to accumulate before performing a backward/update pass.")
+    parser.add_argument("--learning_rate", default=5e-5, type=float,
+                        help="The initial learning rate for Adam.")
+    parser.add_argument("--weight_decay", default=0.0, type=float,
+                        help="Weight deay if we apply some.")
+    parser.add_argument("--adam_epsilon", default=1e-8, type=float,
+                        help="Epsilon for Adam optimizer.")
+    parser.add_argument("--max_grad_norm", default=1.0, type=float,
+                        help="Max gradient norm.")
+    parser.add_argument("--num_train_epochs", default=1.0, type=float,
+                        help="Total number of training epochs to perform.")
+    parser.add_argument("--max_steps", default=-1, type=int,
+                        help="If > 0: set total number of training steps to perform. Override num_train_epochs.")
+    parser.add_argument("--warmup_steps", default=0, type=int,
+                        help="Linear warmup over warmup_steps.")
+
+    parser.add_argument('--logging_steps', type=int, default=50,
+                        help="Log every X updates steps.")
+    parser.add_argument('--save_steps', type=int, default=50,
+                        help="Save checkpoint every X updates steps.")
+    parser.add_argument('--save_total_limit', type=int, default=None,
+                        help='Limit the total amount of checkpoints, delete the older checkpoints in the output_dir, does not delete by default')
+    parser.add_argument("--eval_all_checkpoints", action='store_true',
+                        help="Evaluate all checkpoints starting with the same prefix as model_name_or_path ending and ending with step number")
+    parser.add_argument("--no_cuda", action='store_true',
+                        help="Avoid using CUDA when available")
+    parser.add_argument('--overwrite_output_dir', action='store_true',
+                        help="Overwrite the content of the output directory")
+    parser.add_argument('--overwrite_cache', action='store_true',
+                        help="Overwrite the cached training and evaluation sets")
     parser.add_argument('--seed', type=int, default=42,
                         help="random seed for initialization")
     parser.add_argument('--epoch', type=int, default=42,
                         help="random seed for initialization")
+    parser.add_argument('--fp16', action='store_true',
+                        help="Whether to use 16-bit (mixed) precision (through NVIDIA apex) instead of 32-bit")
+    parser.add_argument('--fp16_opt_level', type=str, default='O1',
+                        help="For fp16: Apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']."
+                             "See details at https://nvidia.github.io/apex/amp.html")
     parser.add_argument("--local_rank", type=int, default=-1,
                         help="For distributed training: local_rank")
+    parser.add_argument('--server_ip', type=str, default='', help="For distant debugging.")
+    parser.add_argument('--server_port', type=str, default='', help="For distant debugging.")
 
 
     args = parser.parse_args()
@@ -507,7 +470,6 @@ def main():
     ## Load Target Model
     checkpoint_last = os.path.join(args.output_dir, 'checkpoint-last') # 读取model的路径
     if os.path.exists(checkpoint_last) and os.listdir(checkpoint_last):
-        # 如果路径存在且有内容，则从checkpoint load模型
         args.model_name_or_path = os.path.join(checkpoint_last, 'pytorch_model.bin')
         args.config_name = os.path.join(checkpoint_last, 'config.json')
         idx_file = os.path.join(checkpoint_last, 'idx_file.txt')
@@ -518,13 +480,14 @@ def main():
         if os.path.exists(step_file):
             with open(step_file, encoding='utf-8') as stepf:
                 args.start_step = int(stepf.readlines()[0].strip())
+                
         logger.info("reload model from {}, resume from {} epoch".format(checkpoint_last, args.start_epoch))
 
 
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
     config = config_class.from_pretrained(args.config_name if args.config_name else args.model_name_or_path,
                                           cache_dir=args.cache_dir if args.cache_dir else None)
-    config.num_labels=1 # 只有一个label?
+    config.num_labels=args.number_labels # 只有一个label?
     tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name,
                                                 do_lower_case=args.do_lower_case,
                                                 cache_dir=args.cache_dir if args.cache_dir else None)
@@ -542,28 +505,30 @@ def main():
     model = Model(model,config,tokenizer,args)
 
 
-    checkpoint_prefix = 'checkpoint-best-acc/model.bin'
+    checkpoint_prefix = 'checkpoint-best-f1/model.bin'
     output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
     model.load_state_dict(torch.load(output_dir))      
     model.to(args.device)
-    # 会是因为模型不同吗？我看evaluate的时候模型是重新导入的.
 
 
     ## Load CodeBERT (MLM) model
-    codebert_mlm = RobertaForMaskedLM.from_pretrained("microsoft/graphcodebert-base")
-    tokenizer_mlm = RobertaTokenizer.from_pretrained("microsoft/graphcodebert-base")
+    codebert_mlm = RobertaForMaskedLM.from_pretrained("microsoft/codebert-base-mlm")
+    tokenizer_mlm = RobertaTokenizer.from_pretrained("microsoft/codebert-base-mlm")
     codebert_mlm.to('cuda') 
 
     ## Load Dataset
-    eval_dataset = TextDataset(tokenizer, args,args.eval_data_file)
+    eval_dataset = TextDataset(tokenizer, args, args.eval_data_file)
 
-    source_codes = []
-    with open(args.eval_data_file) as f:
-        for line in f:
-            js=json.loads(line.strip())
-            code = ' '.join(js['func'].split())
-            source_codes.append(code)
+    file_type = args.eval_data_file.split('/')[-1].split('.')[0] # valid
+    folder = '/'.join(args.eval_data_file.split('/')[:-1]) # 得到文件目录
+    codes_file_path = os.path.join(folder, 'cached_{}.pkl'.format(
+                                file_type))
+    print(codes_file_path)
+
+    with open(codes_file_path, 'rb') as f:
+        source_codes = pickle.load(f)
     assert(len(source_codes) == len(eval_dataset))
+
 
     # 现在要尝试计算importance_score了.
     success_attack = 0
@@ -624,6 +589,6 @@ def main():
         print(success_attack)
         print(total_cnt)
     
-
+        
 if __name__ == '__main__':
     main()

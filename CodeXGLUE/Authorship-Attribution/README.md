@@ -2,13 +2,18 @@
 
 ## Data Preparation
 
-下载[数据集](https://drive.google.com/drive/u/1/folders/1UGFFC5KYMRA-9F_VTsG_VcsZjAv7SG4i)到`dataset/data_folder`下，然后运行
+First, you need to download datasets to [dataset](https://drive.google.com/drive/u/1/folders/1UGFFC5KYMRA-9F_VTsG_VcsZjAv7SG4i) the `dataset/data_folder`. Then, you need to decompress the three `tar.xz` files. For example:
+
+```
+xz -d gcjpy.tar.xz
+tar -xvf gcjpy.tar
+```
+
+Then, you can run the following command to preprocess the datasets:
 
 ```
 python process.py
 ```
-
-来准备数据集.
 
 ## Fine-tuning
 
@@ -56,4 +61,30 @@ CUDA_VISIBLE_DEVICES=0 python run.py \
     --max_grad_norm 1.0 \
     --evaluate_during_training \
     --seed 123456 2>&1| tee train_java40.log
+```
+
+
+### Attack
+
+#### Java40 Dataset
+```shell
+cd code
+python attack.py \
+    --output_dir=./saved_models/java40 \
+    --model_type=roberta \
+    --tokenizer_name=microsoft/codebert-base \
+    --model_name_or_path=microsoft/codebert-base \
+    --do_train \
+    --number_labels 41 \
+    --train_data_file=../dataset/data_folder/processed_java40/train.txt \
+    --eval_data_file=../dataset/data_folder/processed_java40/valid.txt \
+    --test_data_file=../dataset/data_folder/processed_java40/test.txt \
+    --epoch 5 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 2e-5 \
+    --max_grad_norm 1.0 \
+    --evaluate_during_training \
+    --seed 123456  2>&1 | tee attack_java40.log
 ```

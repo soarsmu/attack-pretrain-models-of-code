@@ -86,9 +86,9 @@ class InputFeatures(object):
         self.label=label
 
         
-def convert_examples_to_features(js,tokenizer,args):
+def convert_examples_to_features(code, label, tokenizer,args):
     #source
-    code=' '.join(js['func'].split())
+    # code=' '.join(js['func'].split())
     dfg, index_table, code_tokens = extract_dataflow(code, "c")
 
     code_tokens=[tokenizer.tokenize('@ '+x)[1:] if idx!=0 else tokenizer.tokenize(x) for idx,x in enumerate(code_tokens)]
@@ -120,7 +120,7 @@ def convert_examples_to_features(js,tokenizer,args):
     length=len([tokenizer.cls_token])
     dfg_to_code=[(x[0]+length,x[1]+length) for x in dfg_to_code]
 
-    return InputFeatures(source_tokens, source_ids, position_idx, dfg_to_code, dfg_to_dfg, js['idx'],js['target'])
+    return InputFeatures(source_tokens, source_ids, position_idx, dfg_to_code, dfg_to_dfg, 0,label)
 
 class TextDataset(Dataset):
     def __init__(self, tokenizer, args, file_path=None):
@@ -142,11 +142,13 @@ class TextDataset(Dataset):
             logger.info("Creating features from dataset file at %s", file_path)
             with open(file_path) as f:
                 for line in tqdm(f):
-                    js=json.loads(line.strip())
-                    self.examples.append(convert_examples_to_features(js,tokenizer,args))
+                    code = line.split(" <CODESPLIT> ")[0]
+                    label = line.split(" <CODESPLIT> ")[1]
+                    self.examples.append(convert_examples_to_features(code, int(label),tokenizer,args))
                     # 这里每次都是重新读取并处理数据集，能否cache然后load
             logger.info("Saving features into cached file %s", cache_file_path)
             torch.save(self.examples, cache_file_path)
+
         if 'train' in file_path:
             for idx, example in enumerate(self.examples[:3]):
                     logger.info("*** Example ***")
@@ -204,7 +206,7 @@ def train(args, train_dataset, model, tokenizer):
     train_sampler = RandomSampler(train_dataset) if args.local_rank == -1 else DistributedSampler(train_dataset)
     
     train_dataloader = DataLoader(train_dataset, sampler=train_sampler, 
-                                  batch_size=args.train_batch_size,num_workers=0,pin_memory=True)
+                                  batch_size=args.train_batch_size,num_workers=4,pin_memory=True)
     args.max_steps=args.epoch*len(train_dataloader)
     args.save_steps=len(train_dataloader)
     args.warmup_steps=len(train_dataloader)
@@ -317,8 +319,8 @@ def train(args, train_dataset, model, tokenizer):
                             logger.info("  %s = %s", key, round(value,4))                    
                         # Save model checkpoint
                         
-                    if results['eval_acc']>best_acc:
-                        best_acc=results['eval_acc']
+                    if results['eval_precision']>best_acc:
+                        best_acc=results['eval_precision']
                         logger.info("  "+"*"*20)  
                         logger.info("  Best acc:%s",round(best_acc,4))
                         logger.info("  "+"*"*20)                          
@@ -347,7 +349,7 @@ def evaluate(args, model, tokenizer,eval_when_training=False):
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
     # Note that DistributedSampler samples randomly
     eval_sampler = SequentialSampler(eval_dataset) if args.local_rank == -1 else DistributedSampler(eval_dataset)
-    eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size,num_workers=0,pin_memory=True)
+    eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size,num_workers=4,pin_memory=True)
 
     # multi-gpu evaluate
     if args.n_gpu > 1 and eval_when_training is False:
@@ -362,29 +364,47 @@ def evaluate(args, model, tokenizer,eval_when_training=False):
     model.eval()
     logits=[] 
     labels=[]
+    y_trues=[]
     for batch in eval_dataloader:
         inputs_ids = batch[0].to(args.device)
         attn_mask = batch[1].to(args.device) 
         position_idx = batch[2].to(args.device) 
         label=batch[3].to(args.device) 
-        # 这里需要一些不同的东西.
         with torch.no_grad():
             lm_loss,logit = model(inputs_ids, attn_mask, position_idx, label)
             eval_loss += lm_loss.mean().item()
             logits.append(logit.cpu().numpy())
-            labels.append(label.cpu().numpy())
+            y_trues.append(label.cpu().numpy())
         nb_eval_steps += 1
     logits=np.concatenate(logits,0)
-    labels=np.concatenate(labels,0)
-    preds=logits[:,0]>0.5
-    eval_acc=np.mean(labels==preds)
-    eval_loss = eval_loss / nb_eval_steps
-    perplexity = torch.tensor(eval_loss)
-            
+    y_trues=np.concatenate(y_trues,0)
+    best_threshold=0
+    best_f1=0
+    
+    y_preds = []
+    for logit in logits:
+        y_preds.append(np.argmax(logit))
+    print(y_trues)
+    print(y_preds)
+    from sklearn.metrics import recall_score
+    recall=recall_score(y_trues, y_preds, average='macro')
+    from sklearn.metrics import precision_score
+    precision=precision_score(y_trues, y_preds, average='macro')   
+    from sklearn.metrics import f1_score
+    f1=f1_score(y_trues, y_preds, average='macro') 
+
     result = {
-        "eval_loss": float(perplexity),
-        "eval_acc":round(eval_acc,4),
+        "eval_recall": float(recall),
+        "eval_precision": float(precision),
+        "eval_f1": float(f1),
+        "eval_threshold":best_threshold,
+        
     }
+
+    # logger.info("***** Eval results {} *****".format(prefix))
+    for key in sorted(result.keys()):
+        logger.info("  %s = %s", key, str(round(result[key],4)))
+
     return result
 
 def test(args, model, tokenizer):
@@ -453,7 +473,8 @@ def main():
                         help="The model architecture to be fine-tuned.")
     parser.add_argument("--model_name_or_path", default=None, type=str,
                         help="The model checkpoint for weights initialization.")
-
+    parser.add_argument("--number_labels", type=int,
+                        help="The model checkpoint for weights initialization.")
     parser.add_argument("--mlm", action='store_true',
                         help="Train with masked-language modeling loss instead of language modeling.")
     parser.add_argument("--mlm_probability", type=float, default=0.15,
@@ -590,7 +611,7 @@ def main():
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
     config = config_class.from_pretrained(args.config_name if args.config_name else args.model_name_or_path,
                                           cache_dir=args.cache_dir if args.cache_dir else None)
-    config.num_labels=1
+    config.num_labels=args.number_labels
     tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name,
                                                 do_lower_case=args.do_lower_case,
                                                 cache_dir=args.cache_dir if args.cache_dir else None)
