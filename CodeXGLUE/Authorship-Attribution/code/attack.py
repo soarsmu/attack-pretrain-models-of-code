@@ -84,7 +84,9 @@ def get_results(dataset, model, batch_size):
     labels=np.concatenate(labels,0)
 
     probs = [[1 - prob[0], prob[0]] for prob in logits]
-    pred_labels = [1 if label else 0 for label in logits[:,0]>0.5]
+    pred_labels = []
+    for logit in logits:
+        pred_labels.append(np.argmax(logit))
 
     return probs, pred_labels
 
