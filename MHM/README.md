@@ -10,8 +10,8 @@ MHM
 ├── README.md
 ├── mhm
     ├── LSTMClassifier			# training LSTM model on poj104 classification task.
-    ├── mhm-astnn			# adversarial attack on LSTM classifier.
-    ├── mhm-lstm			# training ASTNN model and adversarial attack on it.
+    ├── mhm-astnn			# adversarial attack on ASTNN classifier.
+    ├── mhm-lstm			# training LSTM model and adversarial attack on it.
     └── poj104				# filelist of poj104 dataset.
 ```
 
