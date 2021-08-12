@@ -83,6 +83,7 @@ def preprocess_java40(split_portion = 0.8):
                     identifiers, code_tokens = get_identifiers(content, 'java')
                     content = " ".join(code_tokens)
                     new_content = content + ' <CODESPLIT> ' + str(index) + '\n'
+                    tmp_example.append(new_content)
             split_pos = int(len(tmp_example) * split_portion)
             train_example += tmp_example[0:split_pos]
             valid_example += tmp_example[split_pos:]
