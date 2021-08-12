@@ -17,9 +17,9 @@ python process.py
 
 ## Fine-tuning
 
-### On OJ dataset
+### On Python dataset
 ```
-CUDA_VISIBLE_DEVICES=0 python run.py \
+CUDA_VISIBLE_DEVICES=1 python run.py \
     --output_dir=./saved_models/gcjpy \
     --model_type=roberta \
     --config_name=microsoft/codebert-base \
@@ -30,9 +30,9 @@ CUDA_VISIBLE_DEVICES=0 python run.py \
     --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
-    --epoch 20 \
+    --epoch 10 \
     --block_size 400 \
-    --train_batch_size 8 \
+    --train_batch_size 3 \
     --eval_batch_size 32 \
     --learning_rate 5e-5 \
     --max_grad_norm 1.0 \
@@ -40,7 +40,57 @@ CUDA_VISIBLE_DEVICES=0 python run.py \
     --seed 123456 2>&1| tee train_gcjpy.log
 ```
 
+
+#### Evaluate
+```
+CUDA_VISIBLE_DEVICES=0 python run.py \
+    --output_dir=./saved_models/gcjpy \
+    --model_type=roberta \
+    --config_name=microsoft/codebert-base \
+    --model_name_or_path=microsoft/codebert-base \
+    --tokenizer_name=roberta-base \
+    --number_labels 70 \
+    --do_eval \
+    --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
+    --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
+    --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
+    --epoch 5 \
+    --block_size 400 \
+    --train_batch_size 8 \
+    --eval_batch_size 32 \
+    --learning_rate 5e-5 \
+    --max_grad_norm 1.0 \
+    --evaluate_during_training \
+    --seed 123456 2>&1| tee test_gcjpy.log
+```
+
+#### Attack
+```shell
+cd code
+python attack.py \
+    --output_dir=./saved_models/gcjpy \
+    --model_type=roberta \
+    --config_name=microsoft/codebert-base \
+    --model_name_or_path=microsoft/codebert-base \
+    --tokenizer_name=roberta-base \
+    --number_labels 70 \
+    --do_eval \
+    --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
+    --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
+    --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
+    --epoch 5 \
+    --block_size 400 \
+    --train_batch_size 8 \
+    --eval_batch_size 32 \
+    --learning_rate 5e-5 \
+    --max_grad_norm 1.0 \
+    --evaluate_during_training \
+    --seed 123456 2>&1| tee attack_gcjpy.log
+```
+
+
 ### On Java dataset
+#### Train
 ```
 CUDA_VISIBLE_DEVICES=0 python run.py \
     --output_dir=./saved_models/java40 \
@@ -62,11 +112,30 @@ CUDA_VISIBLE_DEVICES=0 python run.py \
     --evaluate_during_training \
     --seed 123456 2>&1| tee train_java40.log
 ```
+#### Evaluate
+```
+CUDA_VISIBLE_DEVICES=0 python run.py \
+    --output_dir=./saved_models/java40 \
+    --model_type=roberta \
+    --config_name=microsoft/codebert-base \
+    --model_name_or_path=microsoft/codebert-base \
+    --tokenizer_name=roberta-base \
+    --number_labels 41 \
+    --do_eval \
+    --train_data_file=../dataset/data_folder/processed_java40/train.txt \
+    --eval_data_file=../dataset/data_folder/processed_java40/valid.txt \
+    --test_data_file=../dataset/data_folder/processed_java40/test.txt \
+    --epoch 5 \
+    --block_size 400 \
+    --train_batch_size 8 \
+    --eval_batch_size 32 \
+    --learning_rate 5e-5 \
+    --max_grad_norm 1.0 \
+    --evaluate_during_training \
+    --seed 123456 2>&1| tee train_java40.log
+```
 
-
-### Attack
-
-#### Java40 Dataset
+#### Attack
 ```shell
 cd code
 python attack.py \
