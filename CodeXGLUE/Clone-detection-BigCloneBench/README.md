@@ -121,7 +121,7 @@ We use full test data for inference.
 
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=1 python attack.py \
+CUDA_VISIBLE_DEVICES=0,1 python attack.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --config_name=microsoft/codebert-base \
