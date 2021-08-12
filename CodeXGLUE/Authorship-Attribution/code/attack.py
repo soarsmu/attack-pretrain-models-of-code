@@ -163,8 +163,6 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     adv_code = ''
     temp_label = None
 
-    code = code.replace("")
-
     identifiers, code_tokens = get_identifiers(code, 'python')
     '''
     Issues:
