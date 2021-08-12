@@ -19,7 +19,7 @@ import argparse
 import warnings
 import torch
 import numpy as np
-
+import pickle
 from run import set_seed
 from run import TextDataset
 from run import InputFeatures
@@ -32,13 +32,13 @@ from run_parser import get_identifiers
 from torch.utils.data.dataset import Dataset
 from torch.utils.data import SequentialSampler, DataLoader
 from transformers import RobertaForMaskedLM
-from transformers import (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
+from transformers import (RobertaConfig, RobertaModel, RobertaTokenizer)
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning\
 
 MODEL_CLASSES = {
-    'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
+    'roberta': (RobertaConfig, RobertaModel, RobertaTokenizer),
 }
 
 logger = logging.getLogger(__name__)
@@ -164,7 +164,7 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
 
 
 
-    identifiers, code_tokens = get_identifiers(code, 'c')
+    identifiers, code_tokens = get_identifiers(code, 'java')
     prog_length = len(code_tokens)
 
 
@@ -403,7 +403,8 @@ def main():
                         help="Run evaluation during training at each logging step.")
     parser.add_argument("--do_lower_case", action='store_true',
                         help="Set this flag if you are using an uncased model.")
-
+    parser.add_argument("--number_labels", type=int,
+                        help="The model checkpoint for weights initialization.")
     parser.add_argument("--train_batch_size", default=4, type=int,
                         help="Batch size per GPU/CPU for training.")
     parser.add_argument("--eval_batch_size", default=4, type=int,
@@ -469,7 +470,6 @@ def main():
     ## Load Target Model
     checkpoint_last = os.path.join(args.output_dir, 'checkpoint-last') # 读取model的路径
     if os.path.exists(checkpoint_last) and os.listdir(checkpoint_last):
-        # 如果路径存在且有内容，则从checkpoint load模型
         args.model_name_or_path = os.path.join(checkpoint_last, 'pytorch_model.bin')
         args.config_name = os.path.join(checkpoint_last, 'config.json')
         idx_file = os.path.join(checkpoint_last, 'idx_file.txt')
@@ -480,13 +480,14 @@ def main():
         if os.path.exists(step_file):
             with open(step_file, encoding='utf-8') as stepf:
                 args.start_step = int(stepf.readlines()[0].strip())
+                
         logger.info("reload model from {}, resume from {} epoch".format(checkpoint_last, args.start_epoch))
 
 
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
     config = config_class.from_pretrained(args.config_name if args.config_name else args.model_name_or_path,
                                           cache_dir=args.cache_dir if args.cache_dir else None)
-    config.num_labels=1 # 只有一个label?
+    config.num_labels=args.number_labels # 只有一个label?
     tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name,
                                                 do_lower_case=args.do_lower_case,
                                                 cache_dir=args.cache_dir if args.cache_dir else None)
@@ -504,11 +505,10 @@ def main():
     model = Model(model,config,tokenizer,args)
 
 
-    checkpoint_prefix = 'checkpoint-best-acc/model.bin'
+    checkpoint_prefix = 'checkpoint-best-f1/model.bin'
     output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
     model.load_state_dict(torch.load(output_dir))      
     model.to(args.device)
-    # 会是因为模型不同吗？我看evaluate的时候模型是重新导入的.
 
 
     ## Load CodeBERT (MLM) model
@@ -517,15 +517,18 @@ def main():
     codebert_mlm.to('cuda') 
 
     ## Load Dataset
-    eval_dataset = TextDataset(tokenizer, args,args.eval_data_file)
+    eval_dataset = TextDataset(tokenizer, args, args.eval_data_file)
 
-    source_codes = []
-    with open(args.eval_data_file) as f:
-        for line in f:
-            js=json.loads(line.strip())
-            code = ' '.join(js['func'].split())
-            source_codes.append(code)
+    file_type = args.eval_data_file.split('/')[-1].split('.')[0] # valid
+    folder = '/'.join(args.eval_data_file.split('/')[:-1]) # 得到文件目录
+    codes_file_path = os.path.join(folder, 'cached_{}.pkl'.format(
+                                file_type))
+    print(codes_file_path)
+
+    with open(codes_file_path, 'rb') as f:
+        source_codes = pickle.load(f)
     assert(len(source_codes) == len(eval_dataset))
+
 
     # 现在要尝试计算importance_score了.
     success_attack = 0
