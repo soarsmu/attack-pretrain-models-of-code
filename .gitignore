@@ -50,7 +50,9 @@ CodeXGLUE/Authorship-Attribution/dataset/data_folder
 CodeXGLUE/Authorship-Attribution/fse_authorship/
 CodeXGLUE/Authorship-Attribution/code/saved_models/
 CodeXGLUE/Defect-detection/code/attack_result.csv
+CodeXGLUE/Clone-detection-BigCloneBench/code/attack_result.csv
 
+GraphCodeBERT/clonedetection/attack_result.csv
 GraphCodeBERT/Defect-detection/code/attack_result.csv
 
 CodeXGLUE/Defect-detection/code/*.csv
@@ -60,3 +62,4 @@ GraphCodeBERT/Authorship-Attribution/dataset/data_folder
 
 
 CodeXGLUE/Authorship-Attribution/code/*.csv
+GraphCodeBERT/Authorship-Attribution/code/*.csv
