@@ -1,10 +1,28 @@
 import torch
 import torch.nn as nn
 import copy
+import random
 
 python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">", '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield']
 
 special_char = ['[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">", '+', '-', '*', '/', '|']
+
+
+def crossover(csome_1, csome_2, r=None):
+    if r is None:
+        r = random.choice(range(len(csome_1))) # 随机选择一个位置.
+        # 但是不能选到0
+
+    child_1 = {}
+    child_2 = {}
+    for index, variable_name in enumerate(csome_1.keys()):
+        if index < r: #前半段
+            child_2[variable_name] = csome_1[variable_name]
+            child_1[variable_name] = csome_2[variable_name]
+        else:
+            child_1[variable_name] = csome_1[variable_name]
+            child_2[variable_name] = csome_2[variable_name]
+    return child_1, child_2
 
 
 def map_chromesome(chromesome: dict, words: list, names_positions_dict: dict) -> list:
