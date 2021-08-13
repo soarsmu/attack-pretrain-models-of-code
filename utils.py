@@ -7,6 +7,12 @@ python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'n
 
 special_char = ['[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">", '+', '-', '*', '/', '|']
 
+def mutate(chromesome, variable_substitue_dict):
+    tgt_index = random.choice(range(len(chromesome)))
+    tgt_word = list(chromesome.keys())[tgt_index]
+    chromesome[tgt_word] = random.choice(variable_substitue_dict[tgt_word])
+
+    return chromesome
 
 def crossover(csome_1, csome_2, r=None):
     if r is None:
