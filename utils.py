@@ -1,11 +1,21 @@
 import torch
 import torch.nn as nn
-
+import copy
 
 python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">", '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield']
 
 special_char = ['[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">", '+', '-', '*', '/', '|']
 
+
+def map_chromesome(chromesome: dict, words: list, names_positions_dict: dict) -> list:
+    temp_replace = copy.deepcopy(words)
+
+    for tgt_word in chromesome.keys():
+        tgt_positions = names_positions_dict[tgt_word] # 在words中对应的位置
+        for one_pos in tgt_positions:
+            temp_replace[one_pos] = chromesome[tgt_word]
+    
+    return temp_replace
 
 def is_valid_substitue(substitute: str, tgt_word: str) -> bool:
     '''
