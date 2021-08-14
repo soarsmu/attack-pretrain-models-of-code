@@ -23,14 +23,15 @@ class MHM(object):
     def mcmc(self, _tree=None, _tokens=[], _label=None, _n_candi=30,
              _max_iter=100, _prob_threshold=0.95):
         
-        if _tree is None or len(_tokens) == 0 or _label is None:
-            return None
+        # if _tree is None or len(_tokens) == 0 or _label is None:
+        #     return None
         
-        raw_tokens = _tree.getTokens()
+        raw_tokens = _tokens
         tokens = _tokens
+        print(tokens)
         raw_seq = ""
-        for _t in raw_tokens:
-            raw_seq += _t + " "
+        for _t in _tokens:
+            raw_seq += str(_t) + " "
         tokens_ch = []
         for _t in tokens:
             tokens_ch.append(self.idx2token[_t])
@@ -135,13 +136,13 @@ if __name__ == "__main__":
     import os
     
     import tree as Tree
-    from dataset import Dataset
+    from dataset import Dataset, POJ104_SEQ
     from lstm_classifier import LSTMEncoder, LSTMClassifier
     
-    os.environ["CUDA_VISIBLE_DEVICES"] = "5"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     
-    model_path = "../victim_models/biLSTM/adv-3000.pt"
-    data_path = "../data/poj104_bilstm/poj104_test_after_adv_train_3000.json"
+    model_path = "../LSTMClassifier/saved_models/1.pt"
+    data_path = "../../Parser/data/oj.pkl"
     vocab_path = "../data/poj104/poj104_vocab.json"
     save_path = "../data/poj104_bilstm/poj104_test_after_adv_train_3000.pkl"
     n_required = 1000
@@ -161,27 +162,26 @@ if __name__ == "__main__":
     classifier.eval()
     print ("MODEL LOADED!")
     
-    raw, rep, tree, label = [], [], [], []
-    with open(data_path, "r") as f:
-        for _line in f.readlines():
-            _d = json.loads(_line.strip())
-            raw.append(_d["raw"])
-            rep.append(_d["rep"])
-            if _d['tree'] is not None:
-                tree.append(Tree.dict2PTNode(_d["tree"]))
-            else:
-                tree.append(None)
-            label.append(_d["label"])
-    with open(vocab_path, "r") as f:
-        _d = json.loads(f.readlines()[0].strip())
-        idx2token = _d["idx2token"][:vocab_size]
-    token2idx = {}
-    for i, t in zip(range(vocab_size), idx2token):
-        token2idx[t] = i
-    dataset = Dataset(seq=rep, raw=raw, tree=tree, label=label,
-                      idx2token=idx2token, token2idx=token2idx,
-                      max_len=max_len, vocab_size=vocab_size,
-                      dtype={'fp': numpy.float32, 'int': numpy.int32})
+    # raw, rep, tree, label = [], [], [], []
+    # with open(data_path, "r") as f:
+    #     for _line in f.readlines():
+    #         _d = json.loads(_line.strip())
+    #         raw.append(_d["raw"])
+    #         rep.append(_d["rep"])
+    #         if _d['tree'] is not None:
+    #             tree.append(Tree.dict2PTNode(_d["tree"]))
+    #         else:
+    #             tree.append(None)
+    #         label.append(_d["label"])
+    # with open(vocab_path, "r") as f:
+    #     _d = json.loads(f.readlines()[0].strip())
+    #     idx2token = _d["idx2token"][:vocab_size]
+    # token2idx = {}
+    # for i, t in zip(range(vocab_size), idx2token):
+    #     token2idx[t] = i
+    dataset = POJ104_SEQ(data_path)
+    dataset = dataset.test
+    print(dataset.token2idx)
     print ("DATA LOADED!")
     
     print ("TEST MODEL...")
@@ -193,7 +193,7 @@ if __name__ == "__main__":
     print (torch.argmax(classifier.prob(_inputs), dim=1))
     print ("TEST MODEL DONE!")
     
-    attacker = MHM(classifier, token2idx, idx2token)
+    attacker = MHM(classifier, dataset.token2idx, dataset.idx2token)
     print ("ATTACKER BUILT!")
     
     adv = {"tokens": [], "raw_tokens": [], "ori_raw": [],
@@ -205,7 +205,10 @@ if __name__ == "__main__":
         print ("\nEXAMPLE "+str(iteration)+"...")
         _b = dataset.next_batch(1)
         start_time = time.time()
-        _res = attacker.mcmc(_tree=_b['tree'][0], _tokens=_b['x'][0],
+        # _res = attacker.mcmc(_tree=_b['tree'][0], _tokens=_b['x'][0],
+        #                      _label=_b['y'][0], _n_candi=30,
+        #                      _max_iter=400, _prob_threshold=1)
+        _res = attacker.mcmc(_tree=[] , _tokens=_b['x'][0],
                              _label=_b['y'][0], _n_candi=30,
                              _max_iter=400, _prob_threshold=1)
         if _res['succ']:
