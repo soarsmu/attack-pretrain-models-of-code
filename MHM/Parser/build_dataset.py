@@ -53,7 +53,7 @@ def build_vocab(codes):
             else:
                 vocab_cnt[t] = 1
     vocab_cnt = sorted(vocab_cnt.items(), key=lambda x:x[1], reverse=True)
-    idx2txt = ["<unk>"] + [it[0] for it in vocab_cnt]
+    idx2txt = ["<unk>"] + ["<pad>"] + [it[0] for it in vocab_cnt]
     txt2idx = {}
     for idx in range(len(idx2txt)):
         txt2idx[idx2txt[idx]] = idx
@@ -90,7 +90,6 @@ if __name__ == "__main__":
     
     import mytoken as tk
     from pattern import StmtInsPos, DeclInsPos
-    from tqdm import tqdm
     
     random.seed(1726)
     
