@@ -377,6 +377,7 @@ def DFG_c(root_node, index_to_code, states):
             return [(code, idx, 'comesFrom', [code], states[code].copy())], states
         else:
             return [], states
+
     elif root_node.type in def_statement:
         name = root_node.child_by_field_name('declarator')
         # print('name is {}'.format(name))

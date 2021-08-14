@@ -13,18 +13,16 @@ The dataset we use comes from the paper [*Devign*: Effective Vulnerability Ident
 1.Download dataset from [website](https://drive.google.com/file/d/1x6hoF7G-tSYxg8AFybggypLZgMGDNHfF/view?usp=sharing) to "dataset" folder or run the following command:
 
 ```shell
-cd dataset
+mkdir dataset
 pip install gdown
 gdown https://drive.google.com/uc?id=1x6hoF7G-tSYxg8AFybggypLZgMGDNHfF
-cd ..
 ```
 
 2.Preprocess dataset
 
 ```shell
-cd dataset
 python preprocess.py
-cd ..
+mv *.jsonl ./dataset/
 ```
 
 ### Data Format
@@ -85,12 +83,12 @@ python run.py \
     --tokenizer_name=microsoft/codebert-base \
     --model_name_or_path=microsoft/codebert-base \
     --do_train \
-    --train_data_file=../dataset/train.jsonl \
-    --eval_data_file=../dataset/valid.jsonl \
-    --test_data_file=../dataset/test.jsonl \
+    --train_data_file=../preprocess/dataset/train.jsonl \
+    --eval_data_file=../preprocess/dataset/valid.jsonl \
+    --test_data_file=../preprocess/dataset/test.jsonl \
     --epoch 5 \
     --block_size 400 \
-    --train_batch_size 32 \
+    --train_batch_size 12 \
     --eval_batch_size 64 \
     --learning_rate 2e-5 \
     --max_grad_norm 1.0 \
@@ -98,6 +96,55 @@ python run.py \
     --seed 123456  2>&1 | tee train.log
 ```
 
+### Attack
+
+#### microsoft/codebert-base
+```shell
+cd code
+CUDA_VISIBLE_DEVICES=0 python attack.py \
+    --output_dir=./saved_models \
+    --model_type=roberta \
+    --tokenizer_name=microsoft/codebert-base \
+    --model_name_or_path=microsoft/codebert-base \
+    --csv_store_path ./attack_base_result.csv \
+    --base_model=microsoft/codebert-base \
+    --do_train \
+    --train_data_file=../preprocess/dataset/train.jsonl \
+    --eval_data_file=../preprocess/dataset/valid.jsonl \
+    --test_data_file=../preprocess/dataset/test.jsonl \
+    --epoch 5 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 2e-5 \
+    --max_grad_norm 1.0 \
+    --evaluate_during_training \
+    --seed 123456  2>&1 | tee attack_base.log
+```
+
+#### microsoft/codebert-base-mlm
+```shell
+cd code
+CUDA_VISIBLE_DEVICES=1 python attack.py \
+    --output_dir=./saved_models \
+    --model_type=roberta \
+    --tokenizer_name=microsoft/codebert-base \
+    --model_name_or_path=microsoft/codebert-base \
+    --csv_store_path ./attack_base_mlm_result.csv \
+    --base_model=microsoft/codebert-base-mlm \
+    --do_train \
+    --train_data_file=../preprocess/dataset/train.jsonl \
+    --eval_data_file=../preprocess/dataset/valid.jsonl \
+    --test_data_file=../preprocess/dataset/test.jsonl \
+    --epoch 5 \
+    --block_size 400 \
+    --train_batch_size 16 \
+    --eval_batch_size 64 \
+    --learning_rate 2e-5 \
+    --max_grad_norm 1.0 \
+    --evaluate_during_training \
+    --seed 123456  2>&1 | tee attack_base_mlm.log
+```
 
 ### Inference
 
@@ -110,13 +157,13 @@ python run.py \
     --model_name_or_path=microsoft/codebert-base \
     --do_eval \
     --do_test \
-    --train_data_file=../dataset/train.jsonl \
-    --eval_data_file=../dataset/valid.jsonl \
-    --test_data_file=../dataset/test.jsonl \
+    --train_data_file=../preprocess/dataset/train.jsonl \
+    --eval_data_file=../preprocess/dataset/valid.jsonl \
+    --test_data_file=../preprocess/dataset/test.jsonl \
     --epoch 5 \
     --block_size 400 \
-    --train_batch_size 32 \
-    --eval_batch_size 64 \
+    --train_batch_size 8 \
+    --eval_batch_size 128 \
     --learning_rate 2e-5 \
     --max_grad_norm 1.0 \
     --evaluate_during_training \
@@ -126,7 +173,7 @@ python run.py \
 ### Evaluation
 
 ```shell
-python ../evaluator/evaluator.py -a ../dataset/test.jsonl -p saved_models/predictions.txt
+python ../evaluator/evaluator.py -a ../preprocess/dataset/test.jsonl -p saved_models/predictions.txt
 ```
 
 {'Acc': 0.6207906295754027}

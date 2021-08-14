@@ -6,7 +6,7 @@ from parser_folder import (remove_comments_and_docstrings,
                            tree_to_variable_index)
 from tree_sitter import Language, Parser
 
-path = 'parser_folder/my-languages.so'
+path = '../../../python_parser/parser_folder/my-languages.so'
 c_code = """
 struct vhost_net *vhost_net_init(int devfd) {
 int a = devfd + 1;
@@ -131,9 +131,6 @@ def parse_string(input):
 def get_identifiers(code, lang):
     parser = parsers[lang]
     dfg, index_table, code_tokens = extract_dataflow(code, lang)
-    print("dfg")
-    for d in dfg:
-        print(d)
     ret = []
     ret_set = set()
     for d in dfg:

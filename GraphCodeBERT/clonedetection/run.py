@@ -197,6 +197,8 @@ def convert_examples_to_features(item):
 
 class TextDataset(Dataset):
     def __init__(self, tokenizer, args, file_path='train'):
+        postfix=file_path.split('/')[-1].split('.txt')[0]
+
         self.examples = []
         self.args=args
         index_filename=file_path
@@ -204,34 +206,54 @@ class TextDataset(Dataset):
         #load index
         logger.info("Creating features from index file at %s ", index_filename)
         url_to_code={}
-        with open('/'.join(index_filename.split('/')[:-1])+'/data.jsonl') as f:
-            for line in f:
-                line=line.strip()
-                js=json.loads(line)
-                url_to_code[js['idx']]=js['func']
+
+        folder = '/'.join(file_path.split('/')[:-1]) # 得到文件目录
+        cache_file_path = os.path.join(folder, 'cached_{}'.format(postfix))
+        # 保存下对应的code1和code2
+        code_pairs_file_path = os.path.join(folder, 'cached_{}.pkl'.format(postfix))
+        code_pairs = []
+        try:
+            self.examples = torch.load(cache_file_path)
+            with open(code_pairs_file_path, 'rb') as f:
+                code_pairs = pickle.load(f)
+            logger.info("Loading features from cached file %s", cache_file_path)
+
+        except:
+            with open('/'.join(index_filename.split('/')[:-1])+'/data.jsonl') as f:
+                for line in f:
+                    line=line.strip()
+                    js=json.loads(line)
+                    url_to_code[js['idx']]=js['func']
+                    
+            #load code function according to index
+            data=[]
+            cache={}
+            f=open(index_filename)
+            with open(index_filename) as f:
+                for line in f:
+                    line=line.strip()
+                    url1,url2,label=line.split('\t')
+                    if url1 not in url_to_code or url2 not in url_to_code:
+                        continue
+                    if label=='0':
+                        label=0
+                    else:
+                        label=1
+                    data.append((url1,url2,label,tokenizer, args,cache,url_to_code))
                 
-        #load code function according to index
-        data=[]
-        cache={}
-        f=open(index_filename)
-        with open(index_filename) as f:
-            for line in f:
-                line=line.strip()
-                url1,url2,label=line.split('\t')
-                if url1 not in url_to_code or url2 not in url_to_code:
-                    continue
-                if label=='0':
-                    label=0
-                else:
-                    label=1
-                data.append((url1,url2,label,tokenizer, args,cache,url_to_code))
-                
-        #only use 10% valid data to keep best model        
-        if 'valid' in file_path:
-            data=random.sample(data,int(len(data)*0.1))
-            
-        #convert example to input features    
-        self.examples=[convert_examples_to_features(x) for x in tqdm(data,total=len(data))]
+            #only use 10% valid data to keep best model        
+            if 'valid' in file_path:
+                data=random.sample(data,int(len(data)*0.1))
+            for sing_example in data:
+                code_pairs.append([sing_example[0], 
+                                    sing_example[1], 
+                                    url_to_code[sing_example[0]], 
+                                    url_to_code[sing_example[1]]])
+            with open(code_pairs_file_path, 'wb') as f:
+                pickle.dump(code_pairs, f)
+            #convert example to input features    
+            self.examples=[convert_examples_to_features(x) for x in tqdm(data,total=len(data))]
+            torch.save(self.examples, cache_file_path)
         
         if 'train' in file_path:
             for idx, example in enumerate(self.examples[:3]):
@@ -436,7 +458,7 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
     model.eval()
     logits=[]  
     y_trues=[]
-    for batch in eval_dataloader:
+    for batch in tqdm(eval_dataloader):
         (inputs_ids_1,position_idx_1,attn_mask_1,
         inputs_ids_2,position_idx_2,attn_mask_2,
         labels)=[x.to(args.device)  for x in batch]
@@ -493,7 +515,7 @@ def test(args, model, tokenizer, best_threshold=0):
     model.eval()
     logits=[]  
     y_trues=[]
-    for batch in eval_dataloader:
+    for batch in tqdm(eval_dataloader):
         (inputs_ids_1,position_idx_1,attn_mask_1,
         inputs_ids_2,position_idx_2,attn_mask_2,
         labels)=[x.to(args.device)  for x in batch]
