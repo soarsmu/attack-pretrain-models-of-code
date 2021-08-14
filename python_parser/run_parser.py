@@ -1,4 +1,5 @@
 import argparse
+from re import I
 from parser_folder.DFG import DFG_python, DFG_java, DFG_c
 from parser_folder import (remove_comments_and_docstrings,
                            tree_to_token_index,
@@ -94,13 +95,12 @@ def parse_string(input):
 
 
 def get_identifiers(code, lang):
-    parser = parsers[lang]
+
     dfg, index_table, code_tokens = extract_dataflow(code, lang)
     ret = []
-    ret_set = set()
     for d in dfg:
-        ret_set.add(d[0])
-    return ret_set, code_tokens
+        ret.append(d)
+    return ret, code_tokens
 
 
 def main():
