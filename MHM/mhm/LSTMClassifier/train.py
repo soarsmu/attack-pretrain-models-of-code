@@ -5,7 +5,7 @@ from model.lstm_classifier import *
 from model.transformer_classifier import *
 from model.Transformer import *
 from dataset import *
-from scripts.times import *
+import time
 
 import torch
 import torch.nn as nn
@@ -52,6 +52,8 @@ def trainEpochs(epochs, training_set, valid_set, batch_size=32, print_each=100, 
             epoch += 1
             evaluate(valid_set)
             classifier.train()
+            if not os.path.exists(saving_path):
+                os.makedirs(saving_path)
             torch.save(classifier.state_dict(), saving_path + str(epoch) + '.pt')
             
             if opt.lrdecay:
@@ -78,8 +80,8 @@ def trainEpochs(epochs, training_set, valid_set, batch_size=32, print_each=100, 
         if (i + 1) % print_each == 0: 
             print_loss_avg = print_loss_total / print_each
             print_loss_total = 0
-            print('%s (%d %d%%) %.4f' % (timeSince(start, (epoch + 1) / epochs),
-                                     epoch + 1, (epoch + 1) / epochs * 100, print_loss_avg))
+            # print('%s (%d %d%%) %.4f' % (timeSince(start, (epoch + 1) / epochs),
+                                     # epoch + 1, (epoch + 1) / epochs * 100, print_loss_avg))
         if (i + 1) % plot_each == 0:
             plot_loss_avg = plot_loss_total / plot_each
             plot_losses.append(plot_loss_avg)
@@ -170,7 +172,7 @@ if __name__ == "__main__":
     criterion = nn.CrossEntropyLoss()
 
     
-    trainEpochs(20, training_set, valid_set, saving_path=opt.save_dir)
+    trainEpochs(1, training_set, valid_set, saving_path=opt.save_dir)
     print()
     print()
     print('eval on test set...')
