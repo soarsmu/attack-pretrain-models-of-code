@@ -145,7 +145,7 @@ def compute_fitness(chromesome, codebert_tgt, tokenizer_tgt, orig_prob, orig_lab
     new_logits, preds = get_results(new_dataset, codebert_tgt, args.eval_batch_size)
     # 计算fitness function
     fitness_value = orig_prob - new_logits[0][orig_label]
-    return fitness_value
+    return fitness_value, preds[0]
     
 
 
@@ -296,17 +296,18 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
         
     population = []
     fitness_values = []
-    base_chromesome = {word: word for word in names_positions_dict.keys()}
+    base_chromesome = {word: word for word in variable_substitue_dict.keys()}
 
     for tgt_word in variable_substitue_dict.keys():
         initial_candidate = random.choice(variable_substitue_dict[tgt_word])
         temp_chromesome = copy.deepcopy(base_chromesome)
         temp_chromesome[tgt_word] = initial_candidate
         population.append(temp_chromesome)
-        temp_fitness = compute_fitness(temp_chromesome, codebert_tgt, tokenizer_tgt, current_prob, orig_label, true_label ,words, names_positions_dict, args)
+        temp_fitness, temp_label = compute_fitness(temp_chromesome, codebert_tgt, tokenizer_tgt, current_prob, orig_label, true_label ,words, names_positions_dict, args)
         fitness_values.append(temp_fitness)
 
     cross_probability = 0.1
+    max_population_size = 2 * len(population)
 
     max_iter = 100
 
@@ -318,11 +319,21 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
         else: # 进行mutates
             child_1 = mutate(chromesome_1, variable_substitue_dict)
         
-        new_fitness = compute_fitness(child_1, codebert_tgt, tokenizer_tgt, current_prob, orig_label, true_label ,words, names_positions_dict, args)
-        if new_fitness > fitness_values[index_1]:
-            population[index_1] = child_1
-            fitness_values[index_1] = new_fitness
+        new_fitness, new_label = compute_fitness(child_1, codebert_tgt, tokenizer_tgt, current_prob, orig_label, true_label ,words, names_positions_dict, args)
         print(new_fitness)
+        if new_label != orig_label:
+            print("SUccess!!!")
+            break
+        if new_fitness > fitness_values[index_1]:
+            if len(population) >= max_population_size:
+                population[index_1] = child_1
+                fitness_values[index_1] = new_fitness
+            else:
+                population.append(child_1)
+                fitness_values.append(new_fitness)
+
+
+        
     for pi in population:
         print(pi)
 
