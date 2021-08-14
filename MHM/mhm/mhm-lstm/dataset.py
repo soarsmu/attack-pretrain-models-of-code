@@ -19,10 +19,10 @@ class Dataset(object):
         self.__dtype = dtype
         
         self.__vocab_size = vocab_size
-        self.__idx2token = idx2token
-        self.__token2idx = token2idx
-        assert len(self.__idx2token) == self.__vocab_size \
-            and len(self.__token2idx) == self.__vocab_size
+        self.idx2token = idx2token
+        self.token2idx = token2idx
+        assert len(self.idx2token) == self.__vocab_size \
+            and len(self.token2idx) == self.__vocab_size
 
         self.__max_len = max_len
         self.__seq = []
@@ -50,11 +50,11 @@ class Dataset(object):
             self.__seq.append([])
             for t in s[:self.__max_len]:
                 if t >= self.__vocab_size:
-                    self.__seq[-1].append(self.__token2idx['<unk>'])
+                    self.__seq[-1].append(self.token2idx['<unk>'])
                 else:
                     self.__seq[-1].append(t)
             while len(self.__seq[-1]) < self.__max_len:
-                self.__seq[-1].append(self.__token2idx['<pad>'])
+                self.__seq[-1].append(self.token2idx['<pad>'])
         self.__seq = numpy.asarray(self.__seq, dtype=self.__dtype['int'])
         self.__label = numpy.asarray(self.__label, dtype=self.__dtype['int'])
         self.__len = numpy.asarray(self.__len, dtype=self.__dtype['int'])
@@ -87,8 +87,8 @@ class Dataset(object):
         batch['l'] = numpy.take(self.__len, indices=idxs, axis=0)
         for i in idxs:
             batch['raw'].append(self.__raw[i])
-        for i in idxs:
-            batch['tree'].append(self.__tree[i])
+        # for i in idxs:
+        #     batch['tree'].append(self.__tree[i])
         return batch
         
     def indices2seq(self, xs, ls):
@@ -97,7 +97,7 @@ class Dataset(object):
         for x, l in zip(xs, ls):
             seq.append([])
             for t in x[:l]:
-                seq[-1].append(self.__idx2token[t])
+                seq[-1].append(self.idx2token[t])
         return seq
         
     def get_size(self):
@@ -115,20 +115,20 @@ class POJ104_SEQ(object):
         
         with open(path, "rb") as f:
             d = pickle.load(f)
-        
-        self.__idx2token = d['idx2token'][:vocab_size]
+  
+        self.__idx2token = d['idx2txt'][:vocab_size]
         self.__token2idx = {}
         for i, t in zip(range(vocab_size), self.__idx2token):
             self.__token2idx[t] = i
-            assert self.__token2idx[t] == d['token2idx'][t]
+            assert self.__token2idx[t] == d['txt2idx'][t]
             
-        idxs = random.sample(range(len(d['train']['raw'])), len(d['train']['raw']))
-        n_valid = int(len(d['train']['raw'])*valid_ratio)
+        idxs = random.sample(range(len(d['raw_tr'])), len(d['raw_tr']))
+        n_valid = int(len(d['raw_tr'])*valid_ratio)
         raw, seq, label = ([], [], [])
         for i in idxs[:n_valid]:
-            raw.append(d['train']['raw'][i])
-            seq.append(d['train']['rep'][i])
-            label.append(d['train']['label'][i])
+            raw.append(d['raw_tr'][i])
+            seq.append(d['x_tr'][i])
+            label.append(d['y_tr'][i])
         self.dev = Dataset(seq=seq,
                            raw=raw,
                            label=label,
@@ -139,9 +139,9 @@ class POJ104_SEQ(object):
                            dtype=self.__dtypes)
         raw, seq, label = ([], [], [])
         for i in idxs[n_valid:]:
-            raw.append(d['train']['raw'][i])
-            seq.append(d['train']['rep'][i])
-            label.append(d['train']['label'][i])
+            raw.append(d['raw_tr'][i])
+            seq.append(d['x_tr'][i])
+            label.append(d['y_tr'][i])
         self.train = Dataset(seq=seq,
                              raw=raw,
                              label=label,
@@ -150,9 +150,9 @@ class POJ104_SEQ(object):
                              max_len=max_len,
                              vocab_size=vocab_size,
                              dtype=self.__dtypes)
-        self.test = Dataset(seq=d['test']['rep'],
-                            raw=d['test']['raw'],
-                            label=d['test']['label'],
+        self.test = Dataset(seq=d['x_te'],
+                            raw=d['raw_te'],
+                            label=d['y_te'],
                             idx2token=self.__idx2token,
                             token2idx=self.__token2idx,
                             max_len=max_len,
