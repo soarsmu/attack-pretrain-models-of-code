@@ -104,7 +104,7 @@ class POJ104(object):
         
         with open(path, "rb") as f:
             d = pickle.load(f)
-        
+  
         self.__idx2token = d['idx2txt'][:vocab_size]
         self.__token2idx = {}
         for i, t in zip(range(vocab_size), self.__idx2token):
@@ -130,7 +130,7 @@ class POJ104(object):
         for i in idxs[n_valid:]:
             raw.append(d['raw_tr'][i])
             seq.append(d['x_tr'][i])
-            label.append(d['y_label'][i])
+            label.append(d['y_tr'][i])
         self.train = Dataset(seq=seq,
                              raw=raw,
                              label=label,
@@ -189,7 +189,7 @@ class POJ104(object):
             return '<unk>'
 
 if __name__ == "__main__":
-    
-    poj = POJ104("../data/poj104.pkl")
+    poj = POJ104("../../Parser/data/oj_uid.pkl")
+    # poj = POJ104("../data/poj104.pkl")
     b = poj.train.next_batch(32)
     print (poj.train.indices2seq(b['x'], b['l']))
