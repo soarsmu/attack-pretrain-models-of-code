@@ -9,65 +9,30 @@ from tree_sitter import Language, Parser
 path = '../../../python_parser/parser_folder/my-languages.so'
 c_code = """
 struct vhost_net *vhost_net_init(int devfd) {
-int a = devfd + 1;
+int a = 1;
 return NULL; }
 """
 
 python_code = """ import sys
-n = int(sys.stdin.readline())
-n1 = "strsdf"
-n2 = 2
-n3 = 5.667
-for i in range(n):
-    inputline = sys.stdin.readline().strip()
-    inputparams = inputline.split()
-    a = int(inputparams[0])
-    b = int(inputparams[1])
-    k = a
-    ndigits = 0
-while k > 0:
-    k /= 10
-    ndigits += 1
-    cnt = 0
-    dic = {}
-    for n1digits in range(1, ndigits / 2 + 1):
-        n2digits = ndigits - n1digits
-        for n1 in range(a / (10 ** n2digits), b / (10 ** n2digits) + 1):
-for n2 in range(a / (10 ** n1digits), b / (10 ** n1digits) + 1):
-    k1 = n1 * 10 ** n2digits + n2
-    k2 = n2 * 10 ** n1digits + n1
-    if (n1digits == n2digits) and (n1 >= n2):
-        continue
-    if (k1 != k2) and (k1 >= a) and (k2 >= a) and (k1 <= b) and (k2 <= b):
-        if min(k1, k2) not in dic:
-            dic[min(k1, k2)] = set()
-        if max(k1, k2) not in dic[min(k1, k2)]:
-            dic[min(k1, k2)].add(max(k1, k2))
-            cnt += 1
-            print
-            "Case #%d: %d" % (i + 1, cnt)
-
+def swap(a, b):
+    c = 2
+    d = c + 1
+    d = a + s
+    print(d, c)
 """
 
 java_code = """
- private void updateHoraatendo(Integer codemp, Integer codfilial, Integer codatendo, String horaatendo, String horaatendofin) throws SQLException {
-        StringBuilder sql = new StringBuilder();
-        sql.append("update atatendimento set horaatendo=?, horaatendofin=? ");
-        sql.append("where codemp=? and codfilial=? and codatendo=?");
-        PreparedStatement ps = getConn().prepareStatement(sql.toString());
-        ps.setTime(1, Funcoes.strTimeToSqlTime(horaatendo, false));
-        ps.setTime(2, Funcoes.strTimeToSqlTime(horaatendofin, false));
-        ps.setInt(3, codemp);
-        ps.setInt(4, codfilial);
-        ps.setInt(5, codatendo);
-        ps.executeUpdate();
-        ps.close();
-        try {
-            getConn().commit();
-        } catch (SQLException e) {
-            getConn().rollback();
-        }
-    }  
+ import java.util.Scanner;
+
+class MyClass {
+  public static void main(String[] args) {
+    Scanner myObj = new Scanner(System.in);
+    System.out.println("Enter username");
+
+    String userName = myObj.nextLine();
+    System.out.println("Username is: " + userName);
+  }
+}
 """
 dfg_function = {
     'python': DFG_python,
