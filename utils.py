@@ -7,6 +7,17 @@ python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'n
 
 special_char = ['[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">", '+', '-', '*', '/', '|']
 
+def select_parents(population):
+    length = range(len(population))
+    index_1 = random.choice(length)
+    index_2 = random.choice(length)
+    chromesome_1 = population[index_1]
+    chromesome_2 = population[index_2]
+    while chromesome_1 == chromesome_2:
+        index_2 = random.choice(length)
+        chromesome_2 = population[index_2]
+    return chromesome_1, index_1, chromesome_2, index_2
+
 def mutate(chromesome, variable_substitue_dict):
     tgt_index = random.choice(range(len(chromesome)))
     tgt_word = list(chromesome.keys())[tgt_index]
