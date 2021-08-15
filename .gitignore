@@ -62,4 +62,5 @@ GraphCodeBERT/Authorship-Attribution/dataset/data_folder
 
 CodeXGLUE/Authorship-Attribution/code/*.csv
 GraphCodeBERT/Authorship-Attribution/code/*.csv
-MHM/mhm/LSTMClassifier/saved_models/*.pt
+MHM/mhm/LSTMClassifier/saved_models
+MHM/Parser/tmp

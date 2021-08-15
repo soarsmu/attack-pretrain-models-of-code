@@ -20,7 +20,7 @@ using a masked language modeling (MLM) loss.
 """
 
 from __future__ import absolute_import, division, print_function
-
+import sys
 import argparse
 import glob
 import logging
@@ -29,12 +29,14 @@ import pickle
 import random
 import re
 import shutil
-import json
+sys.path.append('../../../')
+sys.path.append('../../../python_parser')
+from run_parser import extract_dataflow
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampler,TensorDataset
 from torch.utils.data.distributed import DistributedSampler
-
+import json
 try:
     from torch.utils.tensorboard import SummaryWriter
 except:
@@ -43,13 +45,12 @@ except:
 from tqdm import tqdm, trange
 import multiprocessing
 from model import Model
-
-cpu_cont = 16
+cpu_cont = multiprocessing.cpu_count()
 from transformers import (WEIGHTS_NAME, AdamW, get_linear_schedule_with_warmup,
                           BertConfig, BertForMaskedLM, BertTokenizer,
                           GPT2Config, GPT2LMHeadModel, GPT2Tokenizer,
                           OpenAIGPTConfig, OpenAIGPTLMHeadModel, OpenAIGPTTokenizer,
-                          RobertaConfig, RobertaModel, RobertaTokenizer,
+                          RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer,
                           DistilBertConfig, DistilBertForMaskedLM, DistilBertTokenizer)
 
 logger = logging.getLogger(__name__)
@@ -58,30 +59,10 @@ MODEL_CLASSES = {
     'gpt2': (GPT2Config, GPT2LMHeadModel, GPT2Tokenizer),
     'openai-gpt': (OpenAIGPTConfig, OpenAIGPTLMHeadModel, OpenAIGPTTokenizer),
     'bert': (BertConfig, BertForMaskedLM, BertTokenizer),
-    'roberta': (RobertaConfig, RobertaModel, RobertaTokenizer),
+    'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer),
     'distilbert': (DistilBertConfig, DistilBertForMaskedLM, DistilBertTokenizer)
 }
 
-def get_example(item):
-    url1,url2,label,tokenizer,args,cache,url_to_code=item
-    if url1 in cache:
-        code1=cache[url1].copy()
-    else:
-        try:
-            code=' '.join(url_to_code[url1].split())
-        except:
-            code=""
-        code1=tokenizer.tokenize(code)
-    if url2 in cache:
-        code2=cache[url2].copy()
-    else:
-        try:
-            code=' '.join(url_to_code[url2].split())
-        except:
-            code=""
-        code2=tokenizer.tokenize(code)
-        
-    return convert_examples_to_features(code1,code2,label,url1,url2,tokenizer,args,cache)
 
 
 class InputFeatures(object):
@@ -89,95 +70,97 @@ class InputFeatures(object):
     def __init__(self,
                  input_tokens,
                  input_ids,
-                 label,
-                 url1,
-                 url2
+                 position_idx,
+                 dfg_to_code,
+                 dfg_to_dfg,
+                 idx,
+                 label
 
     ):
         self.input_tokens = input_tokens
         self.input_ids = input_ids
+        self.position_idx = position_idx
+        self.dfg_to_code = dfg_to_code
+        self.dfg_to_dfg = dfg_to_dfg
+        self.idx=str(idx)
         self.label=label
-        self.url1=url1
-        self.url2=url2
+
         
-def convert_examples_to_features(code1_tokens,code2_tokens,label,url1,url2,tokenizer,args,cache):
+def convert_examples_to_features(code, label, tokenizer,args):
     #source
-    code1_tokens=code1_tokens[:args.block_size-2]
-    code1_tokens =[tokenizer.cls_token]+code1_tokens+[tokenizer.sep_token]
-    code2_tokens=code2_tokens[:args.block_size-2]
-    code2_tokens =[tokenizer.cls_token]+code2_tokens+[tokenizer.sep_token]  
-    
-    code1_ids=tokenizer.convert_tokens_to_ids(code1_tokens)
-    padding_length = args.block_size - len(code1_ids)
-    code1_ids+=[tokenizer.pad_token_id]*padding_length
-    
-    code2_ids=tokenizer.convert_tokens_to_ids(code2_tokens)
-    padding_length = args.block_size - len(code2_ids)
-    code2_ids+=[tokenizer.pad_token_id]*padding_length
-    
-    source_tokens=code1_tokens+code2_tokens
-    source_ids=code1_ids+code2_ids
-    return InputFeatures(source_tokens,source_ids,label,url1,url2)
+    # code=' '.join(js['func'].split())
+    dfg, index_table, code_tokens = extract_dataflow(code, "c")
+
+    code_tokens=[tokenizer.tokenize('@ '+x)[1:] if idx!=0 else tokenizer.tokenize(x) for idx,x in enumerate(code_tokens)]
+    ori2cur_pos={}
+    ori2cur_pos[-1]=(0,0)
+    for i in range(len(code_tokens)):
+        ori2cur_pos[i]=(ori2cur_pos[i-1][1],ori2cur_pos[i-1][1]+len(code_tokens[i]))    
+    code_tokens=[y for x in code_tokens for y in x]
+
+    code_tokens=code_tokens[:args.code_length+args.data_flow_length-2-min(len(dfg),args.data_flow_length)]
+    source_tokens =[tokenizer.cls_token]+code_tokens+[tokenizer.sep_token]
+    source_ids =  tokenizer.convert_tokens_to_ids(source_tokens)
+    position_idx = [i+tokenizer.pad_token_id + 1 for i in range(len(source_tokens))]
+    dfg = dfg[:args.code_length+args.data_flow_length-len(source_tokens)]
+    source_tokens += [x[0] for x in dfg]
+    position_idx+=[0 for x in dfg]
+    source_ids+=[tokenizer.unk_token_id for x in dfg]
+    padding_length=args.code_length+args.data_flow_length-len(source_ids)
+    position_idx+=[tokenizer.pad_token_id]*padding_length
+    source_ids+=[tokenizer.pad_token_id]*padding_length
+
+    reverse_index={}
+    for idx,x in enumerate(dfg):
+        reverse_index[x[1]]=idx
+    for idx,x in enumerate(dfg):
+        dfg[idx]=x[:-1]+([reverse_index[i] for i in x[-1] if i in reverse_index],)    
+    dfg_to_dfg=[x[-1] for x in dfg]
+    dfg_to_code=[ori2cur_pos[x[1]] for x in dfg]
+    length=len([tokenizer.cls_token])
+    dfg_to_code=[(x[0]+length,x[1]+length) for x in dfg_to_code]
+
+    return InputFeatures(source_tokens, source_ids, position_idx, dfg_to_code, dfg_to_dfg, 0,label)
 
 class TextDataset(Dataset):
-    def __init__(self, tokenizer, args, file_path='train', block_size=512,pool=None):
-        postfix=file_path.split('/')[-1].split('.txt')[0]
+    def __init__(self, tokenizer, args, file_path=None):
         self.examples = []
-        index_filename=file_path
-        logger.info("Creating features from index file at %s ", index_filename)
-        url_to_code={}
+        self.args=args
+        # 首先看看有没有cache的文件.
+        file_type = file_path.split('/')[-1].split('.')[0]
         folder = '/'.join(file_path.split('/')[:-1]) # 得到文件目录
 
         cache_file_path = os.path.join(folder, 'cached_{}'.format(
-                                    postfix))
-        # 保存下对应的code1和code2
+                                    file_type))
         code_pairs_file_path = os.path.join(folder, 'cached_{}.pkl'.format(
-                                    postfix))
-        code_pairs = []
+                                    file_type))
+
+        print('\n cached_features_file: ',cache_file_path)
         try:
             self.examples = torch.load(cache_file_path)
             with open(code_pairs_file_path, 'rb') as f:
-                code_pairs = pickle.load(f)
+                code_files = pickle.load(f)
             logger.info("Loading features from cached file %s", cache_file_path)
+            logger.info("Loading features from cached file %s", cache_file_path)
+        
         except:
-
-            # 读取了所有的数据集文件.
-            with open('/'.join(index_filename.split('/')[:-1])+'/data.jsonl') as f:
+            logger.info("Creating features from dataset file at %s", file_path)
+            code_files = []
+            with open(file_path) as f:
                 for line in f:
-                    line=line.strip()
-                    js=json.loads(line)
-                    url_to_code[js['idx']]=js['func']
-                    # idx 表示每段代码的id
-
-            data=[]
-            cache={} # 这个cache的意义何在？
-            f=open(index_filename)
-            with open(index_filename) as f:
-                for line in f:
-                    line=line.strip()
-                    url1,url2,label=line.split('\t')
-                    if url1 not in url_to_code or url2 not in url_to_code:
-                        # 在data.jsonl中不存在，直接跳过
-                        continue
-                    if label=='0':
-                        label=0
-                    else:
-                        label=1
-                    data.append((url1,url2,label,tokenizer, args,cache,url_to_code))
-                    # 所有东西都存进来内存不爆炸么....
-            if 'test' not in postfix:
-                data=random.sample(data,int(len(data)*0.1))
-            for sing_example in data:
-                code_pairs.append([sing_example[0], 
-                                    sing_example[1], 
-                                    url_to_code[sing_example[0]], 
-                                    url_to_code[sing_example[1]]])
+                    code = line.split(" <CODESPLIT> ")[0]
+                    label = line.split(" <CODESPLIT> ")[1]
+                    # 将这俩内容转化成input.
+                    self.examples.append(convert_examples_to_features(code, int(label), tokenizer,args))
+                    code_files.append(code)
+                    # 这里每次都是重新读取并处理数据集，能否cache然后load
+            assert(len(self.examples) == len(code_files))
             with open(code_pairs_file_path, 'wb') as f:
-                pickle.dump(code_pairs, f)
-            self.examples=pool.map(get_example,tqdm(data,total=len(data)))
+                pickle.dump(code_files, f)
+            logger.info("Saving features into cached file %s", cache_file_path)
             torch.save(self.examples, cache_file_path)
-        # 这应该就是处理数据的地方了.
-        if 'train' in postfix:
+
+        if 'train' in file_path:
             for idx, example in enumerate(self.examples[:3]):
                     logger.info("*** Example ***")
                     logger.info("idx: {}".format(idx))
@@ -185,20 +168,39 @@ class TextDataset(Dataset):
                     logger.info("input_tokens: {}".format([x.replace('\u0120','_') for x in example.input_tokens]))
                     logger.info("input_ids: {}".format(' '.join(map(str, example.input_ids))))
 
-
-
     def __len__(self):
         return len(self.examples)
 
     def __getitem__(self, item):
+        #calculate graph-guided masked function
+        attn_mask=np.zeros((self.args.code_length+self.args.data_flow_length,
+                            self.args.code_length+self.args.data_flow_length),dtype=np.bool)
+        #calculate begin index of node and max length of input
         
-        return torch.tensor(self.examples[item].input_ids),torch.tensor(self.examples[item].label)
-
-
-def load_and_cache_examples(args, tokenizer, evaluate=False,test=False,pool=None):
-    # 问题是，我寻思你们也没cache啊....
-    dataset = TextDataset(tokenizer, args, file_path=args.test_data_file if test else (args.eval_data_file if evaluate else args.train_data_file),block_size=args.block_size,pool=pool)
-    return dataset
+        node_index=sum([i>1 for i in self.examples[item].position_idx])
+        max_length=sum([i!=1 for i in self.examples[item].position_idx])
+        #sequence can attend to sequence
+        attn_mask[:node_index,:node_index]=True
+        #special tokens attend to all tokens
+        for idx,i in enumerate(self.examples[item].input_ids):
+            if i in [0,2]:
+                attn_mask[idx,:max_length]=True
+        #nodes attend to code tokens that are identified from
+        for idx,(a,b) in enumerate(self.examples[item].dfg_to_code):
+            if a<node_index and b<node_index:
+                attn_mask[idx+node_index,a:b]=True
+                attn_mask[a:b,idx+node_index]=True
+        #nodes attend to adjacent nodes 
+        for idx,nodes in enumerate(self.examples[item].dfg_to_dfg):
+            for a in nodes:
+                if a+node_index<len(self.examples[item].position_idx):
+                    attn_mask[idx+node_index,a+node_index]=True
+              
+        return (torch.tensor(self.examples[item].input_ids),
+              torch.tensor(attn_mask),
+              torch.tensor(self.examples[item].position_idx),
+              torch.tensor(self.examples[item].label))
+            
 
 def set_seed(seed=42):
     random.seed(seed)
@@ -208,17 +210,18 @@ def set_seed(seed=42):
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
 
-def train(args, train_dataset, model, tokenizer,pool):
-    """ Train the model """
 
+def train(args, train_dataset, model, tokenizer):
+    """ Train the model """ 
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
     train_sampler = RandomSampler(train_dataset) if args.local_rank == -1 else DistributedSampler(train_dataset)
     
-    train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
-    args.max_steps=args.epoch*len( train_dataloader)
-    args.save_steps=len( train_dataloader)
-    args.warmup_steps=len( train_dataloader)
-    args.logging_steps=len( train_dataloader)
+    train_dataloader = DataLoader(train_dataset, sampler=train_sampler, 
+                                  batch_size=args.train_batch_size,num_workers=4,pin_memory=True)
+    args.max_steps=args.epoch*len(train_dataloader)
+    args.save_steps=len(train_dataloader)
+    args.warmup_steps=len(train_dataloader)
+    args.logging_steps=len(train_dataloader)
     args.num_train_epochs=args.epoch
     model.to(args.device)
     # Prepare optimizer and schedule (linear warmup and decay)
@@ -229,7 +232,7 @@ def train(args, train_dataset, model, tokenizer,pool):
         {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
     ]
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
-    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps,
+    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.max_steps*0.1,
                                                 num_training_steps=args.max_steps)
     if args.fp16:
         try:
@@ -269,20 +272,21 @@ def train(args, train_dataset, model, tokenizer,pool):
     global_step = args.start_step
     tr_loss, logging_loss,avg_loss,tr_nb,tr_num,train_loss = 0.0, 0.0,0.0,0,0,0
     best_mrr=0.0
-    best_f1=0
+    best_acc=0.0
     # model.resize_token_embeddings(len(tokenizer))
     model.zero_grad()
-    set_seed(args.seed)  # Added here for reproducibility (even between python 2 and 3)
  
     for idx in range(args.start_epoch, int(args.num_train_epochs)): 
         bar = tqdm(train_dataloader,total=len(train_dataloader))
         tr_num=0
         train_loss=0
         for step, batch in enumerate(bar):
-            inputs = batch[0].to(args.device)        
-            labels=batch[1].to(args.device) 
+            inputs_ids = batch[0].to(args.device)
+            attn_mask = batch[1].to(args.device) 
+            position_idx = batch[2].to(args.device) 
+            labels=batch[3].to(args.device) 
             model.train()
-            loss,logits = model(inputs,labels)
+            loss,logits = model(inputs_ids, attn_mask, position_idx, labels)
 
 
             if args.n_gpu > 1:
@@ -321,16 +325,18 @@ def train(args, train_dataset, model, tokenizer,pool):
                 if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
                     
                     if args.local_rank == -1 and args.evaluate_during_training:  # Only evaluate when single GPU otherwise metrics may not average well
-                        results = evaluate(args, model, tokenizer,pool=pool,eval_when_training=True)                 
+                        results = evaluate(args, model, tokenizer,eval_when_training=True)
+                        for key, value in results.items():
+                            logger.info("  %s = %s", key, round(value,4))                    
                         # Save model checkpoint
-
-                    if results['eval_f1']>best_f1:
-                        best_f1=results['eval_f1']
+                        
+                    if results['eval_precision']>best_acc:
+                        best_acc=results['eval_precision']
                         logger.info("  "+"*"*20)  
-                        logger.info("  Best f1:%s",round(best_f1,4))
+                        logger.info("  Best acc:%s",round(best_acc,4))
                         logger.info("  "+"*"*20)                          
                         
-                        checkpoint_prefix = 'checkpoint-best-f1'
+                        checkpoint_prefix = 'checkpoint-best-acc'
                         output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))                        
                         if not os.path.exists(output_dir):
                             os.makedirs(output_dir)                        
@@ -339,17 +345,15 @@ def train(args, train_dataset, model, tokenizer,pool):
                         torch.save(model_to_save.state_dict(), output_dir)
                         logger.info("Saving model checkpoint to %s", output_dir)
                         
-        if args.max_steps > 0 and global_step > args.max_steps:
-            train_iterator.close()
-            break
-    return global_step, tr_loss / global_step
 
 
-def evaluate(args, model, tokenizer, prefix="",pool=None,eval_when_training=False):
+
+def evaluate(args, model, tokenizer,eval_when_training=False):
     # Loop to handle MNLI double evaluation (matched, mis-matched)
     eval_output_dir = args.output_dir
-    eval_dataset = load_and_cache_examples(args, tokenizer, evaluate=True,pool=pool)
-    # 得到数据集.
+
+    eval_dataset = TextDataset(tokenizer, args,args.eval_data_file)
+
     if not os.path.exists(eval_output_dir) and args.local_rank in [-1, 0]:
         os.makedirs(eval_output_dir)
 
@@ -363,50 +367,43 @@ def evaluate(args, model, tokenizer, prefix="",pool=None,eval_when_training=Fals
         model = torch.nn.DataParallel(model)
 
     # Eval!
-    logger.info("***** Running evaluation {} *****".format(prefix))
+    logger.info("***** Running evaluation *****")
     logger.info("  Num examples = %d", len(eval_dataset))
     logger.info("  Batch size = %d", args.eval_batch_size)
     eval_loss = 0.0
     nb_eval_steps = 0
     model.eval()
-    logits=[]  
+    logits=[] 
+    labels=[]
     y_trues=[]
-    for batch in tqdm(eval_dataloader):
-        inputs = batch[0].to(args.device)        
-        labels = batch[1].to(args.device) 
+    for batch in eval_dataloader:
+        inputs_ids = batch[0].to(args.device)
+        attn_mask = batch[1].to(args.device) 
+        position_idx = batch[2].to(args.device) 
+        label=batch[3].to(args.device) 
         with torch.no_grad():
-            lm_loss,logit = model(inputs,labels)
+            lm_loss,logit = model(inputs_ids, attn_mask, position_idx, label)
             eval_loss += lm_loss.mean().item()
             logits.append(logit.cpu().numpy())
-            y_trues.append(labels.cpu().numpy())
-            # ground truth
+            y_trues.append(label.cpu().numpy())
         nb_eval_steps += 1
     logits=np.concatenate(logits,0)
     y_trues=np.concatenate(y_trues,0)
     best_threshold=0
     best_f1=0
-    # 在validation集上确定best_threshold的.
-    for i in range(1,100):
-        threshold=i/100
-        y_preds=logits[:,1]>threshold
-        from sklearn.metrics import recall_score
-        recall=recall_score(y_trues, y_preds, average='macro')
-        from sklearn.metrics import precision_score
-        precision=precision_score(y_trues, y_preds, average='macro')   
-        from sklearn.metrics import f1_score
-        f1=f1_score(y_trues, y_preds, average='macro') 
-        if f1>best_f1:
-            best_f1=f1
-            best_threshold=threshold
-
-    # 使用best_threshold来计算指标.
-    y_preds=logits[:,1]>best_threshold
+    
+    y_preds = []
+    for logit in logits:
+        y_preds.append(np.argmax(logit))
+    print(y_trues)
+    print(y_preds)
     from sklearn.metrics import recall_score
     recall=recall_score(y_trues, y_preds, average='macro')
     from sklearn.metrics import precision_score
     precision=precision_score(y_trues, y_preds, average='macro')   
     from sklearn.metrics import f1_score
-    f1=f1_score(y_trues, y_preds, average='macro')             
+    f1=f1_score(y_trues, y_preds, average='macro') 
+
     result = {
         "eval_recall": float(recall),
         "eval_precision": float(precision),
@@ -415,63 +412,59 @@ def evaluate(args, model, tokenizer, prefix="",pool=None,eval_when_training=Fals
         
     }
 
-    logger.info("***** Eval results {} *****".format(prefix))
+    # logger.info("***** Eval results {} *****".format(prefix))
     for key in sorted(result.keys()):
         logger.info("  %s = %s", key, str(round(result[key],4)))
 
     return result
 
-def test(args, model, tokenizer, prefix="",pool=None,best_threshold=0):
+def test(args, model, tokenizer):
     # Loop to handle MNLI double evaluation (matched, mis-matched)
-    eval_dataset = load_and_cache_examples(args, tokenizer, test=True,pool=pool)
+    eval_dataset = TextDataset(tokenizer, args,args.test_data_file)
+
 
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
     # Note that DistributedSampler samples randomly
     eval_sampler = SequentialSampler(eval_dataset) if args.local_rank == -1 else DistributedSampler(eval_dataset)
-    eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size,num_workers=4,pin_memory=True)
+    eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
 
     # multi-gpu evaluate
     if args.n_gpu > 1:
         model = torch.nn.DataParallel(model)
 
     # Eval!
-    logger.info("***** Running Test {} *****".format(prefix))
+    logger.info("***** Running Test *****")
     logger.info("  Num examples = %d", len(eval_dataset))
     logger.info("  Batch size = %d", args.eval_batch_size)
     eval_loss = 0.0
     nb_eval_steps = 0
     model.eval()
-    logits=[]  
-    y_trues=[]
-    for batch in tqdm(eval_dataloader):
-        inputs = batch[0].to(args.device)        
-        labels=batch[1].to(args.device) 
+    logits=[]   
+    labels=[]
+    for batch in tqdm(eval_dataloader,total=len(eval_dataloader)):
+        inputs_ids = batch[0].to(args.device)
+        attn_mask = batch[1].to(args.device) 
+        position_idx = batch[2].to(args.device) 
+        label=batch[3].to(args.device) 
         with torch.no_grad():
-            lm_loss,logit = model(inputs,labels)
-            eval_loss += lm_loss.mean().item()
+            lm_loss, logit = model(inputs_ids, attn_mask, position_idx, label)
             logits.append(logit.cpu().numpy())
-            y_trues.append(labels.cpu().numpy())
-        nb_eval_steps += 1
+            labels.append(label.cpu().numpy())
+
     logits=np.concatenate(logits,0)
-    y_preds=logits[:,1]>best_threshold
-    from sklearn.metrics import recall_score
-    recall=recall_score(y_trues, y_preds, average='macro')
-    from sklearn.metrics import precision_score
-    precision=precision_score(y_trues, y_preds, average='macro')   
-    from sklearn.metrics import f1_score
-    f1=f1_score(y_trues, y_preds, average='macro')             
-    result = {
-        "test_recall": float(recall),
-        "test_precision": float(precision),
-        "test_f1": float(f1)
-    }
-
-    logger.info("***** Test results {} *****".format(prefix))
-    for key in sorted(result.keys()):
-        logger.info("  %s = %s", key, str(round(result[key],4)))
-
-    return result
-                                                
+    labels=np.concatenate(labels,0)
+    preds=logits[:,0]>0.5
+    eval_acc=np.mean(labels==preds)
+    print(eval_acc)
+    with open(os.path.join(args.output_dir,"predictions.txt"),'w') as f:
+        for example,pred in zip(eval_dataset.examples,preds):
+            if pred:
+                f.write(example.idx+'\t1\n')
+            else:
+                f.write(example.idx+'\t0\n')    
+    
+                        
+                        
 def main():
     parser = argparse.ArgumentParser()
 
@@ -491,7 +484,8 @@ def main():
                         help="The model architecture to be fine-tuned.")
     parser.add_argument("--model_name_or_path", default=None, type=str,
                         help="The model checkpoint for weights initialization.")
-
+    parser.add_argument("--number_labels", type=int,
+                        help="The model checkpoint for weights initialization.")
     parser.add_argument("--mlm", action='store_true',
                         help="Train with masked-language modeling loss instead of language modeling.")
     parser.add_argument("--mlm_probability", type=float, default=0.15,
@@ -503,10 +497,10 @@ def main():
                         help="Optional pretrained tokenizer name or path if not the same as model_name_or_path")
     parser.add_argument("--cache_dir", default="", type=str,
                         help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
-    parser.add_argument("--block_size", default=-1, type=int,
-                        help="Optional input sequence length after tokenization."
-                             "The training dataset will be truncated in block of this size for training."
-                             "Default to the model max input length for single sentence inputs (take into account special tokens).")
+    parser.add_argument("--code_length", default=256, type=int,
+                        help="Optional Code input sequence length after tokenization.") 
+    parser.add_argument("--data_flow_length", default=64, type=int,
+                        help="Optional Data Flow input sequence length after tokenization.") 
     parser.add_argument("--do_train", action='store_true',
                         help="Whether to run training.")
     parser.add_argument("--do_eval", action='store_true',
@@ -567,8 +561,9 @@ def main():
     parser.add_argument('--server_ip', type=str, default='', help="For distant debugging.")
     parser.add_argument('--server_port', type=str, default='', help="For distant debugging.")
 
+
     
-    pool = multiprocessing.Pool(cpu_cont)
+
     args = parser.parse_args()
 
     # Setup distant debugging if needed
@@ -598,6 +593,8 @@ def main():
     logger.warning("Process rank: %s, device: %s, n_gpu: %s, distributed training: %s, 16-bits training: %s",
                    args.local_rank, device, args.n_gpu, bool(args.local_rank != -1), args.fp16)
 
+
+
     # Set seed
     set_seed(args.seed)
 
@@ -625,13 +622,11 @@ def main():
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
     config = config_class.from_pretrained(args.config_name if args.config_name else args.model_name_or_path,
                                           cache_dir=args.cache_dir if args.cache_dir else None)
-    config.num_labels=2
+    config.num_labels=args.number_labels
     tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name,
                                                 do_lower_case=args.do_lower_case,
                                                 cache_dir=args.cache_dir if args.cache_dir else None)
-    if args.block_size <= 0:
-        args.block_size = tokenizer.max_len_single_sentence  # Our input block size will be the max possible for the model
-    args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
+    
     if args.model_name_or_path:
         model = model_class.from_pretrained(args.model_name_or_path,
                                             from_tf=bool('.ckpt' in args.model_name_or_path),
@@ -641,7 +636,6 @@ def main():
         model = model_class(config)
 
     model=Model(model,config,tokenizer,args)
-    # load 模型.
     if args.local_rank == 0:
         torch.distributed.barrier()  # End of barrier to make sure only the first process in distributed training download model & vocab
 
@@ -652,33 +646,37 @@ def main():
         if args.local_rank not in [-1, 0]:
             torch.distributed.barrier()  # Barrier to make sure only the first process in distributed training process the dataset, and the others will use the cache
 
-        train_dataset = load_and_cache_examples(args, tokenizer, evaluate=False,pool=pool)
-
+        train_dataset = TextDataset(tokenizer, args,args.train_data_file)
         if args.local_rank == 0:
             torch.distributed.barrier()
 
-        global_step, tr_loss = train(args, train_dataset, model, tokenizer,pool)
+        train(args, train_dataset, model, tokenizer)
+
 
 
     # Evaluation
     results = {}
     if args.do_eval and args.local_rank in [-1, 0]:
-        checkpoint_prefix = 'checkpoint-best-f1/model.bin'
-        output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
-        model.load_state_dict(torch.load(output_dir))
-        model.to(args.device)
-        result=evaluate(args, model, tokenizer,pool=pool)
-        
+            checkpoint_prefix = 'checkpoint-best-acc/model.bin'
+            output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
+            model.load_state_dict(torch.load(output_dir))      
+            model.to(args.device)
+            result=evaluate(args, model, tokenizer)
+            logger.info("***** Eval results *****")
+            for key in sorted(result.keys()):
+                logger.info("  %s = %s", key, str(round(result[key],4)))
+            
     if args.do_test and args.local_rank in [-1, 0]:
-        checkpoint_prefix = 'checkpoint-best-f1/model.bin'
-        output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
-        model.load_state_dict(torch.load(output_dir))
-        model.to(args.device)
-        result = test(args, model, tokenizer,pool=pool,best_threshold=0.5)
+            checkpoint_prefix = 'checkpoint-best-acc/model.bin'
+            output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
+            model.load_state_dict(torch.load(output_dir))                  
+            model.to(args.device)
+            test(args, model, tokenizer)
 
     return results
 
 
 if __name__ == "__main__":
     main()
+
 

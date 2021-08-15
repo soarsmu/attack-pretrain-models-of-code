@@ -96,21 +96,30 @@ class TextDataset(Dataset):
 
         cache_file_path = os.path.join(folder, 'cached_{}'.format(
                                     file_type))
+        code_pairs_file_path = os.path.join(folder, 'cached_{}.pkl'.format(
+                                    file_type))
 
         print('\n cached_features_file: ',cache_file_path)
         try:
             self.examples = torch.load(cache_file_path)
+            with open(code_pairs_file_path, 'rb') as f:
+                code_files = pickle.load(f)
             logger.info("Loading features from cached file %s", cache_file_path)
         
         except:
             logger.info("Creating features from dataset file at %s", file_path)
+            code_files = []
             with open(file_path) as f:
                 for line in f:
                     code = line.split(" <CODESPLIT> ")[0]
                     label = line.split(" <CODESPLIT> ")[1]
                     # 将这俩内容转化成input.
                     self.examples.append(convert_examples_to_features(code, int(label), tokenizer,args))
+                    code_files.append(code)
                     # 这里每次都是重新读取并处理数据集，能否cache然后load
+            assert(len(self.examples) == len(code_files))
+            with open(code_pairs_file_path, 'wb') as f:
+                pickle.dump(code_files, f)
             logger.info("Saving features into cached file %s", cache_file_path)
             torch.save(self.examples, cache_file_path)
 
