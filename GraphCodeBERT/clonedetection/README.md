@@ -3,7 +3,8 @@
 ## Task Definition
 
 **Clone Detection:** Given two codes as the input, the task is to do binary classification (0/1), where 1 stands for semantic equivalence and 0 for others. Models are evaluated by F1 score.
-**Attack:** Modify one of input codes, change the prediction result of GraphCodeBERT.
+
+**Attack:** Modify one of input codes, change the prediction result (0/1) of GraphCodeBERT.
 
 ## Dataset
 
@@ -29,7 +30,7 @@ Data statistics of the dataset are shown in the below table:
 | Dev   |  415,416  |
 | Test  |  415,416  |
 
-You can get data using the following command.
+The data is compressed in `./dataset.zip`. You can get data using the following command.
 
 ```
 unzip dataset.zip
@@ -37,14 +38,19 @@ unzip dataset.zip
 
 ## Fine-tune GraphCodeBERT
 
-We also provide a pipeline that fine-tunes GraphCodeBERT on this task.
-
 ### Dependency
 
-- pip install torch
-- pip install transformers
-- pip install tree_sitter
-- pip install sklearn
+Users can try with the following docker image.
+
+```
+docker pull zhouyang996/codebert-attack:v1
+```
+
+Then, create a container using this docker image. An example is:
+
+```
+docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase_path>,dst=/workspace zhouyang996/codebert-attack:v1
+```
 
 If the built file "parser/my-languages.so" doesn't work for you, please rebuild as the following command:
 
@@ -54,9 +60,17 @@ bash build.sh
 cd ..
 ```
 
+All the following scripts should run inside the docker container. 
+
+❕**Notes:** This docker works fine with RTX 2080Ti GPUs and Tesla P100 GPUs. But if on RTX 30XX GPUs, it may take very long time to load the models to cuda. We think it's related to the CUDA version. Users can use the following command for a lower version:
+
+```
+docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase_path>,dst=/workspace pytorch/pytorch:1.7.0-cuda11.0-cudnn8-devel
+```
+
 ### Fine-tune
 
-We use 8*P100-16G to fine-tune and 10% valid data to evaluate.
+We use full train data for fine-tuning. The training cost is 18 hours on 8*P100-16G. We use 10% valid data to evaluate during training.
 
 ```shell
 mkdir saved_models
