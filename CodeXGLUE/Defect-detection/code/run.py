@@ -351,16 +351,25 @@ def test(args, model, tokenizer):
             logit = model(inputs)
             logits.append(logit.cpu().numpy())
             labels.append(label.cpu().numpy())
-
+        nb_eval_steps += 1
     logits=np.concatenate(logits,0)
     labels=np.concatenate(labels,0)
     preds=logits[:,0]>0.5
-    with open(os.path.join(args.output_dir,"predictions.txt"),'w') as f:
-        for example,pred in zip(eval_dataset.examples,preds):
-            if pred:
-                f.write(example.idx+'\t1\n')
-            else:
-                f.write(example.idx+'\t0\n')    
+    eval_acc=np.mean(labels==preds)
+    eval_loss = eval_loss / nb_eval_steps
+    perplexity = torch.tensor(eval_loss)
+            
+    result = {
+        "eval_loss": float(perplexity),
+        "eval_acc":round(eval_acc,4),
+    }
+    return result
+    # with open(os.path.join(args.output_dir,"predictions.txt"),'w') as f:
+    #     for example,pred in zip(eval_dataset.examples,preds):
+    #         if pred:
+    #             f.write(example.idx+'\t1\n')
+    #         else:
+    #             f.write(example.idx+'\t0\n')    
     
                         
                         
@@ -571,7 +580,11 @@ def main():
             output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
             model.load_state_dict(torch.load(output_dir))                  
             model.to(args.device)
-            test(args, model, tokenizer)
+            # test(args, model, tokenizer)
+            result=test(args, model, tokenizer)
+            logger.info("***** Test results *****")
+            for key in sorted(result.keys()):
+                logger.info("  %s = %s", key, str(round(result[key],4)))
 
     return results
 
