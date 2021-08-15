@@ -141,4 +141,4 @@ The results on the test set are shown as below:
 
 | Method        | Precision |  Precision (attacked)   |    Recall     |  Recall (attacked)   |    F1     |  F1 (attacked)   |
 | ------------- | :-------: | :---------------------: | :-----------: | :------------------: | :-------: |:---------------: | 
-| CodeBERT | **0.960** |  | **0.969** |  | **0.965** |  |
+| CodeBERT | **0.9564** |  | **0.9723** |  | **0.9641** |  |
