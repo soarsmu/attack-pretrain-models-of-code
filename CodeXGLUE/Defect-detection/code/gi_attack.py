@@ -4,6 +4,7 @@
 # @Email   : zyang@smu.edu.sg
 # @File    : gi_attack.py
 '''For attacking CodeBERT models'''
+import enum
 import sys
 import os
 
@@ -135,6 +136,9 @@ def get_importance_score(args, example, code, words_list: list, sub_words: list,
 
     return importance_score, replace_token_positions, positions
 
+def compute_fitness_in_batch():
+    pass
+
 def compute_fitness(chromesome, codebert_tgt, tokenizer_tgt, orig_prob, orig_label, true_label ,words, names_positions_dict, args):
     # 计算fitness function.
     # words + chromesome + orig_label + current_prob
@@ -149,7 +153,7 @@ def compute_fitness(chromesome, codebert_tgt, tokenizer_tgt, orig_prob, orig_lab
     
 
 
-def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, use_bpe, threshold_pred_score):
+def gi_attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, use_bpe, threshold_pred_score):
     '''
     return
         original program: code
@@ -216,63 +220,27 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
     # 只取subwords的部分，忽略首尾的预测结果.
 
-    # 计算importance_score.
+    names_positions_dict = get_identifier_posistions_from_code(words, variable_names)
 
-    # 对于GI方法而言，这个importance score并不是那么重要。
-    importance_score, replace_token_positions, names_positions_dict = get_importance_score(args, example, 
-                                            processed_code,
-                                            words,
-                                            sub_words,
-                                            variable_names,
-                                            codebert_tgt, 
-                                            tokenizer_tgt, 
-                                            [0,1], 
-                                            batch_size=args.eval_batch_size, 
-                                            max_length=args.block_size, 
-                                            model_type='classification')
-
-    assert(len(importance_score) == len(replace_token_positions))
-
-    token_pos_to_score_pos = {}
-
-    for i, token_pos in enumerate(replace_token_positions):
-        token_pos_to_score_pos[token_pos] = i
-    # 重新计算Importance score，将所有出现的位置加起来（而不是取平均）.
-    names_to_importance_score = {}
-
-    for name in names_positions_dict.keys():
-        total_score = 0.0
-        positions = names_positions_dict[name]
-        for token_pos in positions:
-            # 这个token在code中对应的位置
-            # importance_score中的位置：token_pos_to_score_pos[token_pos]
-            total_score += importance_score[token_pos_to_score_pos[token_pos]]
-        
-        names_to_importance_score[name] = total_score
-
-    sorted_list_of_names = sorted(names_to_importance_score.items(), key=lambda x: x[1], reverse=True)
-    # 根据importance_score进行排序
 
     final_words = copy.deepcopy(words)
     
     nb_changed_var = 0 # 表示被修改的variable数量
     nb_changed_pos = 0
     is_success = -1
-    replaced_words = {}
 
     # 我们可以先生成所有的substitues
     variable_substitue_dict = {}
 
-    # 关于chromesome的定义: {tgt_word: candidate, tgt_word_2: candidate_2, ...}
 
-    for name_and_score in sorted_list_of_names:
-        tgt_word = name_and_score[0]
+
+    for tgt_word in names_positions_dict.keys():
         tgt_positions = names_positions_dict[tgt_word] # 在words中对应的位置
         if tgt_word in python_keywords:
             # 如果在filter_words中就不修改
             continue   
 
-        ## 得到substitues
+        ## 得到(所有位置的)substitues
         all_substitues = []
         for one_pos in tgt_positions:
             ## 一个变量名会出现很多次
@@ -286,172 +254,121 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
                                         word_pred_scores, 
                                         threshold_pred_score)
             all_substitues += substitutes
-
         all_substitues = set(all_substitues)
-        variable_substitue_dict[tgt_word] = []
+
         for tmp_substitue in all_substitues:
             if not is_valid_substitue(tmp_substitue, tgt_word):
                 continue
-            variable_substitue_dict[tgt_word].append(tmp_substitue)
+            try:
+                variable_substitue_dict[tgt_word].append(tmp_substitue)
+            except:
+                variable_substitue_dict[tgt_word] = [tmp_substitue]
+            # 这么做是为了让在python_keywords中的variable不在variable_substitue_dict中保存
+
+    print("Number of identifiers to be changed:  ", len(variable_substitue_dict))
         
     population = []
     fitness_values = []
     base_chromesome = {word: word for word in variable_substitue_dict.keys()}
+    # 关于chromesome的定义: {tgt_word: candidate, tgt_word_2: candidate_2, ...}
 
     for tgt_word in variable_substitue_dict.keys():
-        initial_candidate = random.choice(variable_substitue_dict[tgt_word])
-        temp_chromesome = copy.deepcopy(base_chromesome)
-        temp_chromesome[tgt_word] = initial_candidate
-        population.append(temp_chromesome)
-        temp_fitness, temp_label = compute_fitness(temp_chromesome, codebert_tgt, tokenizer_tgt, current_prob, orig_label, true_label ,words, names_positions_dict, args)
-        fitness_values.append(temp_fitness)
-
-    cross_probability = 0.1
-    max_population_size = 2 * len(population)
-
-    max_iter = 100
-
-    for i in range(max_iter):
-        p = random.random()
-        chromesome_1, index_1, chromesome_2, index_2 = select_parents(population)
-        if p < cross_probability: # 进行crossover
-            child_1, child_2 = crossover(chromesome_1, chromesome_2)
-        else: # 进行mutates
-            child_1 = mutate(chromesome_1, variable_substitue_dict)
-        
-        new_fitness, new_label = compute_fitness(child_1, codebert_tgt, tokenizer_tgt, current_prob, orig_label, true_label ,words, names_positions_dict, args)
-        print(new_fitness)
-        if new_label != orig_label:
-            print("SUccess!!!")
-            break
-        if new_fitness > fitness_values[index_1]:
-            if len(population) >= max_population_size:
-                population[index_1] = child_1
-                fitness_values[index_1] = new_fitness
-            else:
-                population.append(child_1)
-                fitness_values.append(new_fitness)
-
-
-        
-    for pi in population:
-        print(pi)
-
-    return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, None, None, None, None
-    exit()
-
-
-    for name_and_score in sorted_list_of_names:
-        tgt_word = name_and_score[0]
-        tgt_positions = names_positions_dict[tgt_word] # 在words中对应的位置
-        if tgt_word in python_keywords:
-            # 如果在filter_words中就不修改
-            continue   
-
-        ## 得到substitues
-        all_substitues = []
-        for one_pos in tgt_positions:
-            ## 一个变量名会出现很多次
-            substitutes = word_predictions[keys[one_pos][0]:keys[one_pos][1]]  # L, k
-            word_pred_scores = word_pred_scores_all[keys[one_pos][0]:keys[one_pos][1]]
-
-            substitutes = get_substitues(substitutes, 
-                                        tokenizer_mlm, 
-                                        codebert_mlm, 
-                                        use_bpe, 
-                                        word_pred_scores, 
-                                        threshold_pred_score)
-            all_substitues += substitutes
-        all_substitues = set(all_substitues)
-        # 得到了所有位置的substitue，并使用set来去重
-
-        most_gap = 0.0
-        candidate = None
+        # 这里进行初始化
+        # 对于每个variable: 选择"影响最大"的substitues
         replace_examples = []
-
         substitute_list = []
-        # 依次记录了被加进来的substitue
-        # 即，每个temp_replace对应的substitue.
-        for substitute_ in all_substitues:
-
-            substitute = substitute_.strip()
-            # FIX: 有些substitue的开头或者末尾会产生空格
-            # 这些头部和尾部的空格在拼接的时候并不影响，但是因为下面的第4个if语句会被跳过
-            # 这导致了部分mutants为空，而引发了runtime error
-
-            if not is_valid_substitue(substitute, tgt_word):
-                continue
-
-            
-            temp_replace = copy.deepcopy(final_words)
+        temp_replace = copy.deepcopy(words)
+        current_prob = max(orig_prob)
+        most_gap = 0.0
+        initial_candidate = tgt_word
+        tgt_positions = names_positions_dict[tgt_word]
+        
+        # 原来是随机选择的，现在要找到改变最大的.
+        for a_substitue in variable_substitue_dict[tgt_word]:
+            a_substitue = a_substitue.strip()
             for one_pos in tgt_positions:
-                temp_replace[one_pos] = substitute
-            
-            substitute_list.append(substitute)
-            # 记录了替换的顺序
-
-            # 需要将几个位置都替换成sustitue_
+                # 将对应的位置变成substitue
+                temp_replace[one_pos] = a_substitue
+            substitute_list.append(a_substitue)
+            # 记录下这次换的是哪个substitue
             temp_code = " ".join(temp_replace)
-                                            
             new_feature = convert_code_to_features(temp_code, tokenizer_tgt, example[1].item(), args)
             replace_examples.append(new_feature)
+
         if len(replace_examples) == 0:
             # 并没有生成新的mutants，直接跳去下一个token
             continue
         new_dataset = CodeDataset(replace_examples)
             # 3. 将他们转化成features
         logits, preds = get_results(new_dataset, codebert_tgt, args.eval_batch_size)
-        assert(len(logits) == len(substitute_list))
 
-
+        _the_best_candidate = -1
         for index, temp_prob in enumerate(logits):
             temp_label = preds[index]
-            if temp_label != orig_label:
-                # 如果label改变了，说明这个mutant攻击成功
-                is_success = 1
-                nb_changed_var += 1
-                nb_changed_pos += len(names_positions_dict[tgt_word])
-                candidate = substitute_list[index]
-                replaced_words[tgt_word] = candidate
-                for one_pos in tgt_positions:
-                    final_words[one_pos] = candidate
-                adv_code = " ".join(final_words)
+            gap = current_prob - temp_prob[temp_label]
+            # 并选择那个最大的gap.
+            if gap > most_gap:
+                most_gap = gap
+                _the_best_candidate = index
+        if _the_best_candidate == -1:
+            initial_candidate = tgt_word
+        else:
+            initial_candidate = substitute_list[_the_best_candidate]
 
-                return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words
-            else:
-                # 如果没有攻击成功，我们看probability的修改
-                gap = current_prob - temp_prob[temp_label]
-                # 并选择那个最大的gap.
-                if gap > most_gap:
-                    most_gap = gap
-                    candidate = substitute_list[index]
-    
-        if most_gap > 0:
-            # 如果most_gap > 0，说明有mutant可以让prob减少
-            nb_changed_var += 1
-            nb_changed_pos += len(names_positions_dict[tgt_word])
-            current_prob = current_prob - most_gap
-            for one_pos in tgt_positions:
-                final_words[one_pos] = candidate
-            replaced_words[tgt_word] = candidate
+        temp_chromesome = copy.deepcopy(base_chromesome)
+        temp_chromesome[tgt_word] = initial_candidate
+        population.append(temp_chromesome)
+        temp_fitness, temp_label = compute_fitness(temp_chromesome, codebert_tgt, tokenizer_tgt, max(orig_prob), orig_label, true_label ,words, names_positions_dict, args)
+        fitness_values.append(temp_fitness)
+
+    cross_probability = 0.7
+
+    max_iter = max(5 * len(population), 10)
+
+    for i in range(max_iter):
+        _temp_mutants = []
+        for j in range(args.eval_batch_size):
+            p = random.random()
+            chromesome_1, index_1, chromesome_2, index_2 = select_parents(population)
+            if p < cross_probability: # 进行crossover
+                if chromesome_1 == chromesome_2:
+                    child_1 = mutate(chromesome_1, variable_substitue_dict)
+                    continue
+                child_1, child_2 = crossover(chromesome_1, chromesome_2)
+                if child_1 == chromesome_1 or child_1 == chromesome_2:
+                    child_1 = mutate(chromesome_1, variable_substitue_dict)
+            else: # 进行mutates
+                child_1 = mutate(chromesome_1, variable_substitue_dict)
+            _temp_mutants.append(child_1)
         
-        adv_code = " ".join(final_words)
-    '''
-    return
-        original program: code
-        program length: prog_length
-        adversar program: adv_code
-        true label: true_label
-        original prediction: orig_label
-        adversarial prediction: temp_label
-        is_attack_success: is_success
-        extracted variables: variable_names
-        importance score of variables: names_to_importance_score
-        number of changed variables: nb_changed_var
-        number of changed positions: nb_changed_pos
-        substitues for variables: replaced_words
-    '''
-    return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words
+        # compute fitness in batch
+        feature_list = []
+        for mutant in _temp_mutants:
+            _tmp_mutate_code = map_chromesome(mutant, words, names_positions_dict)
+            _temp_code = ' '.join(_tmp_mutate_code)
+            _tmp_feature = convert_code_to_features(_temp_code, tokenizer_tgt, true_label, args)
+            feature_list.append(_tmp_feature)
+        new_dataset = CodeDataset(feature_list)
+        mutate_logits, mutate_preds = get_results(new_dataset, codebert_tgt, args.eval_batch_size)
+        mutate_fitness_values = []
+        for index, logits in enumerate(mutate_logits):
+            if mutate_preds[index] != orig_label:
+                adv_code = " ".join(map_chromesome(_temp_mutants[index], words, names_positions_dict))
+                return code, prog_length, adv_code, true_label, orig_label, mutate_preds[index], 1, variable_names, None, None, None, child_1
+            _tmp_fitness = max(orig_prob) - logits[orig_label]
+            mutate_fitness_values.append(_tmp_fitness)
+        
+        # 现在进行替换.
+        for index, fitness_value in enumerate(mutate_fitness_values):
+            min_value = min(fitness_values)
+            if fitness_value > min_value:
+                # 替换.
+                min_index = fitness_values.index(min_value)
+                population[min_index] = _temp_mutants[index]
+                fitness_values[min_index] = fitness_value
+
+    return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, None, None, None, None
+
 
 
 def main():
