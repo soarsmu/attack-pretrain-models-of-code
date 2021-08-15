@@ -6,33 +6,50 @@ from parser_folder import (remove_comments_and_docstrings,
                            tree_to_variable_index)
 from tree_sitter import Language, Parser
 
-path = '../../../python_parser/parser_folder/my-languages.so'
+path = 'parser_folder/my-languages.so'
 c_code = """
 struct vhost_net *vhost_net_init(int devfd) {
 int a = 1;
 return NULL; }
 """
 
-python_code = """ import sys
-def swap(a, b):
-    c = 2
-    d = c + 1
-    d = a + s
-    print(d, c)
+python_code = """ 
+a = "abcdefghijklmnopqrstuvwxyz" 
+d = { } 
+for c in a : 
+d [ c ] = "*" 
+i = "ejp mysljylc kd kxveddknmc re jsicpdrysi" 
+o = "our language is impossible to understand" 
+for k , v in zip ( i , o ) : 
+d [ k ] = v 
+i = "rbcpc ypc rtcsra dkh wyfrepkym veddknkmkrkcd" 
+o = "there are twenty six factorial possibilities" 
+for k , v in zip ( i , o ) : 
+d [ k ] = v 
+i = "de kr kd eoya kw aej tysr re ujdr lkgc jv" 
+o = "so it is okay if you want to just give up" 
+for k , v in zip ( i , o ) : 
+d [ k ] = v 
+i = "y qee" 
+o = "a zoo" 
+for k , v in zip ( i , o ) : 
+d [ k ] = v 
+d [ 'z' ] = 'q' 
+import sys 
+f = file ( "A-small-attempt1.in" ) 
+w = file ( "answer.txt" , "w" ) 
+cnt = int ( f . readline ( ) [ : - 1 ] ) 
+for no in range ( cnt ) : 
+i = f . readline ( ) [ : - 1 ] 
+o = "" 
+for k in i :
+o += d [ k ] 
+print >> w , "Case #%d:" % ( no + 1 ) , o
+
 """
 
 java_code = """
- import java.util.Scanner;
-
-class MyClass {
-  public static void main(String[] args) {
-    Scanner myObj = new Scanner(System.in);
-    System.out.println("Enter username");
-
-    String userName = myObj.nextLine();
-    System.out.println("Username is: " + userName);
-  }
-}
+package org . genie . java_awt ; public class HierarchyBoundsAdapterProxy extends java . awt . event . HierarchyBoundsAdapter { long swiftObject ; HierarchyBoundsAdapterProxy ( long swiftObject ) { super ( ) ; this . swiftObject = swiftObject ; } public native void __ancestorMoved ( java . awt . event . HierarchyEvent e ) ; boolean entered_ancestorMoved_0 ; public void ancestorMoved ( java . awt . event . HierarchyEvent e ) { if ( ! entered_ancestorMoved_0 ) { entered_ancestorMoved_0 = true ; __ancestorMoved ( e ) ; entered_ancestorMoved_0 = false ; } else super . ancestorMoved ( e ) ; } public native void __ancestorResized ( java . awt . event . HierarchyEvent e ) ; boolean entered_ancestorResized_1 ; public void ancestorResized ( java . awt . event . HierarchyEvent e ) { if ( ! entered_ancestorResized_1 ) { entered_ancestorResized_1 = true ; __ancestorResized ( e ) ; entered_ancestorResized_1 = false ; } else super . ancestorResized ( e ) ; } public native boolean __equals ( java . lang . Object arg0 ) ; boolean entered_equals_2 ; public boolean equals ( java . lang . Object arg0 ) { if ( ! entered_equals_2 ) { entered_equals_2 = true ; boolean __return = __equals ( arg0 ) ; entered_equals_2 = false ; return __return ; } else return super . equals ( arg0 ) ; } public native java . lang . String __toString ( ) ; boolean entered_toString_3 ; public java . lang . String toString ( ) { if ( ! entered_toString_3 ) { entered_toString_3 = true ; java . lang . String __return = __toString ( ) ; entered_toString_3 = false ; return __return ; } else return super . toString ( ) ; } public native int __hashCode ( ) ; boolean entered_hashCode_4 ; public int hashCode ( ) { if ( ! entered_hashCode_4 ) { entered_hashCode_4 = true ; int __return = __hashCode ( ) ; entered_hashCode_4 = false ; return __return ; } else return super . hashCode ( ) ; } }
 """
 dfg_function = {
     'python': DFG_python,
@@ -96,10 +113,14 @@ def parse_string(input):
 def get_identifiers(code, lang):
     parser = parsers[lang]
     dfg, index_table, code_tokens = extract_dataflow(code, lang)
+    print("dfg")
+    for i in dfg:
+        print(i)
     ret = []
     ret_set = set()
     for d in dfg:
-        ret_set.add(d[0])
+        if lang d[0].isidentifier():
+            ret_set.add(d[0])
     return ret_set, code_tokens
 
 

@@ -15,15 +15,17 @@ def DFG_python(root_node, index_to_code, states):
     while_statement = ['while_statement']
     do_first_statement = ['for_in_clause']
     def_statement = ['default_parameter']
-    parent_exceptions = ['ERROR', 'catch_formal_parameter', 'dotted_name']
     states = states.copy()
     if (len(root_node.children) == 0 or root_node.type == 'string') and root_node.type != 'comment':
         idx, code = index_to_code[(root_node.start_point, root_node.end_point)]
         if root_node.type == code or root_node.type == 'string':
             return [], states
         elif code in states:
+            print(code)
+            print(states)
             return [(code, idx, 'comesFrom', [code], states[code].copy())], states
         elif root_node.type == 'identifier' and root_node.parent.type == 'parameters':
+            print(1)
             states[code]=[idx]
             return [(code,idx,'comesFrom',[],[])],states
         else:
@@ -36,6 +38,8 @@ def DFG_python(root_node, index_to_code, states):
             indexs = tree_to_variable_index(name, index_to_code)
             for index in indexs:
                 idx, code = index_to_code[index]
+                print(code)
+                print(root_node.type)
                 DFG.append((code, idx, 'comesFrom', [], []))
                 states[code] = [idx]
             return sorted(DFG, key=lambda x: x[1]), states
@@ -48,6 +52,8 @@ def DFG_python(root_node, index_to_code, states):
                 idx1, code1 = index_to_code[index1]
                 for index2 in value_indexs:
                     idx2, code2 = index_to_code[index2]
+                    print(code1)
+                    print(root_node.type)
                     DFG.append((code1, idx1, 'comesFrom', [code2], [idx2]))
                 states[code1] = [idx1]
             return sorted(DFG, key=lambda x: x[1]), states
@@ -195,7 +201,7 @@ def DFG_java(root_node, index_to_code, states):
             return [], states
         elif code in states:
             return [(code, idx, 'comesFrom', [code], states[code].copy())], states
-        elif root_node.type == 'identifier' and root_node.parent.type == 'parameters':
+        elif root_node.type == 'identifier' and root_node.parent.type == 'formal_parameter':
             states[code]=[idx]
             return [(code,idx,'comesFrom',[],[])],states
         else:
