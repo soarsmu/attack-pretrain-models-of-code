@@ -6,6 +6,8 @@ from parser_folder import (remove_comments_and_docstrings,
                            tree_to_variable_index)
 from tree_sitter import Language, Parser
 
+from utils import is_valid_variable_name
+
 path = 'parser_folder/my-languages.so'
 c_code = """
 struct vhost_net *vhost_net_init(int devfd) {
@@ -119,9 +121,11 @@ def get_identifiers(code, lang):
     ret = []
     ret_set = set()
     for d in dfg:
-        if lang d[0].isidentifier():
+        if is_valid_variable_name(d[0], lang):
             ret_set.add(d[0])
-    return ret_set, code_tokens
+    for item in ret_set:
+        ret.append([item])
+    return ret, code_tokens
 
 
 def main():
