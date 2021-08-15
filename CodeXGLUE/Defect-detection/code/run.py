@@ -364,12 +364,6 @@ def test(args, model, tokenizer):
         "eval_acc":round(eval_acc,4),
     }
     return result
-    # with open(os.path.join(args.output_dir,"predictions.txt"),'w') as f:
-    #     for example,pred in zip(eval_dataset.examples,preds):
-    #         if pred:
-    #             f.write(example.idx+'\t1\n')
-    #         else:
-    #             f.write(example.idx+'\t0\n')    
     
                         
                         
@@ -580,7 +574,6 @@ def main():
             output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
             model.load_state_dict(torch.load(output_dir))                  
             model.to(args.device)
-            # test(args, model, tokenizer)
             result=test(args, model, tokenizer)
             logger.info("***** Test results *****")
             for key in sorted(result.keys()):
