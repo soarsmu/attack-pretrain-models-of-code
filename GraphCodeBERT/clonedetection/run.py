@@ -468,12 +468,11 @@ def evaluate(args, model, tokenizer, eval_when_training=False):
             logits.append(logit.cpu().numpy())
             y_trues.append(labels.cpu().numpy())
         nb_eval_steps += 1
-    
+
     #calculate scores
     logits=np.concatenate(logits,0)
     y_trues=np.concatenate(y_trues,0)
     best_threshold=0.5
-    best_f1=0
 
     y_preds=logits[:,1]>best_threshold
     from sklearn.metrics import recall_score
@@ -525,17 +524,30 @@ def test(args, model, tokenizer, best_threshold=0):
             logits.append(logit.cpu().numpy())
             y_trues.append(labels.cpu().numpy())
         nb_eval_steps += 1
-    
+
     #output result
     logits=np.concatenate(logits,0)
     y_preds=logits[:,1]>best_threshold
-    with open(os.path.join(args.output_dir,"predictions.txt"),'w') as f:
-        for example,pred in zip(eval_dataset.examples,y_preds):
-            if pred:
-                f.write(example.url1+'\t'+example.url2+'\t'+'1'+'\n')
-            else:
-                f.write(example.url1+'\t'+example.url2+'\t'+'0'+'\n')
-                                                
+    y_trues=np.concatenate(y_trues,0)
+    from sklearn.metrics import recall_score
+    recall=recall_score(y_trues, y_preds, average='macro')
+    from sklearn.metrics import precision_score
+    precision=precision_score(y_trues, y_preds, average='macro')   
+    from sklearn.metrics import f1_score
+    f1=f1_score(y_trues, y_preds, average='macro')             
+    result = {
+        "test_recall": float(recall),
+        "test_precision": float(precision),
+        "test_f1": float(f1)
+    }
+
+    logger.info("***** Test results *****")
+    for key in sorted(result.keys()):
+        logger.info("  %s = %s", key, str(round(result[key],4)))
+
+    return result
+
+                                           
 def main():
     parser = argparse.ArgumentParser()
 
@@ -630,14 +642,14 @@ def main():
         output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
         model.load_state_dict(torch.load(output_dir))
         model.to(args.device)
-        result=evaluate(args, model, tokenizer)
+        results = evaluate(args, model, tokenizer)
         
     if args.do_test:
         checkpoint_prefix = 'checkpoint-best-f1/model.bin'
         output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
         model.load_state_dict(torch.load(output_dir))
         model.to(args.device)
-        test(args, model, tokenizer,best_threshold=0.5)
+        results = test(args, model, tokenizer,best_threshold=0.5)
 
     return results
 
