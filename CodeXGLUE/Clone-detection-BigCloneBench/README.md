@@ -56,7 +56,7 @@ docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase
 
 ### Fine-tune
 
-We only use 10% training data to fine-tune and 10% valid data to evaluate during training. The training cost is 3 hours on 4*P100-16G. 
+We only use 10% training data to fine-tune and 10% valid data to evaluate during training. The training cost is 3 hours on 8*P100-16G. 
 
 ```shell
 cd code
