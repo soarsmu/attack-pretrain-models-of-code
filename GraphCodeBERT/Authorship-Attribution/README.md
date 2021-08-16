@@ -22,6 +22,7 @@ python run.py \
     --model_name_or_path=microsoft/graphcodebert-base \
     --number_labels 70 \
     --do_train \
+    --language_type python \
     --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
@@ -47,6 +48,7 @@ CUDA_VISIBLE_DEVICES=1 python run.py \
     --model_name_or_path=microsoft/graphcodebert-base \
     --number_labels 41 \
     --do_train \
+    --language_type java \
     --train_data_file=../dataset/data_folder/processed_java40/train.txt \
     --eval_data_file=../dataset/data_folder/processed_java40/valid.txt \
     --test_data_file=../dataset/data_folder/processed_java40/test.txt \
