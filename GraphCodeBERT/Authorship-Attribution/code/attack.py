@@ -578,7 +578,7 @@ def main():
         if replaced_words is not None:
             for key in replaced_words.keys():
                 replace_info += key + ':' + replaced_words[key] + ','
-        print(1)
+
         writer.writerow([code, 
                         prog_length, 
                         adv_code, 

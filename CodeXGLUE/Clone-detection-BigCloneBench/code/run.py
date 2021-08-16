@@ -454,12 +454,23 @@ def test(args, model, tokenizer, prefix="",pool=None,best_threshold=0):
         nb_eval_steps += 1
     logits=np.concatenate(logits,0)
     y_preds=logits[:,1]>best_threshold
-    with open(os.path.join(args.output_dir,"predictions.txt"),'w') as f:
-        for example,pred in zip(eval_dataset.examples,y_preds):
-            if pred:
-                f.write(example.url1+'\t'+example.url2+'\t'+'1'+'\n')
-            else:
-                f.write(example.url1+'\t'+example.url2+'\t'+'0'+'\n')
+    from sklearn.metrics import recall_score
+    recall=recall_score(y_trues, y_preds, average='macro')
+    from sklearn.metrics import precision_score
+    precision=precision_score(y_trues, y_preds, average='macro')   
+    from sklearn.metrics import f1_score
+    f1=f1_score(y_trues, y_preds, average='macro')             
+    result = {
+        "test_recall": float(recall),
+        "test_precision": float(precision),
+        "test_f1": float(f1)
+    }
+
+    logger.info("***** Test results {} *****".format(prefix))
+    for key in sorted(result.keys()):
+        logger.info("  %s = %s", key, str(round(result[key],4)))
+
+    return result
                                                 
 def main():
     parser = argparse.ArgumentParser()
@@ -663,7 +674,7 @@ def main():
         output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
         model.load_state_dict(torch.load(output_dir))
         model.to(args.device)
-        test(args, model, tokenizer,pool=pool,best_threshold=0.5)
+        result = test(args, model, tokenizer,pool=pool,best_threshold=0.5)
 
     return results
 
