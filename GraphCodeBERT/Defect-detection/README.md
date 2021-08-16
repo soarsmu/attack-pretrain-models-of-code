@@ -77,7 +77,7 @@ We also provide a pipeline that fine-tunes [CodeBERT](https://arxiv.org/pdf/2002
 
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=0,1 python run.py \
+CUDA_VISIBLE_DEVICES=0,1,2,3 python run.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --config_name=microsoft/graphcodebert-base \

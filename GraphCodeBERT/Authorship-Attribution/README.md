@@ -27,9 +27,9 @@ python run.py \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
     --epoch 20 \
-    --code_length 350 \
+    --code_length 512 \
     --data_flow_length 128 \
-    --train_batch_size 8 \
+    --train_batch_size 16 \
     --eval_batch_size 32 \
     --learning_rate 5e-5 \
     --max_grad_norm 1.0 \
@@ -40,7 +40,7 @@ python run.py \
 
 ### On Java dataset
 ```
-CUDA_VISIBLE_DEVICES=1 python run.py \
+python run.py \
     --output_dir=./saved_models/java40 \
     --model_type=roberta \
     --config_name=microsoft/graphcodebert-base \
@@ -53,9 +53,9 @@ CUDA_VISIBLE_DEVICES=1 python run.py \
     --eval_data_file=../dataset/data_folder/processed_java40/valid.txt \
     --test_data_file=../dataset/data_folder/processed_java40/test.txt \
     --epoch 10 \
-    --code_length 350 \
+    --code_length 512 \
     --data_flow_length 128 \
-    --train_batch_size 8 \
+    --train_batch_size 16 \
     --eval_batch_size 32 \
     --learning_rate 5e-5 \
     --max_grad_norm 1.0 \
@@ -82,7 +82,7 @@ python attack.py \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
     --epoch 20 \
-    --code_length 350 \
+    --code_length 512 \
     --data_flow_length 128 \
     --train_batch_size 8 \
     --eval_batch_size 32 \
@@ -106,7 +106,7 @@ CUDA_VISIBLE_DEVICES=1 python attack.py \
     --eval_data_file=../dataset/data_folder/processed_java40/valid.txt \
     --test_data_file=../dataset/data_folder/processed_java40/test.txt \
     --epoch 10 \
-    --code_length 350 \
+    --code_length 512 \
     --data_flow_length 128 \
     --train_batch_size 8 \
     --eval_batch_size 32 \

@@ -395,8 +395,7 @@ def evaluate(args, model, tokenizer,eval_when_training=False):
     y_preds = []
     for logit in logits:
         y_preds.append(np.argmax(logit))
-    print(y_trues)
-    print(y_preds)
+
     from sklearn.metrics import recall_score
     recall=recall_score(y_trues, y_preds, average='macro')
     from sklearn.metrics import precision_score
