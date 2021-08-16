@@ -75,11 +75,11 @@ docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase
 
 ### Fine-tune
 
-We use full train data for fine-tuning. The training cost is 1 hour on 4*P100-16G. We use full valid data to evaluate during training.
+We use full train data for fine-tuning. The training cost is 50 mins on 8*P100-16G. We use full valid data to evaluate during training.
 
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=2,4,5,7 python run.py \
+python run.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --tokenizer_name=microsoft/codebert-base \
@@ -89,7 +89,7 @@ CUDA_VISIBLE_DEVICES=2,4,5,7 python run.py \
     --eval_data_file=../preprocess/dataset/valid.jsonl \
     --test_data_file=../preprocess/dataset/test.jsonl \
     --epoch 5 \
-    --block_size 400 \
+    --block_size 512 \
     --train_batch_size 32 \
     --eval_batch_size 64 \
     --learning_rate 2e-5 \
@@ -100,6 +100,8 @@ CUDA_VISIBLE_DEVICES=2,4,5,7 python run.py \
 
 ### Inference
 
+We use full valid data to evaluate during training. The inferencing cost is 1 min on 8*P100-16G.
+
 ```shell
 cd code
 python run.py \
@@ -107,13 +109,12 @@ python run.py \
     --model_type=roberta \
     --tokenizer_name=microsoft/codebert-base \
     --model_name_or_path=microsoft/codebert-base \
-    --do_eval \
     --do_test \
     --train_data_file=../preprocess/dataset/train.jsonl \
     --eval_data_file=../preprocess/dataset/valid.jsonl \
     --test_data_file=../preprocess/dataset/test.jsonl \
     --epoch 5 \
-    --block_size 400 \
+    --block_size 512 \
     --train_batch_size 32 \
     --eval_batch_size 64 \
     --learning_rate 2e-5 \
@@ -128,20 +129,20 @@ python run.py \
 
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=0 python attack.py \
+python attack.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --tokenizer_name=microsoft/codebert-base \
     --model_name_or_path=microsoft/codebert-base \
     --csv_store_path ./attack_base_result.csv \
     --base_model=microsoft/codebert-base \
-    --do_train \
+    --do_test \
     --train_data_file=../preprocess/dataset/train.jsonl \
     --eval_data_file=../preprocess/dataset/valid.jsonl \
     --test_data_file=../preprocess/dataset/test.jsonl \
     --epoch 5 \
-    --block_size 400 \
-    --train_batch_size 16 \
+    --block_size 512 \
+    --train_batch_size 32 \
     --eval_batch_size 64 \
     --learning_rate 2e-5 \
     --max_grad_norm 1.0 \
@@ -159,12 +160,12 @@ CUDA_VISIBLE_DEVICES=1 python attack.py \
     --model_name_or_path=microsoft/codebert-base \
     --csv_store_path ./attack_base_mlm_result.csv \
     --base_model=microsoft/codebert-base-mlm \
-    --do_train \
+    --do_test \
     --train_data_file=../preprocess/dataset/train.jsonl \
     --eval_data_file=../preprocess/dataset/valid.jsonl \
     --test_data_file=../preprocess/dataset/test.jsonl \
     --epoch 5 \
-    --block_size 400 \
+    --block_size 512 \
     --train_batch_size 16 \
     --eval_batch_size 64 \
     --learning_rate 2e-5 \
@@ -179,5 +180,5 @@ The results on the test set are shown as below:
 
 | Methods  |    ACC    |  ACC (attacked)    |
 | -------- | :-------: |   :-------: |
-| CodeBERT | **63.03** |  |
+| CodeBERT | **63.76** |  |
 
