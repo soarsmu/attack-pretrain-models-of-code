@@ -9,7 +9,7 @@ from tree_sitter import Language, Parser
 
 from utils import is_valid_variable_name
 
-path = 'parser_folder/my-languages.so'
+path = '../../../python_parser/parser_folder/my-languages.so'
 c_code = """
 struct vhost_net *vhost_net_init(int devfd) {
 int a = 1;
@@ -116,12 +116,10 @@ def parse_string(input):
 def get_identifiers(code, lang):
 
     dfg, index_table, code_tokens = extract_dataflow(code, lang)
-    print("dfg")
-    for i in dfg:
-        print(i)
     ret = []
+    ret_set = set()
     for d in dfg:
-        if is_valid_variable_name(d[0], lang):
+        if is_valid_variable_name(d[0], "", lang):
             ret_set.add(d[0])
     for item in ret_set:
         ret.append([item])
