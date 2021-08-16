@@ -19,7 +19,7 @@ python process.py
 
 ### On Python dataset
 
-10 mins on 4*P100-16G
+16 mins on 4*P100-16G
 
 ```
 CUDA_VISIBLE_DEVICES=2,4,5,7 python run.py \
@@ -33,7 +33,7 @@ CUDA_VISIBLE_DEVICES=2,4,5,7 python run.py \
     --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
-    --epoch 10 \
+    --epoch 20 \
     --block_size 512 \
     --train_batch_size 16 \
     --eval_batch_size 32 \
@@ -93,8 +93,11 @@ python attack.py \
 
 ### On Java dataset
 #### Train
+
+20 mins in 8*P100-16G
+
 ```
-CUDA_VISIBLE_DEVICES=0 python run.py \
+python run.py \
     --output_dir=./saved_models/java40 \
     --model_type=roberta \
     --config_name=microsoft/codebert-base \
@@ -105,7 +108,7 @@ CUDA_VISIBLE_DEVICES=0 python run.py \
     --train_data_file=../dataset/data_folder/processed_java40/train.txt \
     --eval_data_file=../dataset/data_folder/processed_java40/valid.txt \
     --test_data_file=../dataset/data_folder/processed_java40/test.txt \
-    --epoch 5 \
+    --epoch 10 \
     --block_size 512 \
     --train_batch_size 16 \
     --eval_batch_size 32 \
@@ -158,3 +161,15 @@ python attack.py \
     --evaluate_during_training \
     --seed 123456  2>&1 | tee attack_java40.log
 ```
+## results 
+
+on python 
+eval_f1 = 0.8767
+eval_precision = 0.9105
+eval_recall = 0.8857
+
+on java
+
+eval_f1 = 0.974
+eval_precision = 0.982
+eval_recall = 0.9713
