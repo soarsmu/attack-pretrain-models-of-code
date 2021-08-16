@@ -89,7 +89,7 @@ class InputFeatures(object):
 def convert_examples_to_features(code, label, tokenizer,args):
     #source
     # code=' '.join(js['func'].split())
-    dfg, index_table, code_tokens = extract_dataflow(code, "c")
+    dfg, index_table, code_tokens = extract_dataflow(code, args.language_type)
 
     code_tokens=[tokenizer.tokenize('@ '+x)[1:] if idx!=0 else tokenizer.tokenize(x) for idx,x in enumerate(code_tokens)]
     ori2cur_pos={}
@@ -506,7 +506,9 @@ def main():
     parser.add_argument("--do_eval", action='store_true',
                         help="Whether to run eval on the dev set.")
     parser.add_argument("--do_test", action='store_true',
-                        help="Whether to run eval on the dev set.")    
+                        help="Whether to run eval on the dev set.")
+    parser.add_argument("--language_type", type=str,
+                        help="The programming language type of dataset")    
     parser.add_argument("--evaluate_during_training", action='store_true',
                         help="Run evaluation during training at each logging step.")
     parser.add_argument("--do_lower_case", action='store_true',
