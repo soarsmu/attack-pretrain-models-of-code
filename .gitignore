@@ -32,14 +32,14 @@ CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_valid
 
 GraphCodeBERT/Defect-detection/code/saved_models/
 GraphCodeBERT/Defect-detection/preprocess/dataset/
-GraphCodeBERT/clonedetection/saved_models/
-GraphCodeBERT/clonedetection/parser/tree-sitter-ruby
-GraphCodeBERT/clonedetection/parser/tree-sitter-c-sharp
-GraphCodeBERT/clonedetection/parser/tree-sitter-java
-GraphCodeBERT/clonedetection/parser/tree-sitter-php
-GraphCodeBERT/clonedetection/parser/tree-sitter-javascript
-GraphCodeBERT/clonedetection/parser/tree-sitter-python
-GraphCodeBERT/clonedetection/parser/tree-sitter-go
+GraphCodeBERT/clonedetection/code/saved_models/
+GraphCodeBERT/clonedetection/code/parser/tree-sitter-ruby
+GraphCodeBERT/clonedetection/code/parser/tree-sitter-c-sharp
+GraphCodeBERT/clonedetection/code/parser/tree-sitter-java
+GraphCodeBERT/clonedetection/code/parser/tree-sitter-php
+GraphCodeBERT/clonedetection/code/parser/tree-sitter-javascript
+GraphCodeBERT/clonedetection/code/parser/tree-sitter-python
+GraphCodeBERT/clonedetection/code/parser/tree-sitter-go
 GraphCodeBERT/Defect-detection/preprocess/function.json
 CodeXGLUE/Defect-detection/preprocess/function.json
 GraphCodeBERT/clonedetection/dataset/
@@ -51,7 +51,7 @@ CodeXGLUE/Authorship-Attribution/code/saved_models/
 CodeXGLUE/Defect-detection/code/attack_result.csv
 CodeXGLUE/Clone-detection-BigCloneBench/code/attack_result.csv
 
-GraphCodeBERT/clonedetection/attack_result.csv
+GraphCodeBERT/clonedetection/code/attack_result.csv
 GraphCodeBERT/Defect-detection/code/attack_result.csv
 
 CodeXGLUE/Defect-detection/code/*.csv
