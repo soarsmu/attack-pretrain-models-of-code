@@ -1,5 +1,5 @@
-import torch
-import torch.nn as nn
+# import torch
+# import torch.nn as nn
 
 python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">",
                    '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break',
@@ -11,6 +11,9 @@ java_keywords = ["abstract", "assert", "boolean", "break", "byte", "case", "catc
                  "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return",
                  "short", "static", "strictfp", "super", "switch", "throws", "transient", "try", "void", "volatile",
                  "while"]
+java_special_ids = ["Math", "System", "Random", "Byte", "Short", "Integer", "Long", "Float", "Double", "Character",
+                    "Boolean", "Data", "ParseException", "SimpleDateFormat", "Calendar", "Object", "String", "StringBuffer",
+                    "StringBuilder", "DateFormat", "Collection", "List", "Map", "Set", "Queue", "ArrayList", "HashSet", "HashMap"]
 c_keywords = ["auto", "break", "case", "char", "const", "continue",
                  "default", "do", "double", "else", "enum", "extern",
                  "float", "for", "goto", "if", "inline", "int", "long",
@@ -78,7 +81,9 @@ def is_valid_variable_java(name: str) -> bool:
     if not name.isidentifier():
         return False
     elif name in java_keywords:
-        return False;
+        return False
+    elif name in java_special_ids:
+        return False
     return True
 
 def is_valid_variable_c(name: str) -> bool:
@@ -117,19 +122,7 @@ def is_valid_substitue(substitute: str, tgt_word: str, lang: str) -> bool:
     if '##' in substitute:
         is_valid = False  # filter out sub-word
 
-    if substitute in python_keywords:
-        # 如果在filter words中也跳过
-        is_valid = False
-    for s_char in special_char:
-        if s_char in substitute:
-            # 如果在filter words中也跳过
-            is_valid = False
-
-    if ' ' in substitute:
-        # Solve Error
-        # 发现substiute中可能会有空格
-        # 当有的时候，tokenizer_tgt.convert_tokens_to_string(temp_replace)
-        # 会报 ' ' 这个Key不存在的Error
+    if not is_valid_variable_name(substitute, lang):
         is_valid = False
 
     return is_valid
