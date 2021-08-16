@@ -148,5 +148,5 @@ The results on the test set are shown as below:
 
 | Method        | Precision |  Precision (attacked)   |    Recall     |  Recall (attacked)   |    F1     |  F1 (attacked)   |
 | ------------- | :-------: | :---------------------: | :-----------: | :------------------: | :-------: |:---------------: | 
-| GraphCodeBERT | **0.973** |  | **0.968** |  | **0.971** |  |
+| GraphCodeBERT | **0.9631** |  | **0.9727** |  | **0.9678** |  |
 
