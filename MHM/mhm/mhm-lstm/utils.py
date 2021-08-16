@@ -177,7 +177,7 @@ def isUID(_text=""):
         return False
     return True
     
-def getUID(_tokens=[]):
+def getUID(_tokens=[], uids=[]):
     
     '''
     Return all UIDs and their indeces, given a token sequence.
@@ -185,7 +185,7 @@ def getUID(_tokens=[]):
     
     ids = {}
     for i, t in enumerate(_tokens):
-        if isUID(t):
+        if isUID(t) and t in uids[0].keys():
             if t in ids.keys():
                 ids[t].append(i)
             else:

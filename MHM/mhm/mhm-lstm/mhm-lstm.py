@@ -20,7 +20,7 @@ class MHM(object):
         self.token2idx = _token2idx
         self.idx2token = _idx2token
         
-    def mcmc(self, _tree=None, _tokens=[], _label=None, _n_candi=30,
+    def mcmc(self, _tree=None, _tokens=[], _label=None, uids=[], _n_candi=30,
              _max_iter=100, _prob_threshold=0.95):
         
         # if _tree is None or len(_tokens) == 0 or _label is None:
@@ -28,14 +28,15 @@ class MHM(object):
         
         raw_tokens = _tokens
         tokens = _tokens
-        print(tokens)
+
         raw_seq = ""
         for _t in _tokens:
             raw_seq += str(_t) + " "
         tokens_ch = []
         for _t in tokens:
             tokens_ch.append(self.idx2token[_t])
-        uid = getUID(tokens_ch)
+
+        uid = getUID(tokens_ch, uids)
         if len(uid) <= 0:
             return {'succ': False, 'tokens': None, 'raw_tokens': None}
         for iteration in range(1, 1+_max_iter):
@@ -141,8 +142,8 @@ if __name__ == "__main__":
     
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     
-    model_path = "../LSTMClassifier/saved_models/1.pt"
-    data_path = "../../Parser/data/oj.pkl"
+    model_path = "../LSTMClassifier/saved_models/3.pt"
+    data_path = "../../preprocess/dataset/oj.pkl"
     vocab_path = "../data/poj104/poj104_vocab.json"
     save_path = "../data/poj104_bilstm/poj104_test_after_adv_train_3000.pkl"
     n_required = 1000
@@ -179,9 +180,9 @@ if __name__ == "__main__":
     # token2idx = {}
     # for i, t in zip(range(vocab_size), idx2token):
     #     token2idx[t] = i
-    dataset = POJ104_SEQ(data_path)
+    dataset = POJ104_SEQ(data_path, "../../preprocess/dataset/oj_uid.pkl")
     dataset = dataset.test
-    print(dataset.token2idx)
+
     print ("DATA LOADED!")
     
     print ("TEST MODEL...")
@@ -209,7 +210,7 @@ if __name__ == "__main__":
         #                      _label=_b['y'][0], _n_candi=30,
         #                      _max_iter=400, _prob_threshold=1)
         _res = attacker.mcmc(_tree=[] , _tokens=_b['x'][0],
-                             _label=_b['y'][0], _n_candi=30,
+                             _label=_b['y'][0], uids=_b['uid'], _n_candi=30,
                              _max_iter=400, _prob_threshold=1)
         if _res['succ']:
             print ("EXAMPLE "+str(iteration)+" SUCCEEDED!")
