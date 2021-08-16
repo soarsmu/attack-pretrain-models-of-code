@@ -33,4 +33,17 @@ bash build.sh
 
 ### Fine-tune
 
+check list
+
+- [ ] Codebert
+    - [x] Authorship
+    - [x] Clone
+    - [x] Defect 
+- [ ] GraphCodebert
+    - [ ] Authorship
+    - [x] Clone
+    - [ ] Defect 
+
+
+
 ### Attack
