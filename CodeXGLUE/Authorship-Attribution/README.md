@@ -18,8 +18,11 @@ python process.py
 ## Fine-tuning
 
 ### On Python dataset
+
+10 mins on 4*P100-16G
+
 ```
-CUDA_VISIBLE_DEVICES=1 python run.py \
+CUDA_VISIBLE_DEVICES=2,4,5,7 python run.py \
     --output_dir=./saved_models/gcjpy \
     --model_type=roberta \
     --config_name=microsoft/codebert-base \
@@ -30,9 +33,9 @@ CUDA_VISIBLE_DEVICES=1 python run.py \
     --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
-    --epoch 5 \
-    --block_size 400 \
-    --train_batch_size 8 \
+    --epoch 10 \
+    --block_size 512 \
+    --train_batch_size 16 \
     --eval_batch_size 32 \
     --learning_rate 5e-5 \
     --max_grad_norm 1.0 \
@@ -55,7 +58,7 @@ CUDA_VISIBLE_DEVICES=0 python run.py \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
     --epoch 5 \
-    --block_size 400 \
+    --block_size 512 \
     --train_batch_size 8 \
     --eval_batch_size 32 \
     --learning_rate 5e-5 \
@@ -80,7 +83,7 @@ python attack.py \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
     --epoch 5 \
-    --block_size 400 \
+    --block_size 512 \
     --train_batch_size 8 \
     --eval_batch_size 32 \
     --evaluate_during_training \
@@ -103,8 +106,8 @@ CUDA_VISIBLE_DEVICES=0 python run.py \
     --eval_data_file=../dataset/data_folder/processed_java40/valid.txt \
     --test_data_file=../dataset/data_folder/processed_java40/test.txt \
     --epoch 5 \
-    --block_size 400 \
-    --train_batch_size 8 \
+    --block_size 512 \
+    --train_batch_size 16 \
     --eval_batch_size 32 \
     --learning_rate 5e-5 \
     --max_grad_norm 1.0 \
@@ -125,7 +128,7 @@ CUDA_VISIBLE_DEVICES=0 python run.py \
     --eval_data_file=../dataset/data_folder/processed_java40/valid.txt \
     --test_data_file=../dataset/data_folder/processed_java40/test.txt \
     --epoch 5 \
-    --block_size 400 \
+    --block_size 512 \
     --train_batch_size 8 \
     --eval_batch_size 32 \
     --learning_rate 5e-5 \
@@ -149,7 +152,7 @@ python attack.py \
     --eval_data_file=../dataset/data_folder/processed_java40/valid.txt \
     --test_data_file=../dataset/data_folder/processed_java40/test.txt \
     --epoch 5 \
-    --block_size 400 \
+    --block_size 512 \
     --train_batch_size 16 \
     --eval_batch_size 64 \
     --evaluate_during_training \
