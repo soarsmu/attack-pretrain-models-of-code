@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-
+from tqdm import tqdm
 
 python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">", '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield']
 
@@ -164,3 +164,37 @@ def get_masked_code_by_position(tokens: list, positions: dict):
             replace_token_positions.append(pos)
     
     return masked_token_list, replace_token_positions
+
+def build_vocab(codes):
+    
+    vocab_cnt = {"<str>": 0, "<char>": 0, "<int>": 0, "<fp>": 0}
+    for c in tqdm(codes):
+        for t in c:
+            if len(t)>0:
+                if t[0] == '"' and t[-1] == '"':
+                    vocab_cnt["<str>"] += 1
+                elif t[0] == "'" and t[-1] == "'":
+                    vocab_cnt["<char>"] += 1
+                elif t[0] in "0123456789.":
+                    if 'e' in t.lower():
+                        vocab_cnt["<fp>"] += 1
+                    elif '.' in t:
+                        if t == '.':
+                            if t not in vocab_cnt.keys():
+                                vocab_cnt[t] = 0
+                            vocab_cnt[t] += 1
+                        else:
+                            vocab_cnt["<fp>"] += 1
+                    else:
+                        vocab_cnt["<int>"] += 1
+                elif t in vocab_cnt.keys():
+                    vocab_cnt[t] += 1
+                else:
+                    vocab_cnt[t] = 1
+    vocab_cnt = sorted(vocab_cnt.items(), key=lambda x:x[1], reverse=True)
+    
+    idx2txt = ["<unk>"] + ["<pad>"] + [it[0] for it in vocab_cnt]
+    txt2idx = {}
+    for idx in range(len(idx2txt)):
+        txt2idx[idx2txt[idx]] = idx
+    return idx2txt, txt2idx
