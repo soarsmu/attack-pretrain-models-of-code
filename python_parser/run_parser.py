@@ -44,6 +44,7 @@ cnt = int ( f . readline ( ) [ : - 1 ] )
 for no in range ( cnt ) : 
 i = f . readline ( ) [ : - 1 ] 
 o = "" 
+
 for k in i :
 o += d [ k ] 
 print >> w , "Case #%d:" % ( no + 1 ) , o
@@ -115,9 +116,9 @@ def parse_string(input):
 def get_identifiers(code, lang):
     parser = parsers[lang]
     dfg, index_table, code_tokens = extract_dataflow(code, lang)
-    print("dfg")
-    for i in dfg:
-        print(i)
+    # print("dfg")
+    # for i in dfg:
+    #     print(i)
     ret = []
     ret_set = set()
     for d in dfg:
