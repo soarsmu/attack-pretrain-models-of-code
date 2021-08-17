@@ -57,6 +57,7 @@ class MHM(object):
              _max_iter=100, _prob_threshold=0.95):
         identifiers, code_tokens = get_identifiers(code, 'c')
         processed_code = " ".join(code_tokens)
+
         words, sub_words, keys = _tokenize(processed_code, tokenizer)
         raw_tokens = copy.deepcopy(words)
         variable_names = []
@@ -67,7 +68,6 @@ class MHM(object):
         uid = get_identifier_posistions_from_code(words, variable_names)
         print(uid)
         # uid是一个字典，key是变量名，value是一个list，存储此变量名在tokens_ch中的位置
-
 
         if len(uid) <= 0: # 是有可能存在找不到变量名的情况的.
             return {'succ': False, 'tokens': None, 'raw_tokens': None}
@@ -392,13 +392,20 @@ if __name__ == "__main__":
            'ori_tokens': [], "label": [], }
     n_succ = 0.0
     for index, example in enumerate(eval_dataset):
+        orig_prob, orig_label = get_results([example], model, args.eval_batch_size)
+        orig_prob = orig_prob[0]
+        orig_label = orig_label[0]
+        ground_truth = example[1].item()
+        if orig_label != ground_truth:
+            continue
+        
         start_time = time.time()
         code = source_codes[index]
         # 这里需要进行修改.
-        ground_truth = example[1].item()
+
         _res = attacker.mcmc(tokenizer, code,
                              _label=ground_truth, _n_candi=30,
-                             _max_iter=20, _prob_threshold=1)
+                             _max_iter=400, _prob_threshold=1)
     
         
         if _res['succ']:
