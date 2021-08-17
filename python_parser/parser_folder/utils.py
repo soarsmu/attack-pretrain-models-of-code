@@ -1,6 +1,32 @@
+import collections
 import re
 from io import StringIO
 import  tokenize
+def isSameTree(root_p, root_q) -> bool:
+    if not root_p and not root_q:
+        return True
+    if not root_p or not root_q:
+        return False
+
+    queue_p = collections.deque([root_p])
+    queue_q = collections.deque([root_q])
+
+    while queue_p and queue_q:
+        node_p = queue_p.popleft()
+        node_q = queue_q.popleft()
+        if node_p.type != node_q.type:
+            return False
+        if len(node_p.children) != len(node_q.children):
+            return False
+        if len(node_p.children) > 0:
+            for child_p, child_q in zip(node_p.children, node_q.children) :
+                if child_p.type == child_q.type:
+                    queue_p.append(child_p)
+                    queue_p.append(child_q)
+                else:
+                    return False
+
+    return True
 def remove_comments_and_docstrings(source,lang):
     if lang in ['python']:
         """
@@ -95,4 +121,3 @@ def index_to_code_token(index,code):
             s+=code[i]
         s+=code[end_point[0]][:end_point[1]]   
     return s
-   
