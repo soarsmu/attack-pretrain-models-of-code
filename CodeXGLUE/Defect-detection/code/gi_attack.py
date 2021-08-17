@@ -354,26 +354,14 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
             for one_pos in tgt_positions:
                 final_words[one_pos] = candidate
             replaced_words[tgt_word] = candidate
+        else:
+            replaced_words[tgt_word] = tgt_word
         
         adv_code = " ".join(final_words)
-    '''
-    return
-        original program: code
-        program length: prog_length
-        adversar program: adv_code
-        true label: true_label
-        original prediction: orig_label
-        adversarial prediction: temp_label
-        is_attack_success: is_success
-        extracted variables: variable_names
-        importance score of variables: names_to_importance_score
-        number of changed variables: nb_changed_var
-        number of changed positions: nb_changed_pos
-        substitues for variables: replaced_words
-    '''
+
     return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words
 
-def gi_attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, use_bpe, threshold_pred_score):
+def gi_attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, tokenizer_mlm, use_bpe, threshold_pred_score, initial_replace=None):
     '''
     return
         original program: code
@@ -494,46 +482,49 @@ def gi_attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, to
 
     for tgt_word in variable_substitue_dict.keys():
         # 这里进行初始化
-        # 对于每个variable: 选择"影响最大"的substitues
-        replace_examples = []
-        substitute_list = []
-        temp_replace = copy.deepcopy(words)
-        current_prob = max(orig_prob)
-        most_gap = 0.0
-        initial_candidate = tgt_word
-        tgt_positions = names_positions_dict[tgt_word]
-        
-        # 原来是随机选择的，现在要找到改变最大的.
-        for a_substitue in variable_substitue_dict[tgt_word]:
-            a_substitue = a_substitue.strip()
-            for one_pos in tgt_positions:
-                # 将对应的位置变成substitue
-                temp_replace[one_pos] = a_substitue
-            substitute_list.append(a_substitue)
-            # 记录下这次换的是哪个substitue
-            temp_code = " ".join(temp_replace)
-            new_feature = convert_code_to_features(temp_code, tokenizer_tgt, example[1].item(), args)
-            replace_examples.append(new_feature)
-
-        if len(replace_examples) == 0:
-            # 并没有生成新的mutants，直接跳去下一个token
-            continue
-        new_dataset = CodeDataset(replace_examples)
-            # 3. 将他们转化成features
-        logits, preds = get_results(new_dataset, codebert_tgt, args.eval_batch_size)
-
-        _the_best_candidate = -1
-        for index, temp_prob in enumerate(logits):
-            temp_label = preds[index]
-            gap = current_prob - temp_prob[temp_label]
-            # 并选择那个最大的gap.
-            if gap > most_gap:
-                most_gap = gap
-                _the_best_candidate = index
-        if _the_best_candidate == -1:
+        if initial_replace is None:
+            # 对于每个variable: 选择"影响最大"的substitues
+            replace_examples = []
+            substitute_list = []
+            temp_replace = copy.deepcopy(words)
+            current_prob = max(orig_prob)
+            most_gap = 0.0
             initial_candidate = tgt_word
+            tgt_positions = names_positions_dict[tgt_word]
+            
+            # 原来是随机选择的，现在要找到改变最大的.
+            for a_substitue in variable_substitue_dict[tgt_word]:
+                a_substitue = a_substitue.strip()
+                for one_pos in tgt_positions:
+                    # 将对应的位置变成substitue
+                    temp_replace[one_pos] = a_substitue
+                substitute_list.append(a_substitue)
+                # 记录下这次换的是哪个substitue
+                temp_code = " ".join(temp_replace)
+                new_feature = convert_code_to_features(temp_code, tokenizer_tgt, example[1].item(), args)
+                replace_examples.append(new_feature)
+
+            if len(replace_examples) == 0:
+                # 并没有生成新的mutants，直接跳去下一个token
+                continue
+            new_dataset = CodeDataset(replace_examples)
+                # 3. 将他们转化成features
+            logits, preds = get_results(new_dataset, codebert_tgt, args.eval_batch_size)
+
+            _the_best_candidate = -1
+            for index, temp_prob in enumerate(logits):
+                temp_label = preds[index]
+                gap = current_prob - temp_prob[temp_label]
+                # 并选择那个最大的gap.
+                if gap > most_gap:
+                    most_gap = gap
+                    _the_best_candidate = index
+            if _the_best_candidate == -1:
+                initial_candidate = tgt_word
+            else:
+                initial_candidate = substitute_list[_the_best_candidate]
         else:
-            initial_candidate = substitute_list[_the_best_candidate]
+            initial_candidate = initial_replace[tgt_word]
 
         temp_chromesome = copy.deepcopy(base_chromesome)
         temp_chromesome[tgt_word] = initial_candidate
@@ -544,6 +535,7 @@ def gi_attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, to
     cross_probability = 0.7
 
     max_iter = max(5 * len(population), 10)
+    # 这里的超参数还是的调试一下.
 
     for i in range(max_iter):
         _temp_mutants = []
@@ -788,6 +780,9 @@ def main():
         code = source_codes[index]
         code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attack(args, example, code, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
 
+        if is_success == -1:
+            # 如果不成功，则使用gi_attack
+            code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = gi_attack(args, example, code, model, tokenizer, codebert_mlm, tokenizer_mlm, 1, 0, replaced_words)
 
         score_info = ''
         if names_to_importance_score is not None:
