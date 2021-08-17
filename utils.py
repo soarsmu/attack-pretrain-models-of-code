@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+import copy
+import random
 from tqdm import tqdm
 
 python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">",
@@ -69,7 +71,51 @@ c_special_ids = ["main",  # main function
 special_char = ['[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">", '+', '-', '*', '/',
                 '|']
 
+
+def select_parents(population):
+    length = range(len(population))
+    index_1 = random.choice(length)
+    index_2 = random.choice(length)
+    chromesome_1 = population[index_1]
+    chromesome_2 = population[index_2]
+    return chromesome_1, index_1, chromesome_2, index_2
+
+def mutate(chromesome, variable_substitue_dict):
+    tgt_index = random.choice(range(len(chromesome)))
+    tgt_word = list(chromesome.keys())[tgt_index]
+    chromesome[tgt_word] = random.choice(variable_substitue_dict[tgt_word])
+
+    return chromesome
+
+def crossover(csome_1, csome_2, r=None):
+    if r is None:
+        r = random.choice(range(len(csome_1))) # 随机选择一个位置.
+        # 但是不能选到0
+
+    child_1 = {}
+    child_2 = {}
+    for index, variable_name in enumerate(csome_1.keys()):
+        if index < r: #前半段
+            child_2[variable_name] = csome_1[variable_name]
+            child_1[variable_name] = csome_2[variable_name]
+        else:
+            child_1[variable_name] = csome_1[variable_name]
+            child_2[variable_name] = csome_2[variable_name]
+    return child_1, child_2
+
+
+def map_chromesome(chromesome: dict, words: list, names_positions_dict: dict) -> list:
+    temp_replace = copy.deepcopy(words)
+
+    for tgt_word in chromesome.keys():
+        tgt_positions = names_positions_dict[tgt_word] # 在words中对应的位置
+        for one_pos in tgt_positions:
+            temp_replace[one_pos] = chromesome[tgt_word]
+    
+    return temp_replace
+
 input = ["0ab", "\ndsd", "说啊", "'z'", "for"]
+
 
 from keyword import iskeyword
 def is_valid_variable_python(name: str) -> bool:

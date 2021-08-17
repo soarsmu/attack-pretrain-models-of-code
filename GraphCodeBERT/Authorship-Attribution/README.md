@@ -2,13 +2,18 @@
 
 ## Data Preparation
 
-下载[数据集](https://drive.google.com/drive/u/1/folders/1UGFFC5KYMRA-9F_VTsG_VcsZjAv7SG4i)到`dataset/data_folder`下，然后运行
+First, you need to download datasets to [dataset](https://drive.google.com/drive/u/1/folders/1UGFFC5KYMRA-9F_VTsG_VcsZjAv7SG4i) the `dataset/data_folder`. Then, you need to decompress the three `tar.xz` files. For example:
+
+```
+xz -d gcjpy.tar.xz
+tar -xvf gcjpy.tar
+```
+
+Then, you can run the following command to preprocess the datasets:
 
 ```
 python process.py
 ```
-
-来准备数据集.
 
 ## Fine-tuning
 
@@ -29,6 +34,7 @@ python run.py \
     --epoch 20 \
     --code_length 512 \
     --data_flow_length 128 \
+    --train_batch_size 10 \
     --train_batch_size 16 \
     --eval_batch_size 32 \
     --learning_rate 5e-5 \
@@ -52,6 +58,8 @@ python run.py \
     --train_data_file=../dataset/data_folder/processed_java40/train.txt \
     --eval_data_file=../dataset/data_folder/processed_java40/valid.txt \
     --test_data_file=../dataset/data_folder/processed_java40/test.txt \
+    --epoch 5 \
+    --code_length 350 \
     --epoch 10 \
     --code_length 512 \
     --data_flow_length 128 \
@@ -62,6 +70,10 @@ python run.py \
     --evaluate_during_training \
     --seed 123456 2>&1| tee train_java40.log
 ```
+{acc: 0.9371}
+
+
+#### ATTACK
 {acc: 0.9904}
 
 ## Attack
