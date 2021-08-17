@@ -500,6 +500,9 @@ def isUID(_text=""):
     '''
     
     _text = _text.strip()
+    if _text == '':
+        return False
+
     if " " in _text or "\n" in _text or "\r" in _text:
         return False
     elif _text in __key_words__:
