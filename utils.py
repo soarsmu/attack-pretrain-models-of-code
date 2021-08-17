@@ -311,7 +311,7 @@ def get_masked_code_by_position(tokens: list, positions: dict):
     
     return masked_token_list, replace_token_positions
 
-def build_vocab(codes):
+def build_vocab(codes, limit=5000):
     
     vocab_cnt = {"<str>": 0, "<char>": 0, "<int>": 0, "<fp>": 0}
     for c in tqdm(codes):
@@ -339,7 +339,7 @@ def build_vocab(codes):
                     vocab_cnt[t] = 1
     vocab_cnt = sorted(vocab_cnt.items(), key=lambda x:x[1], reverse=True)
     
-    idx2txt = ["<unk>"] + ["<pad>"] + [it[0] for it in vocab_cnt]
+    idx2txt = ["<unk>"] + ["<pad>"] + [it[0] for index, it in enumerate(vocab_cnt) if index < limit-1]
     txt2idx = {}
     for idx in range(len(idx2txt)):
         txt2idx[idx2txt[idx]] = idx
