@@ -533,8 +533,7 @@ def main():
     for index, code in enumerate(source_codes):
         code_tokens.append(get_identifiers(code, args.language_type)[1])
     
-    id2token, token2id = build_vocab(code_tokens)
-    
+    id2token, token2id = build_vocab(code_tokens, 5000)
 
     # 现在要尝试计算importance_score了.
     success_attack = 0
