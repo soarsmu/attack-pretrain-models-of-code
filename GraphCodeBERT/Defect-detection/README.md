@@ -77,7 +77,7 @@ We also provide a pipeline that fine-tunes [CodeBERT](https://arxiv.org/pdf/2002
 
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=0,1 python run.py \
+CUDA_VISIBLE_DEVICES=0,1,2,3 python run.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --config_name=microsoft/graphcodebert-base \
@@ -88,10 +88,10 @@ CUDA_VISIBLE_DEVICES=0,1 python run.py \
     --eval_data_file=../preprocess/dataset/valid.jsonl \
     --test_data_file=../preprocess/dataset/test.jsonl \
     --epoch 5 \
-    --code_length 350 \
+    --code_length 512 \
     --data_flow_length 128 \
-    --train_batch_size 10 \
-    --eval_batch_size 32 \
+    --train_batch_size 32 \
+    --eval_batch_size 64 \
     --learning_rate 2e-5 \
     --max_grad_norm 1.0 \
     --evaluate_during_training \
@@ -114,9 +114,9 @@ python attack.py \
     --test_data_file=../preprocess/dataset/test.jsonl \
     --epoch 5 \
     --block_size 350 \
-    --code_length 350 \
+    --code_length 512 \
     --data_flow_length 128 \
-    --train_batch_size 16 \
+    --train_batch_size 32 \
     --eval_batch_size 64 \
     --seed 123456  2>&1 | tee attack_store.log
 ```
@@ -137,7 +137,7 @@ python run.py \
     --eval_data_file=../preprocess/dataset/valid.jsonl \
     --test_data_file=../preprocess/dataset/test.jsonl \
     --epoch 5 \
-    --code_length 350 \
+    --code_length 512 \
     --data_flow_length 128 \
     --train_batch_size 32 \
     --eval_batch_size 64 \
@@ -147,30 +147,10 @@ python run.py \
     --seed 123456 2>&1 | tee test.log
 ```
 
-### Evaluation
-
-```shell
-python ../evaluator/evaluator.py -a ../preprocess/dataset/test.jsonl -p saved_models/predictions.txt
-```
-
-{'Acc': 0.640190336749634}
-
 ## Result
 
 The results on the test set are shown as below:
 
 | Methods  |    ACC    |
 | -------- | :-------: |
-| BiLSTM   |   59.37   |
-| TextCNN  |   60.69   |
-| [RoBERTa](https://arxiv.org/pdf/1907.11692.pdf)  |   61.05   |
 | [CodeBERT](https://arxiv.org/pdf/2002.08155.pdf) | **62.08** |
-
-## Reference
-<pre><code>@inproceedings{zhou2019devign,
-  title={Devign: Effective vulnerability identification by learning comprehensive program semantics via graph neural networks},
-  author={Zhou, Yaqin and Liu, Shangqing and Siow, Jingkai and Du, Xiaoning and Liu, Yang},
-  booktitle={Advances in Neural Information Processing Systems},
-  pages={10197--10207},
-  year={2019}
-}</code></pre>
