@@ -15,10 +15,11 @@ from utils import getUID, isUID, getTensor
 class MHM(object):
     
     def __init__(self, _classifier, _token2idx, _idx2token):
-        
+
         self.classifier = _classifier
         self.token2idx = _token2idx
         self.idx2token = _idx2token
+        
         
     def mcmc(self, _tree=None, _tokens=[], _label=None, uids=[], _n_candi=30,
              _max_iter=100, _prob_threshold=0.95):
@@ -35,7 +36,10 @@ class MHM(object):
         tokens_ch = []
         for _t in tokens:
             tokens_ch.append(self.idx2token[_t])
+            # self.idx2token[_t] 通过id来找到token.
+            # 也就是说，这是数据集中所有词的编码，而不仅仅是变量名.
         # 这里的tokens_ch才是Char
+
 
         uid = getUID(tokens_ch, uids)
         # uid是一个字典，key是变量名，value是一个list，存储此变量名在tokens_ch中的位置
@@ -199,8 +203,12 @@ if __name__ == "__main__":
     print (classifier.prob(_inputs))
     print (torch.argmax(classifier.prob(_inputs), dim=1))
     print ("TEST MODEL DONE!")
-    
+
+
     attacker = MHM(classifier, dataset.token2idx, dataset.idx2token)
+    # dataset.token2idx: dict,key是变量名, value是id
+    # dataset.idx2token: list,每个元素是变量名
+
     print ("ATTACKER BUILT!")
     
     adv = {"tokens": [], "raw_tokens": [], "ori_raw": [],
@@ -211,13 +219,24 @@ if __name__ == "__main__":
     for iteration in range(1, 1+dataset.get_size()):
         print ("\nEXAMPLE "+str(iteration)+"...")
         _b = dataset.next_batch(1)
+        # _b记录了一个example的信息.
+        # _b['x'][0] 这个并不是token本身，而是id
+        # _b['y'][0] label 这个任务是clone detection，但是做成了一个分类问题
+        # 并不像我们的clone detection，判断两个输入是否相关；而是将相关的放到同一个class中
+        # _b['raw'][0] 是原来的token
+        # _b['uid'][0] 是一个list，每个元素是一个字典，其key是variable，values是出现的位置.
+    
         start_time = time.time()
         # _res = attacker.mcmc(_tree=_b['tree'][0], _tokens=_b['x'][0],
         #                      _label=_b['y'][0], _n_candi=30,
         #                      _max_iter=400, _prob_threshold=1)
+        
+        # 在attack的时候，是不需要token的字面值的
         _res = attacker.mcmc(_tree=[] , _tokens=_b['x'][0],
                              _label=_b['y'][0], uids=_b['uid'], _n_candi=30,
                              _max_iter=400, _prob_threshold=1)
+
+        # 这个打印log的模式我很喜欢.
         if _res['succ']:
             print ("EXAMPLE "+str(iteration)+" SUCCEEDED!")
             print ("  time cost = %.2f min" % ((time.time()-start_time)/60))
