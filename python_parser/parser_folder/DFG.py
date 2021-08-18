@@ -21,11 +21,8 @@ def DFG_python(root_node, index_to_code, states):
         if root_node.type == code or root_node.type == 'string':
             return [], states
         elif code in states:
-            print(code)
-            print(states)
             return [(code, idx, 'comesFrom', [code], states[code].copy())], states
         elif root_node.type == 'identifier' and root_node.parent.type == 'parameters':
-            print(1)
             states[code]=[idx]
             return [(code,idx,'comesFrom',[],[])],states
         else:
@@ -38,8 +35,6 @@ def DFG_python(root_node, index_to_code, states):
             indexs = tree_to_variable_index(name, index_to_code)
             for index in indexs:
                 idx, code = index_to_code[index]
-                print(code)
-                print(root_node.type)
                 DFG.append((code, idx, 'comesFrom', [], []))
                 states[code] = [idx]
             return sorted(DFG, key=lambda x: x[1]), states
@@ -52,8 +47,6 @@ def DFG_python(root_node, index_to_code, states):
                 idx1, code1 = index_to_code[index1]
                 for index2 in value_indexs:
                     idx2, code2 = index_to_code[index2]
-                    print(code1)
-                    print(root_node.type)
                     DFG.append((code1, idx1, 'comesFrom', [code2], [idx2]))
                 states[code1] = [idx1]
             return sorted(DFG, key=lambda x: x[1]), states

@@ -31,6 +31,14 @@ Then, create a container using this docker image. An example is:
 docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase_path>,dst=/workspace zhouyang996/codebert-attack:v1
 ```
 
+If the built file "parser/my-languages.so" doesn't work for you, please rebuild as the following command:
+
+```shell
+cd code/parser
+bash build.sh
+cd ..
+```
+
 All the following scripts should run inside the docker container. 
 
 ❕**Notes:** This docker works fine with RTX 2080Ti GPUs and Tesla P100 GPUs. But if on RTX 30XX GPUs, it may take very long time to load the models to cuda. We think it's related to the CUDA version. Users can use the following command for a lower version:
@@ -150,4 +158,4 @@ python attack.py \
 | Dataset  |    ACC    |  ACC (attacked)    | F1| F1(attacked) |Recall| Recall(attacked)|
 | -------- | :-------: |   :-------: | :-------: | :-------: | :-------: | :-------: |
 | Python(70 labels) | **0.9381** |  |**0.911**| |**0.9143**| |
-| Java(41 labels) | **0.982** |  |**0.974**| |**0.9713**| |
+| Java(41 labels) | **0.9841** |  |**0.9745**| |**0.9719**| |
