@@ -76,7 +76,7 @@ CUDA_VISIBLE_DEVICES=1,3,6,7 python run.py \
 
 ### On Java dataset
 
-We use full train data for fine-tuning. The training cost is 15 mins on 4*P100-16G. We use full valid data to evaluate during training.
+We use full train data for fine-tuning. The training cost is 15 mins on 2*P100-16G. We use full valid data to evaluate during training.
 
 ```
 CUDA_VISIBLE_DEVICES=2,0 python run.py \
