@@ -14,13 +14,15 @@ import tree
 class Dataset(object):
     
     def __init__(self, seq=[], raw=None, tree=None, label=[], idx2token=[], token2idx={},
-                 max_len=300, vocab_size=5000, dtype=None):
+                 max_len=300, vocab_size=5000, dtype=None, uid = []):
         
         self.__dtype = dtype
         
         self.__vocab_size = vocab_size
         self.idx2token = idx2token
         self.token2idx = token2idx
+        self.uid = uid
+
         assert len(self.idx2token) == self.__vocab_size \
             and len(self.token2idx) == self.__vocab_size
 
@@ -75,7 +77,7 @@ class Dataset(object):
         
     def next_batch(self, batch_size):
         
-        batch = {"x": [], "y": [], "l": [], "raw": [], "tree": [], "new_epoch": False}
+        batch = {"x": [], "y": [], "l": [], "raw": [], "uid": [], "new_epoch": False}
         assert batch_size <= self.__size
         if len(self.__epoch) < batch_size:
             batch['new_epoch'] = True
@@ -85,10 +87,11 @@ class Dataset(object):
         batch['x'] = numpy.take(self.__seq, indices=idxs, axis=0)
         batch['y'] = numpy.take(self.__label, indices=idxs, axis=0)
         batch['l'] = numpy.take(self.__len, indices=idxs, axis=0)
+
         for i in idxs:
             batch['raw'].append(self.__raw[i])
-        # for i in idxs:
-        #     batch['tree'].append(self.__tree[i])
+        for i in idxs:
+            batch['uid'].append(self.uid[i])
         return batch
         
     def indices2seq(self, xs, ls):
@@ -106,16 +109,19 @@ class Dataset(object):
         
 class POJ104_SEQ(object):
     
-    def __init__(self, path='./poj104.pkl', max_len=500, vocab_size=5000,
+    def __init__(self, path1='./poj104.pkl', path2 = '', max_len=500, vocab_size=5000,
                  valid_ratio=0.2, dtype='32'):
         
         self.__dtypes = self.__dtype(dtype)
         self.__max_len = max_len
         self.__vocab_size = vocab_size
         
-        with open(path, "rb") as f:
+        with open(path1, "rb") as f:
             d = pickle.load(f)
-  
+        with open(path2, "rb") as f:
+            uid = pickle.load(f)
+        self.uid = uid
+
         self.__idx2token = d['idx2txt'][:vocab_size]
         self.__token2idx = {}
         for i, t in zip(range(vocab_size), self.__idx2token):
@@ -149,7 +155,8 @@ class POJ104_SEQ(object):
                              token2idx=self.__token2idx,
                              max_len=max_len,
                              vocab_size=vocab_size,
-                             dtype=self.__dtypes)
+                             dtype=self.__dtypes,
+                             uid = self.uid['tr'])
         self.test = Dataset(seq=d['x_te'],
                             raw=d['raw_te'],
                             label=d['y_te'],
@@ -157,7 +164,9 @@ class POJ104_SEQ(object):
                             token2idx=self.__token2idx,
                             max_len=max_len,
                             vocab_size=vocab_size,
-                            dtype=self.__dtypes)
+                            dtype=self.__dtypes,
+                            uid = self.uid['te'])
+
         
     def __dtype(self, dtype='32'):
     

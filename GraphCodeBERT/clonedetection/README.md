@@ -80,9 +80,9 @@ python run.py \
     --model_name_or_path=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
     --do_train \
-    --train_data_file=dataset/train.txt \
-    --eval_data_file=dataset/valid.txt \
-    --test_data_file=dataset/test.txt \
+    --train_data_file=../dataset/train.txt \
+    --eval_data_file=../dataset/valid.txt \
+    --test_data_file=../dataset/test.txt \
     --epoch 2 \
     --code_length 512 \
     --data_flow_length 128 \
@@ -95,7 +95,7 @@ python run.py \
 ```
 ### Inference
 
-We use full test data for inference. 
+We use full test data for inference. The inferencing cost is 1.5 hours on 8*P100-16G.
 
 ```shell
 python run.py \
@@ -103,11 +103,10 @@ python run.py \
     --config_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
-    --do_eval \
     --do_test \
-    --train_data_file=dataset/train.txt \
-    --eval_data_file=dataset/valid.txt \
-    --test_data_file=dataset/test.txt \
+    --train_data_file=../dataset/train.txt \
+    --eval_data_file=../dataset/valid.txt \
+    --test_data_file=../dataset/test.txt \
     --epoch 2 \
     --code_length 512 \
     --data_flow_length 128 \
@@ -121,7 +120,7 @@ python run.py \
 
 ## Attack GraphCodeBERT
 
-We use 10% test data to evaluate out attacker.
+We use full test data to evaluate out attacker.
 
 ```shell
 python attack.py \
@@ -130,13 +129,12 @@ python attack.py \
     --config_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
-    --do_eval \
-    --train_data_file=dataset/train.txt \
-    --eval_data_file=dataset/valid.txt \
-    --test_data_file=dataset/test.txt \
+    --do_test \
+    --train_data_file=../dataset/train.txt \
+    --eval_data_file=../dataset/valid.txt \
+    --test_data_file=../dataset/test.txt \
     --epoch 1 \
-    --block_size 350 \
-    --code_length 256 \
+    --code_length 512 \
     --data_flow_length 128 \
     --train_batch_size 16 \
     --eval_batch_size 32 \
@@ -150,5 +148,5 @@ The results on the test set are shown as below:
 
 | Method        | Precision |  Precision (attacked)   |    Recall     |  Recall (attacked)   |    F1     |  F1 (attacked)   |
 | ------------- | :-------: | :---------------------: | :-----------: | :------------------: | :-------: |:---------------: | 
-| GraphCodeBERT | **0.973** |  | **0.968** |  | **0.971** |  |
+| GraphCodeBERT | **0.9631** |  | **0.9727** |  | **0.9678** |  |
 

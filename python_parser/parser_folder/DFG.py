@@ -47,8 +47,6 @@ def DFG_python(root_node, index_to_code, states):
                 idx1, code1 = index_to_code[index1]
                 for index2 in value_indexs:
                     idx2, code2 = index_to_code[index2]
-                    # print(code1)
-                    # print(root_node.type)
                     DFG.append((code1, idx1, 'comesFrom', [code2], [idx2]))
                 states[code1] = [idx1]
             return sorted(DFG, key=lambda x: x[1]), states

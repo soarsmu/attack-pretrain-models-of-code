@@ -10,7 +10,7 @@ sys.path.append('.')
 sys.path.append('../')
 from utils import is_valid_variable_name
 
-path = 'parser_folder/my-languages.so'
+path = '../../../python_parser/parser_folder/my-languages.so'
 c_code = """
 static void tricore_cpu_initfn(Object *obj) { int a = 1; int b[3] = {0,0,1}; int c = b[a]; CPUState *cs = CPU(obj); TriCoreCPU *cpu = TRICORE_CPU(obj); CPUTriCoreState *env = &cpu->env; cs->env_ptr = env; cpu_exec_init(cs, &error_abort); if (tcg_enabled()) { tricore_tcg_init(); } }
 """
@@ -141,9 +141,6 @@ def parse_string(input):
 def get_identifiers(code, lang):
 
     dfg, index_table, code_tokens = extract_dataflow(code, lang)
-    print("dfg")
-    for i in dfg:
-        print(i)
     ret = []
     ret_set = set()
     for d in dfg:

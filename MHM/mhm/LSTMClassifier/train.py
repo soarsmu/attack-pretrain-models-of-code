@@ -172,7 +172,7 @@ if __name__ == "__main__":
     criterion = nn.CrossEntropyLoss()
 
     
-    trainEpochs(1, training_set, valid_set, saving_path=opt.save_dir)
+    trainEpochs(5, training_set, valid_set, saving_path=opt.save_dir)
     print()
     print()
     print('eval on test set...')
