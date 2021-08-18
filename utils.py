@@ -179,7 +179,7 @@ def is_valid_substitue(substitute: str, tgt_word: str, lang: str) -> bool:
 
 
 def _tokenize(seq, tokenizer):
-    seq = seq.replace('\n', '').lower()
+    seq = seq.replace('\n', '')
     words = seq.split(' ')
 
     sub_words = []

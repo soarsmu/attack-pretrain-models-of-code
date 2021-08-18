@@ -70,7 +70,7 @@ class MHM(object):
         # uid是一个字典，key是变量名，value是一个list，存储此变量名在tokens_ch中的位置
 
         if len(uid) <= 0: # 是有可能存在找不到变量名的情况的.
-            return {'succ': False, 'tokens': None, 'raw_tokens': None}
+            return {'succ': None, 'tokens': None, 'raw_tokens': None}
 
         for iteration in range(1, 1+_max_iter):
             # 这个函数需要tokens
@@ -391,8 +391,16 @@ if __name__ == "__main__":
     adv = {"tokens": [], "raw_tokens": [], "ori_raw": [],
            'ori_tokens': [], "label": [], }
     n_succ = 0.0
+    total_cnt = 0
     for index, example in enumerate(eval_dataset):
-        orig_prob, orig_label = get_results([example], model, args.eval_batch_size)
+        code = source_codes[index]
+        identifiers, code_tokens = get_identifiers(code, lang='c')
+        code_tokens = [i.lower() for i in code_tokens]
+        processed_code = " ".join(code_tokens)
+        new_feature = convert_code_to_features(processed_code, tokenizer, example[1].item(), args)
+        new_dataset = CodeDataset([new_feature])
+
+        orig_prob, orig_label = get_results(new_dataset, model, args.eval_batch_size)
         orig_prob = orig_prob[0]
         orig_label = orig_label[0]
         ground_truth = example[1].item()
@@ -400,23 +408,25 @@ if __name__ == "__main__":
             continue
         
         start_time = time.time()
-        code = source_codes[index]
+        
         # 这里需要进行修改.
 
         _res = attacker.mcmc(tokenizer, code,
                              _label=ground_truth, _n_candi=30,
                              _max_iter=400, _prob_threshold=1)
     
-        
-        if _res['succ']:
+        if _res['succ'] is None:
+            continue
+        if _res['succ'] == True:
             print ("EXAMPLE "+str(index)+" SUCCEEDED!")
-            print ("  time cost = %.2f min" % ((time.time()-start_time)/60))
             n_succ += 1
             adv['tokens'].append(_res['tokens'])
             adv['raw_tokens'].append(_res['raw_tokens'])
         else:
             print ("EXAMPLE "+str(index)+" FAILED.")
-        print ("  curr succ rate = "+str(n_succ/(index + 1)))
+        total_cnt += 1
+        print ("  time cost = %.2f min" % ((time.time()-start_time)/60))
+        print ("  curr succ rate = "+str(n_succ/total_cnt))
             
     print ("\nFINAL SUCC RATE = "+str(n_succ/len(eval_dataset)))
 

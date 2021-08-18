@@ -25,7 +25,7 @@ from model import Model
 from run import set_seed
 from run import TextDataset
 from run import InputFeatures
-from utils import select_parents, crossover, map_chromesome, mutate, python_keywords, is_valid_substitue, _tokenize
+from utils import select_parents, crossover, map_chromesome, mutate, python_keywords, is_valid_variable_name, _tokenize
 from utils import get_identifier_posistions_from_code
 from utils import get_masked_code_by_position, get_substitues
 from run_parser import get_identifiers
@@ -192,9 +192,9 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
 
     variable_names = []
     for name in identifiers:
-        if ' ' in name[0].strip() or name[0].lower() in variable_names:
+        if ' ' in name[0].strip() in variable_names:
             continue
-        variable_names.append(name[0].lower())
+        variable_names.append(name[0])
 
     print("Number of identifiers extracted: ", len(variable_names))
     if not orig_label == true_label:
@@ -232,7 +232,9 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
                                             max_length=args.block_size, 
                                             model_type='classification')
 
-    assert(len(importance_score) == len(replace_token_positions))
+    if importance_score is None:
+        return code, prog_length, adv_code, true_label, orig_label, temp_label, -3, variable_names, None, None, None, None
+
 
     token_pos_to_score_pos = {}
 
@@ -299,7 +301,7 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
             # 这些头部和尾部的空格在拼接的时候并不影响，但是因为下面的第4个if语句会被跳过
             # 这导致了部分mutants为空，而引发了runtime error
 
-            if not is_valid_substitue(substitute, tgt_word):
+            if not is_valid_variable_name(substitute, tgt_word, 'c'):
                 continue
 
             
@@ -402,9 +404,9 @@ def gi_attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, to
 
     variable_names = []
     for name in identifiers:
-        if ' ' in name[0].strip() or name[0].lower() in variable_names:
+        if ' ' in name[0].strip() in variable_names:
             continue
-        variable_names.append(name[0].lower())
+        variable_names.append(name[0])
 
     print("Number of identifiers extracted: ", len(variable_names))
     if not orig_label == true_label:
@@ -465,7 +467,7 @@ def gi_attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, to
         all_substitues = set(all_substitues)
 
         for tmp_substitue in all_substitues:
-            if not is_valid_substitue(tmp_substitue, tgt_word):
+            if not is_valid_variable_name(tmp_substitue, tgt_word, 'c'):
                 continue
             try:
                 variable_substitue_dict[tgt_word].append(tmp_substitue)
