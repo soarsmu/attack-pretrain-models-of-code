@@ -45,7 +45,7 @@ We use full train data for fine-tuning. The training cost is 10 mins on 4*P100-1
 
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=2,4,5,7 python run.py \
+CUDA_VISIBLE_DEVICES=0,2,4,5 python run.py \
     --output_dir=./saved_models/gcjpy \
     --model_type=roberta \
     --config_name=microsoft/codebert-base \
@@ -56,7 +56,7 @@ CUDA_VISIBLE_DEVICES=2,4,5,7 python run.py \
     --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
-    --epoch 20 \
+    --epoch 40 \
     --block_size 512 \
     --train_batch_size 16 \
     --eval_batch_size 32 \
@@ -146,5 +146,5 @@ python attack.py \
 
 | Dataset  |    ACC    |  ACC (attacked)    | F1| F1(attacked) |Recall| Recall(attacked)|
 | -------- | :-------: |   :-------: | :-------: | :-------: | :-------: | :-------: |
-| Python(70 labels) | **0.9105** |  |**0.8767**| |**0.8857**| |
+| Python(70 labels) | **0.9129** |  |**0.8777**| |**0.8857**| |
 | Java(41 labels) | **0.982** |  |**0.974**| |**0.9713**| |
