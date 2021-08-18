@@ -380,7 +380,7 @@ def DFG_c(root_node, index_to_code, states):
             return [], states
         elif code in states or root_node.type == 'string':
             return [(code, idx, 'comesFrom', [code], states[code].copy())], states
-        elif root_node.type == 'identifier' and (root_node.parent.parent.type == 'parameter_declaration' or root_node.parent.parent.parent.type == 'parameter_declaration'):
+        elif root_node.type == 'identifier' and (root_node.parent.parent.type == 'parameter_declaration' or root_node.parent.type == 'parameter_declaration'):
             states[code]=[idx]
             return [(code,idx,'comesFrom',[],[])],states
         else:
