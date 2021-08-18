@@ -11,7 +11,7 @@ java_keywords = ["abstract", "assert", "boolean", "break", "byte", "case", "catc
                  "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return",
                  "short", "static", "strictfp", "super", "switch", "throws", "transient", "try", "void", "volatile",
                  "while"]
-java_special_ids = ["Math", "System", "Random", "Byte", "Short", "Integer", "Long", "Float", "Double", "Character",
+java_special_ids = ["main", "args", "Math", "System", "Random", "Byte", "Short", "Integer", "Long", "Float", "Double", "Character",
                     "Boolean", "Data", "ParseException", "SimpleDateFormat", "Calendar", "Object", "String", "StringBuffer",
                     "StringBuilder", "DateFormat", "Collection", "List", "Map", "Set", "Queue", "ArrayList", "HashSet", "HashMap"]
 c_keywords = ["auto", "break", "case", "char", "const", "continue",
