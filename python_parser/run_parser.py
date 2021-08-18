@@ -6,14 +6,13 @@ from parser_folder import (remove_comments_and_docstrings,
                            index_to_code_token,
                            tree_to_variable_index)
 from tree_sitter import Language, Parser
-
+import sys
+sys.path.append('../')
 from utils import is_valid_variable_name
 
 path = 'parser_folder/my-languages.so'
 c_code = """
-struct vhost_net *vhost_net_init(int devfd) {
-int a = 1;
-return NULL; }
+static void filter_mirror_setup(NetFilterState *nf, Error **errp) { MirrorState *s = FILTER_MIRROR(nf); Chardev *chr; chr = qemu_chr_find(s->outdev); if (chr == NULL) { error_set(errp, ERROR_CLASS_DEVICE_NOT_FOUND, ""Device '%s' not found"", s->outdev); qemu_chr_fe_init(&s->chr_out, chr, errp);
 """
 
 python_code = """ 
@@ -121,6 +120,7 @@ def get_identifiers(code, lang):
     # for i in dfg:
     #     print(i)
     ret = []
+    ret_set = set()
     for d in dfg:
         if is_valid_variable_name(d[0], lang):
             ret_set.add(d[0])
