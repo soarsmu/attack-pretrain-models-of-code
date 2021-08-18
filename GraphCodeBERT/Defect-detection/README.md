@@ -75,11 +75,11 @@ docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase
 
 ### Fine-tune
 
-We use full train data for fine-tuning. The training cost is 50 mins on 8*P100-16G. We use full valid data to evaluate during training.
+We use full train data for fine-tuning. The training cost is 35 mins on 8*P100-16G. We use full valid data to evaluate during training.
 
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=4,5,6,7 python run.py \
+python run.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --config_name=microsoft/graphcodebert-base \
@@ -154,4 +154,4 @@ python attack.py \
 
 | Methods  |    ACC    |  ACC (attacked)    |
 | -------- | :-------: |   :-------: |
-| GraphCodeBERT | **63.76** |  |
+| GraphCodeBERT | **63.65** |  |
