@@ -378,8 +378,11 @@ def DFG_c(root_node, index_to_code, states):
         idx, code = index_to_code[(root_node.start_point, root_node.end_point)]
         if root_node.type == code or (root_node.parent.type == 'function_declarator' and root_node):
             return [], states
-        elif code in states or root_node.type == 'string':
+        elif code in states:
             return [(code, idx, 'comesFrom', [code], states[code].copy())], states
+        elif code == 'ESP_RSEQ':
+            print(1)
+            return [], states
         elif root_node.type == 'identifier' and (root_node.parent.parent.type == 'parameter_declaration' or root_node.parent.type == 'parameter_declaration'):
             states[code]=[idx]
             return [(code,idx,'comesFrom',[],[])],states
@@ -419,8 +422,18 @@ def DFG_c(root_node, index_to_code, states):
         DFG = []
         temp, states = DFG_c(right_nodes, index_to_code, states)
         DFG += temp
-        name_indexs = tree_to_variable_index(left_nodes, index_to_code)
+        # filter field identifiers
+        if left_nodes.type == 'field_expression':
+            left_node = left_nodes.child_by_field_name('argument')
+        elif left_nodes.type == 'subscript_expression':
+            left_node = left_nodes.child_by_field_name('argument').child_by_field_name('argument')
+        else:
+            left_node = left_nodes
+        print(left_node.type)
+        name_indexs = tree_to_variable_index(left_node, index_to_code)
         value_indexs = tree_to_variable_index(right_nodes, index_to_code)
+        print("assignment")
+        print(name_indexs)
         for index1 in name_indexs:
             idx1, code1 = index_to_code[index1]
             for index2 in value_indexs:

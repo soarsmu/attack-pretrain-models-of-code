@@ -1,5 +1,4 @@
 import argparse
-from re import I
 from parser_folder.DFG import DFG_python, DFG_java, DFG_c
 from parser_folder import (remove_comments_and_docstrings,
                            tree_to_token_index,
@@ -7,13 +6,40 @@ from parser_folder import (remove_comments_and_docstrings,
                            tree_to_variable_index)
 from tree_sitter import Language, Parser
 import sys
+sys.path.append('.')
 sys.path.append('../')
 from utils import is_valid_variable_name
 
 path = 'parser_folder/my-languages.so'
 c_code = """
-static inline int64_t sub64(const int64_t a, const int64_t b) { return a - b; }
-"""
+static void do_busid_cmd(ESPState *s, uint8_t *buf, uint8_t busid)
+{
+    int32_t datalen;
+    int lun;
+    DPRINTF("do_busid_cmd: busid 0x%x\n", busid);
+    lun = busid & 7;
+    s->current_req = scsi_req_new(s->current_dev, 0, lun, NULL);
+    datalen = scsi_req_enqueue(s->current_req, buf);
+    s->ti_size = datalen;
+    if (datalen != 0)
+    {
+        s->rregs[ESP_RSTAT] = STAT_TC;
+        s->dma_left = 0;
+        s->dma_counter = 0;
+        if (datalen > 0)
+        {
+            s->rregs[ESP_RSTAT] |= STAT_DI;
+        }
+        else
+        {
+            s->rregs[ESP_RSTAT] |= STAT_DO;
+        }
+        scsi_req_continue(s->current_req);
+    }
+    s->rregs[ESP_RINTR] = INTR_BS | INTR_FC;
+    s->rregs[ESP_RSEQ] = SEQ_CD;
+    esp_raise_irq(s);
+}"""
 
 python_code = """ 
 a = "abcdefghijklmnopqrstuvwxyz" 
@@ -116,9 +142,9 @@ def parse_string(input):
 def get_identifiers(code, lang):
 
     dfg, index_table, code_tokens = extract_dataflow(code, lang)
-    # print("dfg")
-    # for i in dfg:
-    #     print(i)
+    print("dfg")
+    for i in dfg:
+        print(i)
     ret = []
     ret_set = set()
     for d in dfg:
