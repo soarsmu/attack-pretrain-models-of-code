@@ -1,8 +1,8 @@
-import torch
-import torch.nn as nn
+# import torch
+# import torch.nn as nn
 import copy
 import random
-from tqdm import tqdm
+# from tqdm import tqdm
 
 python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">",
                    '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break',
@@ -145,11 +145,8 @@ def is_valid_variable_c(name: str) -> bool:
         return False
     return True
 
-def is_valid_variable_name(name: str, tgt_word: str, lang: str) -> bool:
+def is_valid_variable_name(name: str, lang: str) -> bool:
     # check if matches language keywords
-    if name == tgt_word:
-        # 如果和原来的词相同
-        return False  # filter out original word
     if lang == 'python':
         return is_valid_variable_python(name)
     elif lang == 'c':
@@ -343,8 +340,8 @@ def build_vocab(codes, limit=5000):
 # From MHM codebases
 
 
-import pycparser
-import torch
+# import pycparser
+# import torch
 
 def getTensor(batch, batchfirst=False):
     
