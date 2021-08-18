@@ -35,14 +35,14 @@ bash build.sh
 
 check list
 
-- [ ] Codebert
+- [x] Codebert
     - [x] Authorship
     - [x] Clone
     - [x] Defect 
-- [ ] GraphCodebert
-    - [ ] Authorship
+- [x] GraphCodebert
+    - [x] Authorship
     - [x] Clone
-    - [ ] Defect 
+    - [x] Defect 
 
 
 
