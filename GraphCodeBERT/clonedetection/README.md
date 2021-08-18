@@ -55,7 +55,7 @@ docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase
 If the built file "parser/my-languages.so" doesn't work for you, please rebuild as the following command:
 
 ```shell
-cd parser
+cd code/parser
 bash build.sh
 cd ..
 ```
