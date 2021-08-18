@@ -56,11 +56,11 @@ docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase
 
 ### Fine-tune
 
-We only use 10% training data to fine-tune and 10% valid data to evaluate during training. The training cost is 3 hours on 4*P100-16G. 
+We only use 10% training data to fine-tune and 10% valid data to evaluate during training. The training cost is 3 hours on 8*P100-16G. 
 
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=2,4,5,7 python run.py \
+python run.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --config_name=microsoft/codebert-base \
@@ -71,7 +71,7 @@ CUDA_VISIBLE_DEVICES=2,4,5,7 python run.py \
     --eval_data_file=../dataset/valid.txt \
     --test_data_file=../dataset/test.txt \
     --epoch 2 \
-    --block_size 400 \
+    --block_size 512 \
     --train_batch_size 16 \
     --eval_batch_size 32 \
     --learning_rate 5e-5 \
@@ -86,7 +86,7 @@ We use full test data for inference.
 
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=0,1 python run.py \
+python run.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --config_name=microsoft/codebert-base \
@@ -98,7 +98,7 @@ CUDA_VISIBLE_DEVICES=0,1 python run.py \
     --eval_data_file=../dataset/valid.txt \
     --test_data_file=../dataset/test.txt \
     --epoch 2 \
-    --block_size 400 \
+    --block_size 512 \
     --train_batch_size 16 \
     --eval_batch_size 32 \
     --learning_rate 5e-5 \
@@ -114,7 +114,7 @@ We use full test data for inference.
 
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=0,1 python attack.py \
+python attack.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --config_name=microsoft/codebert-base \
@@ -126,7 +126,7 @@ CUDA_VISIBLE_DEVICES=0,1 python attack.py \
     --eval_data_file=../dataset/valid.txt \
     --test_data_file=../dataset/test.txt \
     --epoch 2 \
-    --block_size 400 \
+    --block_size 512 \
     --train_batch_size 16 \
     --eval_batch_size 128 \
     --learning_rate 5e-5 \

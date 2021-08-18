@@ -7,5 +7,5 @@
 #!/bin/bash
 
 #  需要pkl file作为输入
-python -u train.py -gpu 0 -model LSTM -lr 0.003 -l2p 0 -lrdecay -save_dir ./saved_models/ --data ../../Parser/data/oj.pkl
+python -u train.py -gpu 0 -model LSTM -lr 0.003 -l2p 0 -lrdecay -save_dir ./saved_models/ --data ../../preprocess/dataset/oj.pkl
 

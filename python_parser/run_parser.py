@@ -10,7 +10,7 @@ sys.path.append('.')
 sys.path.append('../')
 from utils import is_valid_variable_name
 
-path = 'parser_folder/my-languages.so'
+path = '../../../python_parser/parser_folder/my-languages.so'
 c_code = """
 static void do_busid_cmd(ESPState *s, uint8_t *buf, uint8_t busid)
 {
@@ -142,13 +142,10 @@ def parse_string(input):
 def get_identifiers(code, lang):
 
     dfg, index_table, code_tokens = extract_dataflow(code, lang)
-    print("dfg")
-    for i in dfg:
-        print(i)
     ret = []
     ret_set = set()
     for d in dfg:
-        if is_valid_variable_name(d[0], lang):
+        if is_valid_variable_name(d[0], "", lang):
             ret_set.add(d[0])
     for item in ret_set:
         ret.append([item])
