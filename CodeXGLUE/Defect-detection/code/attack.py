@@ -169,7 +169,6 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     processed_code = " ".join(code_tokens)
     
     words, sub_words, keys = _tokenize(processed_code, tokenizer_mlm)
-    # 这里经过了小写处理..
 
 
     variable_names = []
@@ -214,7 +213,9 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
                                             max_length=args.block_size, 
                                             model_type='classification')
 
-    assert(len(importance_score) == len(replace_token_positions))
+    if importance_score is None:
+        is_success = -3
+        return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, None, None, None, None
 
     token_pos_to_score_pos = {}
 
@@ -519,10 +520,10 @@ def main():
     codebert_mlm.to('cuda') 
 
     ## Load Dataset
-    test_dataset = TextDataset(tokenizer, args,args.test_data_file)
+    test_dataset = TextDataset(tokenizer, args,args.eval_data_file)
 
     source_codes = []
-    with open(args.test_data_file) as f:
+    with open(args.eval_data_file) as f:
         for line in f:
             js=json.loads(line.strip())
             code = ' '.join(js['func'].split())
@@ -594,6 +595,7 @@ def main():
         print("Success rate: ", 1.0 * success_attack / total_cnt)
         print("Successful items count: ", success_attack)
         print("Total count: ", total_cnt)
+        print("Index: ", index)
         print()
     
         
