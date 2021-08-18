@@ -207,6 +207,11 @@ def DFG_java(root_node, index_to_code, states):
             indexs = tree_to_variable_index(name, index_to_code)
             for index in indexs:
                 idx, code = index_to_code[index]
+                print(code)
+                print(name)
+                print(value)
+                print(root_node.type)
+                print(root_node.parent.type)
                 DFG.append((code, idx, 'comesFrom', [], []))
                 states[code] = [idx]
             return sorted(DFG, key=lambda x: x[1]), states
@@ -376,8 +381,6 @@ def DFG_c(root_node, index_to_code, states):
             return [], states
         elif code in states:
             return [(code, idx, 'comesFrom', [code], states[code].copy())], states
-        elif code == 'ESP_RSEQ':
-            return [], states
         elif root_node.type == 'identifier' and (root_node.parent.parent.type == 'parameter_declaration' or root_node.parent.type == 'parameter_declaration'):
             states[code]=[idx]
             return [(code,idx,'comesFrom',[],[])],states
