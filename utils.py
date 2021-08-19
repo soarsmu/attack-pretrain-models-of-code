@@ -1,8 +1,8 @@
-# import torch
-# import torch.nn as nn
+import torch
+import torch.nn as nn
 import copy
 import random
-# from tqdm import tqdm
+from tqdm import tqdm
 
 python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">",
                    '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break',
@@ -238,7 +238,6 @@ def get_bpe_substitues(substitutes, tokenizer, mlm_model):
     all_substitutes = torch.tensor(all_substitutes)  # [ N, L ]
     all_substitutes = all_substitutes[:24].to('cuda')
     # 不是，这个总共不会超过24... 那之前生成那么多也没用....
-    # print(substitutes.size(), all_substitutes.size())
     N, L = all_substitutes.size()
     word_predictions = mlm_model(all_substitutes)[0]  # N L vocab-size
     ppl = c_loss(word_predictions.view(N * L, -1), all_substitutes.view(-1))  # [ N*L ]

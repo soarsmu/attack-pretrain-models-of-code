@@ -27,7 +27,7 @@ from run import TextDataset
 from run import InputFeatures
 from utils import select_parents, crossover, map_chromesome, mutate, python_keywords, is_valid_variable_name, _tokenize
 from utils import get_identifier_posistions_from_code
-from utils import get_masked_code_by_position, get_substitues
+from utils import get_masked_code_by_position, get_substitues, is_valid_substitue
 from run_parser import get_identifiers
 
 from torch.utils.data.dataset import Dataset
@@ -192,7 +192,7 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
 
     variable_names = []
     for name in identifiers:
-        if ' ' in name[0].strip() in variable_names:
+        if ' ' in name[0].strip():
             continue
         variable_names.append(name[0])
 
@@ -301,9 +301,8 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
             # 这些头部和尾部的空格在拼接的时候并不影响，但是因为下面的第4个if语句会被跳过
             # 这导致了部分mutants为空，而引发了runtime error
 
-            if not is_valid_variable_name(substitute, tgt_word, 'c'):
+            if not is_valid_substitue(substitute, tgt_word, 'c'):
                 continue
-
             
             temp_replace = copy.deepcopy(final_words)
             for one_pos in tgt_positions:
@@ -338,7 +337,10 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
                 for one_pos in tgt_positions:
                     final_words[one_pos] = candidate
                 adv_code = " ".join(final_words)
-
+                print("%s SUC! %s => %s (%.5f => %.5f)" % \
+                    ('>>', tgt_word, candidate,
+                    current_prob,
+                    temp_prob[orig_label]), flush=True)
                 return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words
             else:
                 # 如果没有攻击成功，我们看probability的修改
@@ -349,13 +351,17 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
                     candidate = substitute_list[index]
     
         if most_gap > 0:
-            # 如果most_gap > 0，说明有mutant可以让prob减少
+
             nb_changed_var += 1
             nb_changed_pos += len(names_positions_dict[tgt_word])
             current_prob = current_prob - most_gap
             for one_pos in tgt_positions:
                 final_words[one_pos] = candidate
             replaced_words[tgt_word] = candidate
+            print("%s ACC! %s => %s (%.5f => %.5f)" % \
+                  ('>>', tgt_word, candidate,
+                   current_prob + most_gap,
+                   current_prob), flush=True)
         else:
             replaced_words[tgt_word] = tgt_word
         
@@ -467,7 +473,7 @@ def gi_attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, to
         all_substitues = set(all_substitues)
 
         for tmp_substitue in all_substitues:
-            if not is_valid_variable_name(tmp_substitue, tgt_word, 'c'):
+            if not is_valid_substitue(tmp_substitue, tgt_word, 'c'):
                 continue
             try:
                 variable_substitue_dict[tgt_word].append(tmp_substitue)
@@ -477,9 +483,10 @@ def gi_attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, to
 
     print("Number of identifiers to be changed:  ", len(variable_substitue_dict))
         
-    population = []
+
     fitness_values = []
     base_chromesome = {word: word for word in variable_substitue_dict.keys()}
+    population = [base_chromesome]
     # 关于chromesome的定义: {tgt_word: candidate, tgt_word_2: candidate_2, ...}
 
     for tgt_word in variable_substitue_dict.keys():
@@ -766,7 +773,8 @@ def main():
     
     writer = csv.writer(f)
     # write table head.
-    writer.writerow(["Original Code", 
+    writer.writerow(["Index",
+                    "Original Code", 
                     "Program Length", 
                     "Adversarial Code", 
                     "True Label", 
@@ -796,7 +804,8 @@ def main():
             for key in replaced_words.keys():
                 replace_info += key + ':' + replaced_words[key] + ','
 
-        writer.writerow([code, 
+        writer.writerow([index,
+                        code, 
                         prog_length, 
                         adv_code, 
                         true_label, 
@@ -819,8 +828,10 @@ def main():
         if total_cnt == 0:
             continue
         print("Success rate: ", 1.0 * success_attack / total_cnt)
-        print(success_attack)
-        print(total_cnt)
+        print("Successful items count: ", success_attack)
+        print("Total count: ", total_cnt)
+        print("Index: ", index)
+        print()
     
         
 if __name__ == '__main__':

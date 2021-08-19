@@ -3,6 +3,7 @@
 ## Task Definition
 
 **Clone Detection:** Given two codes as the input, the task is to do binary classification (0/1), where 1 stands for semantic equivalence and 0 for others. Models are evaluated by F1 score.
+**Attack:** Modify one of input codes, change the prediction result of GraphCodeBERT.
 
 **Attack:** Modify one of input codes, change the prediction result (0/1) of GraphCodeBERT.
 
@@ -52,6 +53,7 @@ Then, create a container using this docker image. An example is:
 docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase_path>,dst=/workspace zhouyang996/codebert-attack:v1
 ```
 
+
 If the built file "parser/my-languages.so" doesn't work for you, please rebuild as the following command:
 
 ```shell
@@ -68,9 +70,11 @@ All the following scripts should run inside the docker container.
 docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase_path>,dst=/workspace pytorch/pytorch:1.7.0-cuda11.0-cudnn8-devel
 ```
 
+
 ### Fine-tune
 
 We use full train data for fine-tuning. The training cost is 18 hours on 8*P100-16G. We use 10% valid data to evaluate during training.
+
 
 ```shell
 mkdir saved_models
@@ -118,6 +122,9 @@ python run.py \
     --seed 123456 2>&1| tee saved_models/test.log
 ```
 
+## Attack GraphCodeBERT
+
+
 
 ## Attack GraphCodeBERT
 
@@ -131,6 +138,7 @@ mv model.bin code/saved_models/checkpoint-best-f1/
 ```
 
 We use full test data to evaluate out attacker.
+
 
 ```shell
 python attack.py \
