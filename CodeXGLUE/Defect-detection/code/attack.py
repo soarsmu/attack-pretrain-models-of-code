@@ -24,7 +24,7 @@ from model import Model
 from run import set_seed
 from run import TextDataset
 from run import InputFeatures
-from utils import python_keywords, is_valid_substitue, _tokenize
+from utils import is_valid_variable_name, _tokenize
 from utils import get_identifier_posistions_from_code
 from utils import get_masked_code_by_position, get_substitues
 from run_parser import get_identifiers
@@ -63,7 +63,6 @@ def get_results(dataset, model, batch_size):
 
     ## Evaluate Model
 
-    eval_loss = 0.0
     nb_eval_steps = 0
     model.eval()
     logits=[] 
@@ -74,7 +73,6 @@ def get_results(dataset, model, batch_size):
         with torch.no_grad():
             lm_loss,logit = model(inputs,label)
             # 调用这个模型. 重写了反前向传播模型.
-            eval_loss += lm_loss.mean().item()
             logits.append(logit.cpu().numpy())
             labels.append(label.cpu().numpy())
             
@@ -171,7 +169,6 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     processed_code = " ".join(code_tokens)
     
     words, sub_words, keys = _tokenize(processed_code, tokenizer_mlm)
-    # 这里经过了小写处理..
 
 
     variable_names = []
@@ -216,7 +213,9 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
                                             max_length=args.block_size, 
                                             model_type='classification')
 
-    assert(len(importance_score) == len(replace_token_positions))
+    if importance_score is None:
+        is_success = -3
+        return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, None, None, None, None
 
     token_pos_to_score_pos = {}
 
@@ -248,9 +247,8 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     for name_and_score in sorted_list_of_names:
         tgt_word = name_and_score[0]
         tgt_positions = names_positions_dict[tgt_word] # 在words中对应的位置
-        if tgt_word in python_keywords:
-            # 如果在filter_words中就不修改
-            continue   
+        if not is_valid_variable_name(tgt_word, "", 'c'):
+            continue
 
         ## 得到substitues
         all_substitues = []
@@ -283,7 +281,7 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
             # 这些头部和尾部的空格在拼接的时候并不影响，但是因为下面的第4个if语句会被跳过
             # 这导致了部分mutants为空，而引发了runtime error
 
-            if not is_valid_substitue(substitute, tgt_word):
+            if not is_valid_variable_name(substitute, tgt_word, 'c'):
                 continue
 
             
@@ -522,7 +520,7 @@ def main():
     codebert_mlm.to('cuda') 
 
     ## Load Dataset
-    eval_dataset = TextDataset(tokenizer, args,args.eval_data_file)
+    test_dataset = TextDataset(tokenizer, args,args.eval_data_file)
 
     source_codes = []
     with open(args.eval_data_file) as f:
@@ -530,7 +528,7 @@ def main():
             js=json.loads(line.strip())
             code = ' '.join(js['func'].split())
             source_codes.append(code)
-    assert(len(source_codes) == len(eval_dataset))
+    assert(len(source_codes) == len(test_dataset))
 
     # 现在要尝试计算importance_score了.
     success_attack = 0
@@ -551,7 +549,7 @@ def main():
                     "No. Changed Names",
                     "No. Changed Tokens",
                     "Replaced Names"])
-    for index, example in enumerate(eval_dataset):
+    for index, example in enumerate(test_dataset):
         code = source_codes[index]
         code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attack(args, example, code, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
 
@@ -579,18 +577,26 @@ def main():
                         nb_changed_pos,
                         replace_info])
         
-        
         if is_success >= -1 :
             # 如果原来正确
             total_cnt += 1
         if is_success == 1:
             success_attack += 1
+            print("Succeed!")
+        elif is_success == -4:
+            print("Wrong prediction.")
+        elif is_success == -3:
+            print("No variable names!")
+        else:
+            print("Failed!")
         
         if total_cnt == 0:
             continue
         print("Success rate: ", 1.0 * success_attack / total_cnt)
-        print(success_attack)
-        print(total_cnt)
+        print("Successful items count: ", success_attack)
+        print("Total count: ", total_cnt)
+        print("Index: ", index)
+        print()
     
         
 if __name__ == '__main__':

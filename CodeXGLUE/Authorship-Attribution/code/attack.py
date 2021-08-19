@@ -163,7 +163,7 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     adv_code = ''
     temp_label = None
 
-    identifiers, code_tokens = get_identifiers(code, 'python')
+    identifiers, code_tokens = get_identifiers(code, args.language_type)
     '''
     Issues:
     get_identifiers会删除注释，而接受的“code”也是被处理过的。
@@ -406,7 +406,9 @@ def main():
     parser.add_argument("--do_eval", action='store_true',
                         help="Whether to run eval on the dev set.")
     parser.add_argument("--do_test", action='store_true',
-                        help="Whether to run eval on the dev set.")    
+                        help="Whether to run eval on the dev set.")
+    parser.add_argument("--language_type", type=str,
+                        help="The programming language type of dataset")     
     parser.add_argument("--evaluate_during_training", action='store_true',
                         help="Run evaluation during training at each logging step.")
     parser.add_argument("--do_lower_case", action='store_true',

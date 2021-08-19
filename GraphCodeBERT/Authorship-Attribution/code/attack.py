@@ -221,7 +221,7 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
 
 
 
-    identifiers, code_tokens = get_identifiers(code, 'c')
+    identifiers, code_tokens = get_identifiers(code, args.language_type)
     prog_length = len(code_tokens)
 
 
@@ -452,9 +452,9 @@ def main():
     parser.add_argument("--do_test", action='store_true',
                         help="Whether to run eval on the dev set.")
     parser.add_argument("--number_labels", type=int,
-                        help="The model checkpoint for weights initialization.") 
+                        help="The number of labels.") 
     parser.add_argument("--language_type", type=str,
-                        help="The model checkpoint for weights initialization.")   
+                        help="The programming language type of dataset")   
     parser.add_argument("--evaluate_during_training", action='store_true',
                         help="Run evaluation during training at each logging step.")
     parser.add_argument("--do_lower_case", action='store_true',
@@ -578,7 +578,7 @@ def main():
         if replaced_words is not None:
             for key in replaced_words.keys():
                 replace_info += key + ':' + replaced_words[key] + ','
-        print(1)
+
         writer.writerow([code, 
                         prog_length, 
                         adv_code, 

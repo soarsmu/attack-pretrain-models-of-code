@@ -5,6 +5,8 @@
 **Clone Detection:** Given two codes as the input, the task is to do binary classification (0/1), where 1 stands for semantic equivalence and 0 for others. Models are evaluated by F1 score.
 **Attack:** Modify one of input codes, change the prediction result of GraphCodeBERT.
 
+**Attack:** Modify one of input codes, change the prediction result (0/1) of GraphCodeBERT.
+
 ## Dataset
 
 The dataset we use is [BigCloneBench](https://www.cs.usask.ca/faculty/croy/papers/2014/SvajlenkoICSME2014BigERA.pdf) and filtered following the paper [Detecting Code Clones with Graph Neural Network and Flow-Augmented Abstract Syntax Tree](https://arxiv.org/pdf/2002.08653.pdf).
@@ -29,7 +31,7 @@ Data statistics of the dataset are shown in the below table:
 | Dev   |  415,416  |
 | Test  |  415,416  |
 
-You can get data using the following command.
+The data is compressed in `./dataset.zip`. You can get data using the following command.
 
 ```
 unzip dataset.zip
@@ -37,26 +39,42 @@ unzip dataset.zip
 
 ## Fine-tune GraphCodeBERT
 
-We also provide a pipeline that fine-tunes GraphCodeBERT on this task.
-
 ### Dependency
 
-- pip install torch
-- pip install transformers
-- pip install tree_sitter
-- pip install sklearn
+Users can try with the following docker image.
+
+```
+docker pull zhouyang996/codebert-attack:v1
+```
+
+Then, create a container using this docker image. An example is:
+
+```
+docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase_path>,dst=/workspace zhouyang996/codebert-attack:v1
+```
+
 
 If the built file "parser/my-languages.so" doesn't work for you, please rebuild as the following command:
 
 ```shell
-cd parser
+cd code/parser
 bash build.sh
 cd ..
 ```
 
+All the following scripts should run inside the docker container. 
+
+❕**Notes:** This docker works fine with RTX 2080Ti GPUs and Tesla P100 GPUs. But if on RTX 30XX GPUs, it may take very long time to load the models to cuda. We think it's related to the CUDA version. Users can use the following command for a lower version:
+
+```
+docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase_path>,dst=/workspace pytorch/pytorch:1.7.0-cuda11.0-cudnn8-devel
+```
+
+
 ### Fine-tune
 
-We use 8*P100-16G to fine-tune and 10% valid data to evaluate.
+We use full train data for fine-tuning. The training cost is 18 hours on 8*P100-16G. We use 10% valid data to evaluate during training.
+
 
 ```shell
 mkdir saved_models
@@ -66,9 +84,9 @@ python run.py \
     --model_name_or_path=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
     --do_train \
-    --train_data_file=dataset/train.txt \
-    --eval_data_file=dataset/valid.txt \
-    --test_data_file=dataset/test.txt \
+    --train_data_file=../dataset/train.txt \
+    --eval_data_file=../dataset/valid.txt \
+    --test_data_file=../dataset/test.txt \
     --epoch 2 \
     --code_length 512 \
     --data_flow_length 128 \
@@ -81,7 +99,7 @@ python run.py \
 ```
 ### Inference
 
-We use full test data for inference. 
+We use full test data for inference. The inferencing cost is 1.5 hours on 8*P100-16G.
 
 ```shell
 python run.py \
@@ -89,11 +107,10 @@ python run.py \
     --config_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
-    --do_eval \
     --do_test \
-    --train_data_file=dataset/train.txt \
-    --eval_data_file=dataset/valid.txt \
-    --test_data_file=dataset/test.txt \
+    --train_data_file=../dataset/train.txt \
+    --eval_data_file=../dataset/valid.txt \
+    --test_data_file=../dataset/test.txt \
     --epoch 2 \
     --code_length 512 \
     --data_flow_length 128 \
@@ -107,7 +124,21 @@ python run.py \
 
 ## Attack GraphCodeBERT
 
-We use 10% test data to evaluate out attacker.
+
+
+## Attack GraphCodeBERT
+
+If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/checkpoint-best-f1` by [this link](https://drive.google.com/file/d/1C5Y1Lwlh_BNedU6-i-0BPgYfgMOvvK1O/view?usp=sharing).
+
+```shell
+pip install gdown
+mkdir code/saved_models/checkpoint-best-f1
+gdown https://drive.google.com/uc?id=1C5Y1Lwlh_BNedU6-i-0BPgYfgMOvvK1O
+mv model.bin code/saved_models/checkpoint-best-f1/
+```
+
+We use full test data to evaluate out attacker.
+
 
 ```shell
 python attack.py \
@@ -116,13 +147,12 @@ python attack.py \
     --config_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
-    --do_eval \
-    --train_data_file=dataset/train.txt \
-    --eval_data_file=dataset/valid.txt \
-    --test_data_file=dataset/test.txt \
+    --do_test \
+    --train_data_file=../dataset/train.txt \
+    --eval_data_file=../dataset/valid.txt \
+    --test_data_file=../dataset/test.txt \
     --epoch 1 \
-    --block_size 350 \
-    --code_length 256 \
+    --code_length 512 \
     --data_flow_length 128 \
     --train_batch_size 16 \
     --eval_batch_size 32 \
@@ -136,5 +166,5 @@ The results on the test set are shown as below:
 
 | Method        | Precision |  Precision (attacked)   |    Recall     |  Recall (attacked)   |    F1     |  F1 (attacked)   |
 | ------------- | :-------: | :---------------------: | :-----------: | :------------------: | :-------: |:---------------: | 
-| GraphCodeBERT | **0.973** |  | **0.968** |  | **0.971** |  |
+| GraphCodeBERT | **0.9631** |  | **0.9727** |  | **0.9678** |  |
 

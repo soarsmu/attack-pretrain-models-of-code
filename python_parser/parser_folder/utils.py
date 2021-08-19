@@ -1,6 +1,32 @@
+import collections
 import re
 from io import StringIO
 import  tokenize
+def isSameTree(root_p, root_q) -> bool:
+    if not root_p and not root_q:
+        return True
+    if not root_p or not root_q:
+        return False
+
+    queue_p = collections.deque([root_p])
+    queue_q = collections.deque([root_q])
+
+    while queue_p and queue_q:
+        node_p = queue_p.popleft()
+        node_q = queue_q.popleft()
+        if node_p.type != node_q.type:
+            return False
+        if len(node_p.children) != len(node_q.children):
+            return False
+        if len(node_p.children) > 0:
+            for child_p, child_q in zip(node_p.children, node_q.children) :
+                if child_p.type == child_q.type:
+                    queue_p.append(child_p)
+                    queue_p.append(child_q)
+                else:
+                    return False
+
+    return True
 def remove_comments_and_docstrings(source,lang):
     if lang in ['python']:
         """
@@ -70,18 +96,21 @@ def tree_to_token_index(root_node):
         return code_tokens
     
 def tree_to_variable_index(root_node,index_to_code):
-    if (len(root_node.children)==0 or root_node.type=='string') and root_node.type!='comment':
-        index=(root_node.start_point,root_node.end_point)
-        _,code=index_to_code[index]
-        if root_node.type!=code:
-            return [(root_node.start_point,root_node.end_point)]
+    if root_node:
+        if (len(root_node.children)==0 or root_node.type=='string') and root_node.type!='comment':
+            index=(root_node.start_point,root_node.end_point)
+            _,code=index_to_code[index]
+            if root_node.type!=code:
+                return [(root_node.start_point,root_node.end_point)]
+            else:
+                return []
         else:
-            return []
+            code_tokens=[]
+            for child in root_node.children:
+                code_tokens+=tree_to_variable_index(child,index_to_code)
+            return code_tokens  
     else:
-        code_tokens=[]
-        for child in root_node.children:
-            code_tokens+=tree_to_variable_index(child,index_to_code)
-        return code_tokens    
+        return []
 
 def index_to_code_token(index,code):
     start_point=index[0]
@@ -95,4 +124,3 @@ def index_to_code_token(index,code):
             s+=code[i]
         s+=code[end_point[0]][:end_point[1]]   
     return s
-   
