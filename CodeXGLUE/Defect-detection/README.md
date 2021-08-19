@@ -204,8 +204,8 @@ cd code
 CUDA_VISIBLE_DEVICES=0 python gi_attack.py \
     --output_dir=./saved_models \
     --model_type=roberta \
-    --tokenizer_name=microsoft/codebert-base \
-    --model_name_or_path=microsoft/codebert-base \
+    --tokenizer_name=microsoft/codebert-base-mlm \
+    --model_name_or_path=microsoft/codebert-base-mlm \
     --csv_store_path ./attack_genetic.csv \
     --base_model=microsoft/codebert-base-mlm \
     --do_train \
@@ -230,7 +230,7 @@ CUDA_VISIBLE_DEVICES=0 python gi_attack.py \
 # MHM-Attack
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=0 python mhm_attack.py \
+CUDA_VISIBLE_DEVICES=1 python mhm_attack.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --tokenizer_name=microsoft/codebert-base \
