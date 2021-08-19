@@ -2,16 +2,28 @@
 
 ## Dataset
 
-First, you need to download datasets to [dataset](https://drive.google.com/drive/u/1/folders/1UGFFC5KYMRA-9F_VTsG_VcsZjAv7SG4i) the `dataset/data_folder`. Then, you need to decompress the three `tar.xz` files. For example:
+First, you need to download 3 datasets from [dataset](https://drive.google.com/drive/u/1/folders/1UGFFC5KYMRA-9F_VTsG_VcsZjAv7SG4i). Then, you need to decompress the 3 `tar.xz` files to the `dataset/data_folder`. For example:
 
 ```
+gdown https://drive.google.com/uc?id=1qMpwdaPASYFbX0gPEMSUlRtf_ErRkI-r
+gdown https://drive.google.com/uc?id=1TXaLKEIVvkWZRwPQhUYeNAL4e11FgzDj
+gdown https://drive.google.com/uc?id=1bBx04zqrpxNC0H5F6QObKByPDZ6QGZO2
 xz -d gcjpy.tar.xz
 tar -xvf gcjpy.tar
+xz -d gcj.tar.xz
+tar -xvf gcj.tar
+xz -d java40.tar.xz
+tar -xvf java40.tar
+mkdir dataset/data_folder
+mv gcjpy dataset/data_folder/
+mv gcj dataset/data_folder/
+mv java40 dataset/data_folder/
 ```
 
 Then, you can run the following command to preprocess the datasets:
 
 ```
+cd dataset
 python process.py
 ```
 
