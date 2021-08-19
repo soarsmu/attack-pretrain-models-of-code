@@ -379,7 +379,8 @@ def DFG_c(root_node, index_to_code, states):
         elif root_node.type == 'identifier':
             if root_node.parent.type == 'declaration':
                 states[code]=[idx]
-            return [(code,idx,'comesFrom',[],[])],states
+                return [(code,idx,'comesFrom',[],[])],states
+            return [], states
         else:
             return [], states
 
