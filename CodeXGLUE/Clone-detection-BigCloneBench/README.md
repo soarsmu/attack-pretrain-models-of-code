@@ -110,7 +110,16 @@ python run.py \
 
 ### Attack
 
-We use full test data for inference. 
+If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/checkpoint-best-f1` by [this link](https://drive.google.com/file/d/14YamUwCoyNIJ3XLU8U5kM84xjk223aC9/view?usp=sharing).
+
+```shell
+pip install gdown
+mkdir code/saved_models/checkpoint-best-f1
+gdown https://drive.google.com/uc?id=14YamUwCoyNIJ3XLU8U5kM84xjk223aC9
+mv model.bin code/saved_models/checkpoint-best-f1/
+```
+
+We use full test data for attacking. 
 
 ```shell
 cd code

@@ -118,7 +118,17 @@ python run.py \
     --seed 123456 2>&1| tee saved_models/test.log
 ```
 
+
 ## Attack GraphCodeBERT
+
+If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/checkpoint-best-f1` by [this link](https://drive.google.com/file/d/1C5Y1Lwlh_BNedU6-i-0BPgYfgMOvvK1O/view?usp=sharing).
+
+```shell
+pip install gdown
+mkdir code/saved_models/checkpoint-best-f1
+gdown https://drive.google.com/uc?id=1C5Y1Lwlh_BNedU6-i-0BPgYfgMOvvK1O
+mv model.bin code/saved_models/checkpoint-best-f1/
+```
 
 We use full test data to evaluate out attacker.
 

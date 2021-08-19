@@ -119,6 +119,15 @@ CUDA_VISIBLE_DEVICES=2,0 python run.py \
 
 ### On Python dataset
 
+If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/gcjpy/checkpoint-best-acc` by [this link](https://drive.google.com/file/d/1CAiHsIligJD09QJ97Q2BsDosqCLWbKB9/view?usp=sharing).
+
+```shell
+pip install gdown
+mkdir code/saved_models/gcjpy/checkpoint-best-acc
+gdown https://drive.google.com/uc?id=1CAiHsIligJD09QJ97Q2BsDosqCLWbKB9
+mv model.bin code/saved_models/gcjpy/checkpoint-best-acc/
+```
+
 ```shell
 cd code
 python attack.py \
@@ -143,6 +152,15 @@ python attack.py \
 ```
 
 ### On Java dataset
+
+If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/java40/checkpoint-best-acc` by [this link](https://drive.google.com/file/d/1CCA1fp1MRngLB28qQl5DBV20A7rB6ylm/view?usp=sharing).
+
+```shell
+pip install gdown
+mkdir code/saved_models/java40/checkpoint-best-acc
+gdown https://drive.google.com/uc?id=1CCA1fp1MRngLB28qQl5DBV20A7rB6ylm
+mv model.bin code/saved_models/java40/checkpoint-best-acc/
+```
 
 ```shell
 cd code

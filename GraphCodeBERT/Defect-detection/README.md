@@ -131,6 +131,16 @@ python run.py \
 
 ## Attack
 
+If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/checkpoint-best-acc` by [this link](https://drive.google.com/file/d/1C2wu1va4vMircV46LdEefsA74VoiIvbw/view?usp=sharing).
+
+```shell
+pip install gdown
+mkdir code/saved_models/checkpoint-best-acc
+gdown https://drive.google.com/uc?id=1C2wu1va4vMircV46LdEefsA74VoiIvbw
+mv model.bin code/saved_models/checkpoint-best-acc/
+```
+
+
 ```shell
 cd code
 python attack.py \
