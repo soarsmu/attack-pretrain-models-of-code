@@ -5,6 +5,7 @@
 First, you need to download 3 datasets from [dataset](https://drive.google.com/drive/u/1/folders/1UGFFC5KYMRA-9F_VTsG_VcsZjAv7SG4i). Then, you need to decompress the 3 `tar.xz` files to the `dataset/data_folder`. For example:
 
 ```
+pip install gdown
 gdown https://drive.google.com/uc?id=1qMpwdaPASYFbX0gPEMSUlRtf_ErRkI-r
 gdown https://drive.google.com/uc?id=1TXaLKEIVvkWZRwPQhUYeNAL4e11FgzDj
 gdown https://drive.google.com/uc?id=1bBx04zqrpxNC0H5F6QObKByPDZ6QGZO2
@@ -109,6 +110,15 @@ python run.py \
 
 ### On Python dataset
 
+If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/gcjpy/checkpoint-best-f1` by [this link](https://drive.google.com/file/d/14dOsW-_C0D1IINP2J4l2VqB-IAlGB15w/view?usp=sharing).
+
+```shell
+pip install gdown
+mkdir code/saved_models/gcjpy/checkpoint-best-f1
+gdown https://drive.google.com/uc?id=14dOsW-_C0D1IINP2J4l2VqB-IAlGB15w
+mv model.bin code/saved_models/gcjpy/checkpoint-best-f1/
+```
+
 ```shell
 cd code
 python attack.py \
@@ -132,6 +142,15 @@ python attack.py \
 ```
 
 ### On Java dataset
+
+If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/java40/checkpoint-best-f1` by [this link](https://drive.google.com/file/d/14_XxUo9Pcx4QnK50BUazBK6VbnP93pIC/view?usp=sharing).
+
+```shell
+pip install gdown
+mkdir code/saved_models/java40/checkpoint-best-f1
+gdown https://drive.google.com/uc?id=14_XxUo9Pcx4QnK50BUazBK6VbnP93pIC
+mv model.bin code/saved_models/java40/checkpoint-best-f1/
+```
 
 ```shell
 cd code
