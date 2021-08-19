@@ -27,7 +27,7 @@ from run import TextDataset
 from run import InputFeatures
 from utils import select_parents, crossover, map_chromesome, mutate, python_keywords, is_valid_variable_name, _tokenize
 from utils import get_identifier_posistions_from_code
-from utils import get_masked_code_by_position, get_substitues
+from utils import get_masked_code_by_position, get_substitues, is_valid_substitue
 from run_parser import get_identifiers
 
 from torch.utils.data.dataset import Dataset
@@ -301,7 +301,7 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
             # 这些头部和尾部的空格在拼接的时候并不影响，但是因为下面的第4个if语句会被跳过
             # 这导致了部分mutants为空，而引发了runtime error
 
-            if not is_valid_variable_name(substitute, tgt_word, 'c'):
+            if not is_valid_substitue(substitute, tgt_word, 'c'):
                 continue
             
             temp_replace = copy.deepcopy(final_words)
@@ -473,7 +473,7 @@ def gi_attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, to
         all_substitues = set(all_substitues)
 
         for tmp_substitue in all_substitues:
-            if not is_valid_variable_name(tmp_substitue, tgt_word, 'c'):
+            if not is_valid_substitue(tmp_substitue, tgt_word, 'c'):
                 continue
             try:
                 variable_substitue_dict[tgt_word].append(tmp_substitue)
