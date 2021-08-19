@@ -383,8 +383,17 @@ def DFG_c(root_node, index_to_code, states):
             return [], states
         else:
             return [], states
-
     elif root_node.type in def_statement:
+
+        if root_node.parent.type == 'function_definition':
+            while root_node.type == 'pointer_declarator' and root_node.child_by_field_name('declarator').type == 'pointer_declarator':
+                root_node = root_node.child_by_field_name('declarator')
+            DFG = []
+            for child in root_node.children:
+                if child.type not in do_first_statement:
+                    temp, states = DFG_c(child, index_to_code, states)
+                    DFG += temp
+            return sorted(DFG, key=lambda x: x[1]), states
         name = root_node.child_by_field_name('declarator')
         value = root_node.child_by_field_name('value')
         DFG = []
@@ -392,6 +401,9 @@ def DFG_c(root_node, index_to_code, states):
             indexs = tree_to_variable_index(name, index_to_code)
             for index in indexs:
                 idx, code = index_to_code[index]
+                print(code)
+                print(root_node.parent.type)
+                print(1)
                 DFG.append((code, idx, 'comesFrom', [], []))
                 states[code] = [idx]
             return sorted(DFG, key=lambda x: x[1]), states
@@ -408,24 +420,27 @@ def DFG_c(root_node, index_to_code, states):
                 states[code1] = [idx1]
             return sorted(DFG, key=lambda x: x[1]), states
     elif root_node.type in assignment:
-        left_nodes = root_node.child_by_field_name('left')
-        right_nodes = root_node.child_by_field_name('right')
-        DFG = []
-        temp, states = DFG_c(right_nodes, index_to_code, states)
-        DFG += temp
-        # filter field identifiers
-        while left_nodes.type == 'field_expression' or left_nodes.type == 'subscript_expression':
-            left_nodes = left_nodes.child_by_field_name('argument')
-        left_node = left_nodes
-        name_indexs = tree_to_variable_index(left_node, index_to_code)
-        value_indexs = tree_to_variable_index(right_nodes, index_to_code)
-        for index1 in name_indexs:
-            idx1, code1 = index_to_code[index1]
-            for index2 in value_indexs:
-                idx2, code2 = index_to_code[index2]
-                DFG.append((code1, idx1, 'computedFrom', [code2], [idx2]))
-            states[code1] = [idx1]
-        return sorted(DFG, key=lambda x: x[1]), states
+        # left_nodes = root_node.child_by_field_name('left')
+        # right_nodes = root_node.child_by_field_name('right')
+        # DFG = []
+        # temp, states = DFG_c(right_nodes, index_to_code, states)
+        # DFG += temp
+        # # filter field identifiers
+        # while left_nodes.type == 'field_expression' or left_nodes.type == 'subscript_expression':
+        #     left_nodes = left_nodes.child_by_field_name('argument')
+        # left_node = left_nodes
+        # name_indexs = tree_to_variable_index(left_node, index_to_code)
+        # value_indexs = tree_to_variable_index(right_nodes, index_to_code)
+        # for index1 in name_indexs:
+        #     idx1, code1 = index_to_code[index1]
+        #     for index2 in value_indexs:
+        #         idx2, code2 = index_to_code[index2]
+        #         if code1 == "alarm_timers":
+        #             print(12)
+        #         if code1 in
+        #         DFG.append((code1, idx1, 'computedFrom', [code2], [idx2]))
+        #     states[code1] = [idx1]
+        return [], states
     elif root_node.type in increment_statement:
         DFG = []
         indexs = tree_to_variable_index(root_node, index_to_code)
@@ -511,8 +526,13 @@ def DFG_c(root_node, index_to_code, states):
         return sorted(DFG, key=lambda x: x[1]), states
     elif root_node.type in parameter_statement:
         child = root_node.child_by_field_name('declarator')
+        if not child:
+            return [], states
         while(child.type != 'identifier'):
-            child = child.child_by_field_name('declarator')
+            if child.type == 'parenthesized_declarator':
+                child = child.children[1]
+            else:
+                child = child.child_by_field_name('declarator')
         idx,code=index_to_code[(child.start_point,child.end_point)]
         states[code]=[idx]
         return [(code,idx,'comesFrom',[],[])],states
@@ -522,5 +542,4 @@ def DFG_c(root_node, index_to_code, states):
             if child.type not in do_first_statement:
                 temp, states = DFG_c(child, index_to_code, states)
                 DFG += temp
-
         return sorted(DFG, key=lambda x: x[1]), states
