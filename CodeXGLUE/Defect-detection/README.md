@@ -100,7 +100,7 @@ python run.py \
 
 ### Inference
 
-We use full valid data to evaluate during training. The inferencing cost is 1 min on 8*P100-16G.
+We use full valid data to evaluate. The inferencing cost is 1 min on 8*P100-16G.
 
 ```shell
 cd code
@@ -123,9 +123,9 @@ python run.py \
     --seed 123456 2>&1 | tee test.log
 ```
 
-### Attack
+## Attack
 
-#### Attack microsoft/codebert-base
+### Attack microsoft/codebert-base
 
 ```shell
 cd code
@@ -150,7 +150,7 @@ python attack.py \
     --seed 123456  2>&1 | tee attack_base.log
 ```
 
-#### Attack microsoft/codebert-base-mlm
+### Attack microsoft/codebert-base-mlm
 ```shell
 cd code
 CUDA_VISIBLE_DEVICES=1 python attack.py \
@@ -173,29 +173,6 @@ CUDA_VISIBLE_DEVICES=1 python attack.py \
     --evaluate_during_training \
     --seed 123456  2>&1 | tee attack_base_mlm.log
 ```
-
-## Result
-
-The results on the test set are shown as below:
-
-| Methods  |    ACC    |
-| -------- | :-------: |
-| BiLSTM   |   59.37   |
-| TextCNN  |   60.69   |
-| [RoBERTa](https://arxiv.org/pdf/1907.11692.pdf)  |   61.05   |
-| [CodeBERT](https://arxiv.org/pdf/2002.08155.pdf) | **62.08** |
-
-## Reference
-<pre><code>@inproceedings{zhou2019devign,
-  title={Devign: Effective vulnerability identification by learning comprehensive program semantics via graph neural networks},
-  author={Zhou, Yaqin and Liu, Shangqing and Siow, Jingkai and Du, Xiaoning and Liu, Yang},
-  booktitle={Advances in Neural Information Processing Systems},
-  pages={10197--10207},
-  year={2019}
-}</code></pre>
-
-
-
 
 # Genetic Programming
 
@@ -221,7 +198,10 @@ CUDA_VISIBLE_DEVICES=0 python gi_attack.py \
     --evaluate_during_training \
     --seed 123456  2>&1 | tee attack_gi.log
 ```
-=======
+
+
+## Result
+
 | Methods  |    ACC    |  ACC (attacked)    |
 | -------- | :-------: |   :-------: |
 | CodeBERT | **63.76** |  |

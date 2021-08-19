@@ -219,6 +219,7 @@ class TextDataset(Dataset):
             logger.info("Loading features from cached file %s", cache_file_path)
 
         except:
+            logger.info("Creating features from dataset file at %s", file_path)
             with open('/'.join(index_filename.split('/')[:-1])+'/data.jsonl') as f:
                 for line in f:
                     line=line.strip()
@@ -348,7 +349,7 @@ def train(args, train_dataset, model, tokenizer):
     train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size,num_workers=4)
     
     args.max_steps=args.epochs*len( train_dataloader)
-    args.save_steps=len( train_dataloader)//10
+    args.save_steps=len(train_dataloader)
     args.warmup_steps=args.max_steps//5
     model.to(args.device)
     
@@ -619,7 +620,7 @@ def main():
 
     # Setup logging
     logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',datefmt='%m/%d/%Y %H:%M:%S',level=logging.INFO)
-    logger.warning("device: %s, n_gpu: %s",device, args.n_gpu,)
+    logger.warning("device: %s, n_gpu: %s",device, args.n_gpu)
 
 
     # Set seed

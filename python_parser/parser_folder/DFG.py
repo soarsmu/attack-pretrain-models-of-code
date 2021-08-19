@@ -376,11 +376,19 @@ def DFG_c(root_node, index_to_code, states):
             return [], states
         elif code in states:
             return [(code, idx, 'comesFrom', [code], states[code].copy())], states
-        elif code == 'ESP_RSEQ':
+        elif root_node.type == 'identifier':
+            if root_node.parent.type == 'parameter_declaration':
+                states[code]=[idx]
+                return [(code,idx,'comesFrom',[],[])],states
+            if root_node.parent.type == 'pointer_declarator':
+                parent_node = root_node.parent;
+                while(parent_node.type == 'pointer_declarator'):
+                    parent_node = parent_node.parent
+                if parent_node.type == 'parameter_declaration':
+                    return [(code,idx,'comesFrom',[],[])],states
+                else:
+                    return [], states
             return [], states
-        elif root_node.type == 'identifier' and (root_node.parent.parent.type == 'parameter_declaration' or root_node.parent.type == 'parameter_declaration'):
-            states[code]=[idx]
-            return [(code,idx,'comesFrom',[],[])],states
         else:
             return [], states
 
