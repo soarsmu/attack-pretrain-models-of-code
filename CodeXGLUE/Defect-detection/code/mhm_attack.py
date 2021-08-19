@@ -66,8 +66,6 @@ class MHM(object):
                 continue
             variable_names.append(name[0])
         uid = get_identifier_posistions_from_code(words, variable_names)
-        print(uid)
-        # uid是一个字典，key是变量名，value是一个list，存储此变量名在tokens_ch中的位置
 
         if len(uid) <= 0: # 是有可能存在找不到变量名的情况的.
             return {'succ': None, 'tokens': None, 'raw_tokens': None}
@@ -143,7 +141,7 @@ class MHM(object):
         
         assert _candi_mode.lower() in ["random", "nearby"]
         
-        selected_uid = random.sample(_uid.keys(), 1)[0] # 选择需要被替换的变量名
+        selected_uid = random.sample(substitute_dict.keys(), 1)[0] # 选择需要被替换的变量名
         if _candi_mode == "random":
             # First, generate candidate set.
             # The transition probabilities of all candidate are the same.
@@ -466,7 +464,7 @@ if __name__ == "__main__":
 
         _res = attacker.mcmc(tokenizer, code,
                              _label=ground_truth, _n_candi=30,
-                             _max_iter=20, _prob_threshold=1)
+                             _max_iter=100, _prob_threshold=1)
     
         if _res['succ'] is None:
             continue
