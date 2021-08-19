@@ -422,12 +422,9 @@ def DFG_c(root_node, index_to_code, states):
         temp, states = DFG_c(right_nodes, index_to_code, states)
         DFG += temp
         # filter field identifiers
-        if left_nodes.type == 'field_expression':
-            left_node = left_nodes.child_by_field_name('argument')
-        elif left_nodes.type == 'subscript_expression':
-            left_node = left_nodes.child_by_field_name('argument').child_by_field_name('argument')
-        else:
-            left_node = left_nodes
+        while left_nodes.type == 'field_expression' or left_nodes.type == 'subscript_expression':
+            left_nodes = left_nodes.child_by_field_name('argument')
+        left_node = left_nodes
         name_indexs = tree_to_variable_index(left_node, index_to_code)
         value_indexs = tree_to_variable_index(right_nodes, index_to_code)
         for index1 in name_indexs:
