@@ -1,8 +1,8 @@
-import torch
-import torch.nn as nn
+# import torch
+# import torch.nn as nn
 import copy
 import random
-from tqdm import tqdm
+# from tqdm import tqdm
 
 python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">",
                    '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break',
@@ -14,6 +14,9 @@ java_keywords = ["abstract", "assert", "boolean", "break", "byte", "case", "catc
                  "int", "interface", "long", "native", "new", "package", "private", "protected", "public", "return",
                  "short", "static", "strictfp", "super", "switch", "throws", "transient", "try", "void", "volatile",
                  "while"]
+java_special_ids = ["main", "args", "Math", "System", "Random", "Byte", "Short", "Integer", "Long", "Float", "Double", "Character",
+                    "Boolean", "Data", "ParseException", "SimpleDateFormat", "Calendar", "Object", "String", "StringBuffer",
+                    "StringBuilder", "DateFormat", "Collection", "List", "Map", "Set", "Queue", "ArrayList", "HashSet", "HashMap"]
 c_keywords = ["auto", "break", "case", "char", "const", "continue",
                  "default", "do", "double", "else", "enum", "extern",
                  "float", "for", "goto", "if", "inline", "int", "long",
@@ -125,7 +128,9 @@ def is_valid_variable_java(name: str) -> bool:
     if not name.isidentifier():
         return False
     elif name in java_keywords:
-        return False;
+        return False
+    elif name in java_special_ids:
+        return False
     return True
 
 def is_valid_variable_c(name: str) -> bool:
@@ -140,11 +145,8 @@ def is_valid_variable_c(name: str) -> bool:
         return False
     return True
 
-def is_valid_variable_name(name: str, tgt_word: str, lang: str) -> bool:
+def is_valid_variable_name(name: str, lang: str) -> bool:
     # check if matches language keywords
-    if name == tgt_word:
-        # 如果和原来的词相同
-        return False  # filter out original word
     if lang == 'python':
         return is_valid_variable_python(name)
     elif lang == 'c':
@@ -167,26 +169,14 @@ def is_valid_substitue(substitute: str, tgt_word: str, lang: str) -> bool:
     if '##' in substitute:
         is_valid = False  # filter out sub-word
 
-    if substitute in python_keywords:
-        # 如果在filter words中也跳过
-        is_valid = False
-    for s_char in special_char:
-        if s_char in substitute:
-            # 如果在filter words中也跳过
-            is_valid = False
-
-    if ' ' in substitute:
-        # Solve Error
-        # 发现substiute中可能会有空格
-        # 当有的时候，tokenizer_tgt.convert_tokens_to_string(temp_replace)
-        # 会报 ' ' 这个Key不存在的Error
+    if not is_valid_variable_name(substitute, lang):
         is_valid = False
 
     return is_valid
 
 
 def _tokenize(seq, tokenizer):
-    seq = seq.replace('\n', '').lower()
+    seq = seq.replace('\n', '')
     words = seq.split(' ')
 
     sub_words = []
@@ -344,3 +334,199 @@ def build_vocab(codes, limit=5000):
     for idx in range(len(idx2txt)):
         txt2idx[idx2txt[idx]] = idx
     return idx2txt, txt2idx
+
+
+
+# From MHM codebases
+
+
+# import pycparser
+# import torch
+
+def getTensor(batch, batchfirst=False):
+    
+    inputs, labels = batch['x'], batch['y']
+    inputs, labels = torch.tensor(inputs, dtype=torch.long).cuda(), \
+                     torch.tensor(labels, dtype=torch.long).cuda()
+    if batchfirst:
+        # inputs_pos = [[pos_i + 1 if w_i != 0 else 0 for pos_i, w_i in enumerate(inst)] for inst in inputs]
+        # inputs_pos = torch.tensor(inputs_pos, dtype=torch.long).cuda()
+        return inputs, labels
+    inputs = inputs.permute([1, 0])
+    return inputs, labels
+
+__key_words__ = ["auto", "break", "case", "char", "const", "continue",
+                 "default", "do", "double", "else", "enum", "extern",
+                 "float", "for", "goto", "if", "inline", "int", "long",
+                 "register", "restrict", "return", "short", "signed",
+                 "sizeof", "static", "struct", "switch", "typedef",
+                 "union", "unsigned", "void", "volatile", "while",
+                 "_Alignas", "_Alignof", "_Atomic", "_Bool", "_Complex",
+                 "_Generic", "_Imaginary", "_Noreturn", "_Static_assert",
+                 "_Thread_local", "__func__"]
+__ops__ = ["...", ">>=", "<<=", "+=", "-=", "*=", "/=", "%=", "&=", "^=", "|=",
+           ">>", "<<", "++", "--", "->", "&&", "||", "<=", ">=", "==", "!=", ";",
+           "{", "<%", "}", "%>", ",", ":", "=", "(", ")", "[", "<:", "]", ":>",
+           ".", "&", "!", "~", "-", "+", "*", "/", "%", "<", ">", "^", "|", "?"]
+__macros__ = ["NULL", "_IOFBF", "_IOLBF", "BUFSIZ", "EOF", "FOPEN_MAX", "TMP_MAX",  # <stdio.h> macro
+              "FILENAME_MAX", "L_tmpnam", "SEEK_CUR", "SEEK_END", "SEEK_SET",
+              "NULL", "EXIT_FAILURE", "EXIT_SUCCESS", "RAND_MAX", "MB_CUR_MAX"]     # <stdlib.h> macro
+__special_ids__ = ["main",  # main function
+                   "stdio", "cstdio", "stdio.h",                                # <stdio.h> & <cstdio>
+                   "size_t", "FILE", "fpos_t", "stdin", "stdout", "stderr",     # <stdio.h> types & streams
+                   "remove", "rename", "tmpfile", "tmpnam", "fclose", "fflush", # <stdio.h> functions
+                   "fopen", "freopen", "setbuf", "setvbuf", "fprintf", "fscanf",
+                   "printf", "scanf", "snprintf", "sprintf", "sscanf", "vprintf",
+                   "vscanf", "vsnprintf", "vsprintf", "vsscanf", "fgetc", "fgets",
+                   "fputc", "getc", "getchar", "putc", "putchar", "puts", "ungetc",
+                   "fread", "fwrite", "fgetpos", "fseek", "fsetpos", "ftell",
+                   "rewind", "clearerr", "feof", "ferror", "perror", "getline"
+                   "stdlib", "cstdlib", "stdlib.h",                             # <stdlib.h> & <cstdlib>
+                   "size_t", "div_t", "ldiv_t", "lldiv_t",                      # <stdlib.h> types
+                   "atof", "atoi", "atol", "atoll", "strtod", "strtof", "strtold",  # <stdlib.h> functions
+                   "strtol", "strtoll", "strtoul", "strtoull", "rand", "srand",
+                   "aligned_alloc", "calloc", "malloc", "realloc", "free", "abort",
+                   "atexit", "exit", "at_quick_exit", "_Exit", "getenv",
+                   "quick_exit", "system", "bsearch", "qsort", "abs", "labs",
+                   "llabs", "div", "ldiv", "lldiv", "mblen", "mbtowc", "wctomb",
+                   "mbstowcs", "wcstombs",
+                   "string", "cstring", "string.h",                                 # <string.h> & <cstring>
+                   "memcpy", "memmove", "memchr", "memcmp", "memset", "strcat",     # <string.h> functions
+                   "strncat", "strchr", "strrchr", "strcmp", "strncmp", "strcoll",
+                   "strcpy", "strncpy", "strerror", "strlen", "strspn", "strcspn",
+                   "strpbrk" ,"strstr", "strtok", "strxfrm",
+                   "memccpy", "mempcpy", "strcat_s", "strcpy_s", "strdup",      # <string.h> extension functions
+                   "strerror_r", "strlcat", "strlcpy", "strsignal", "strtok_r",
+                   "iostream", "istream", "ostream", "fstream", "sstream",      # <iostream> family
+                   "iomanip", "iosfwd",
+                   "ios", "wios", "streamoff", "streampos", "wstreampos",       # <iostream> types
+                   "streamsize", "cout", "cerr", "clog", "cin",
+                   "boolalpha", "noboolalpha", "skipws", "noskipws", "showbase",    # <iostream> manipulators
+                   "noshowbase", "showpoint", "noshowpoint", "showpos",
+                   "noshowpos", "unitbuf", "nounitbuf", "uppercase", "nouppercase",
+                   "left", "right", "internal", "dec", "oct", "hex", "fixed",
+                   "scientific", "hexfloat", "defaultfloat", "width", "fill",
+                   "precision", "endl", "ends", "flush", "ws", "showpoint",
+                   "sin", "cos", "tan", "asin", "acos", "atan", "atan2", "sinh",    # <math.h> functions
+                   "cosh", "tanh", "exp", "sqrt", "log", "log10", "pow", "powf",
+                   "ceil", "floor", "abs", "fabs", "cabs", "frexp", "ldexp",
+                   "modf", "fmod", "hypot", "ldexp", "poly", "matherr"]
+                   
+__parser__ = None
+
+def tokens2seq(_tokens):
+    
+    '''
+    Return the source code, given the token sequence.
+    '''
+    
+    seq = ""
+    for t in _tokens:
+        if t == "<INT>":
+            seq += "0 "
+        elif t == "<FP>":
+            seq += "0. "
+        elif t == "<STR>":
+            seq += "\"\" "
+        elif t == "<CHAR>":
+            seq += "'\0' "
+        else:
+            while "<__SPACE__>" in t:
+                t.replace("<__SPACE__>", " ")
+            while "<__BSLASH_N__>" in t:
+                t.replace("<__BSLASH_N__>", "\n")
+            while "<__BSLASH_R__>" in t:
+                t.replace("<__BSLASH_R__>", "\r")
+            seq += t + " "
+    return seq
+
+def getAST(_seq=""):
+    
+    '''
+    Return the AST of a c/c++ file.
+    '''
+    
+    global __parser__
+    if __parser__ is None:
+        __parser__ = pycparser.CParser()
+    _ast = __parser__.parse(_seq)
+    return _ast
+    
+def getDecl(_seq="", _syms={}):
+    
+    '''
+    Return all declaration names in an AST.
+    '''
+    
+    _node = getAST(_seq)
+    if isinstance(_node, pycparser.c_ast.Decl):
+        if isinstance(_node.children()[0][1], pycparser.c_ast.TypeDecl):
+            _syms.add(_node.name)
+        elif isinstance(_node.children()[0][1], pycparser.c_ast.PtrDecl):
+            _syms.add(_node.name)
+        elif isinstance(_node.children()[0][1], pycparser.c_ast.ArrayDecl):
+            _syms.add(_node.name)
+        elif isinstance(_node.children()[0][1], pycparser.c_ast.FuncDecl):
+            _syms.add(_node.name)
+        elif isinstance(_node.children()[0][1], pycparser.c_ast.Struct):
+            _syms.add(_node.children()[0][1].name)
+            if not _node.name is None:
+                _syms.add(_node.name)
+        elif isinstance(_node.children()[0][1], pycparser.c_ast.Union):
+            _syms.add(_node.children()[0][1].name)
+            if not _node.name is None:
+                _syms.add(_node.name)
+    try:
+        for _child in _node.children():
+            _syms = getDecl(_child[1], _syms)
+    except:
+        _node.show()
+    return _syms
+    
+def isUID(_text=""):
+    
+    '''
+    Return if a token is a UID.
+    '''
+    
+    _text = _text.strip()
+    if _text == '':
+        return False
+
+    if " " in _text or "\n" in _text or "\r" in _text:
+        return False
+    elif _text in __key_words__:
+        return False
+    elif _text in __ops__:
+        return False
+    elif _text in __macros__:
+        return False
+    elif _text in __special_ids__:
+        return False
+    elif _text[0].lower() in "0123456789":
+        return False
+    elif "'" in _text or '"' in _text:
+        return False
+    elif _text[0].lower() in "abcdefghijklmnopqrstuvwxyz_":
+        for _c in _text[1:-1]:
+            if _c.lower() not in "0123456789abcdefghijklmnopqrstuvwxyz_":
+                return False
+    else:
+        return False
+    return True
+    
+def getUID(_tokens=[], uids=[]):
+    
+    '''
+    Return all UIDs and their indeces, given a token sequence.
+    '''
+    
+    ids = {}
+    for i, t in enumerate(_tokens):
+        if isUID(t) and t in uids[0].keys():
+            if t in ids.keys():
+                ids[t].append(i)
+            else:
+                ids[t] = [i]
+    return ids
+    

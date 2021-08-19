@@ -374,27 +374,33 @@ def DFG_c(root_node, index_to_code, states):
         idx, code = index_to_code[(root_node.start_point, root_node.end_point)]
         if root_node.type == code or (root_node.parent.type == 'function_declarator' and root_node):
             return [], states
-        elif code in states or root_node.type == 'string':
+        elif code in states:
             return [(code, idx, 'comesFrom', [code], states[code].copy())], states
-        elif root_node.type == 'identifier' and root_node.parent.type == 'parameters':
-            states[code]=[idx]
-            return [(code,idx,'comesFrom',[],[])],states
+        elif root_node.type == 'identifier':
+            if root_node.parent.type == 'parameter_declaration':
+                states[code]=[idx]
+                return [(code,idx,'comesFrom',[],[])],states
+            if root_node.parent.type == 'pointer_declarator':
+                parent_node = root_node.parent;
+                while(parent_node.type == 'pointer_declarator'):
+                    parent_node = parent_node.parent
+                if parent_node.type == 'parameter_declaration':
+                    return [(code,idx,'comesFrom',[],[])],states
+                else:
+                    return [], states
+            return [], states
         else:
             return [], states
 
     elif root_node.type in def_statement:
         name = root_node.child_by_field_name('declarator')
-        # print('name is {}'.format(name))
         value = root_node.child_by_field_name('value')
-        # print('value is {}'.format(value))
         DFG = []
         if value is None:
             indexs = tree_to_variable_index(name, index_to_code)
             for index in indexs:
                 idx, code = index_to_code[index]
                 DFG.append((code, idx, 'comesFrom', [], []))
-                print("def statement")
-                print(code)
                 states[code] = [idx]
             return sorted(DFG, key=lambda x: x[1]), states
         else:
@@ -415,7 +421,14 @@ def DFG_c(root_node, index_to_code, states):
         DFG = []
         temp, states = DFG_c(right_nodes, index_to_code, states)
         DFG += temp
-        name_indexs = tree_to_variable_index(left_nodes, index_to_code)
+        # filter field identifiers
+        if left_nodes.type == 'field_expression':
+            left_node = left_nodes.child_by_field_name('argument')
+        elif left_nodes.type == 'subscript_expression':
+            left_node = left_nodes.child_by_field_name('argument').child_by_field_name('argument')
+        else:
+            left_node = left_nodes
+        name_indexs = tree_to_variable_index(left_node, index_to_code)
         value_indexs = tree_to_variable_index(right_nodes, index_to_code)
         for index1 in name_indexs:
             idx1, code1 = index_to_code[index1]
