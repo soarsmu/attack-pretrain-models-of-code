@@ -67,10 +67,10 @@ docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase
 
 All the following scripts should run inside the docker container. 
 
-❕**Notes:** This docker works fine with RTX 2080Ti GPUs and Tesla P100 GPUs. But if on RTX 30XX GPUs, it may take very long time to load the models to cuda. We think it's related to the CUDA version. Users can use the following command for a lower version:
+❕**Notes:** This docker works fine with RTX 2080Ti GPUs and Tesla P100 GPUs. But if on RTX 30XX GPUs, it may take very long time to load the models to cuda. Another possible problem is a CUDA error claimed `CUDA error: device-side assert triggered`. We think it's related to the CUDA version or torch version. Users can use the following command for a lower version:
 
 ```
-docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase_path>,dst=/workspace pytorch/pytorch:1.7.0-cuda11.0-cudnn8-devel
+docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase_path>,dst=/workspace pytorch:1.5-cuda10.1-cudnn7-devel
 ```
 
 ### Fine-tune
@@ -99,6 +99,7 @@ python run.py \
     --evaluate_during_training \
     --seed 123456  2>&1 | tee train.log
 ```
+❕**Note**: if encountering `CUDA error: an illegal memory access was encountered`, change the `train_batch_size` to a bigger number, such as 64.
 
 ### Inference
 
@@ -129,6 +130,16 @@ python run.py \
 ```
 
 ## Attack
+
+If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/checkpoint-best-acc` by [this link](https://drive.google.com/file/d/1C2wu1va4vMircV46LdEefsA74VoiIvbw/view?usp=sharing).
+
+```shell
+pip install gdown
+mkdir code/saved_models/checkpoint-best-acc
+gdown https://drive.google.com/uc?id=1C2wu1va4vMircV46LdEefsA74VoiIvbw
+mv model.bin code/saved_models/checkpoint-best-acc/
+```
+
 
 ```shell
 cd code
