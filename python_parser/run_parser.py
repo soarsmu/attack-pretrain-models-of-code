@@ -12,7 +12,7 @@ from utils import is_valid_variable_name
 
 path = '../../../python_parser/parser_folder/my-languages.so'
 c_code = """
-static void tricore_cpu_initfn(Object *obj) { int a = 1; int b[3] = {0,0,1}; int c = b[a]; CPUState *cs = CPU(obj); TriCoreCPU *cpu = TRICORE_CPU(obj); CPUTriCoreState *env = &cpu->env; cs->env_ptr = env; cpu_exec_init(cs, &error_abort); if (tcg_enabled()) { tricore_tcg_init(); } }
+static void RENAME(vertical_compose53iL0)(uint8_t *_b0, uint8_t *_b1, uint8_t *_b2,\n\n                                          int width)\n\n{\n\n    int i;\n\n    TYPE *b0 = (TYPE *)_b0;\n\n    TYPE *b1 = (TYPE *)_b1;\n\n    TYPE *b2 = (TYPE *)_b2;\n\n    for (i = 0; i < width; i++)\n\n        b1[i] -= (b0[i] + b2[i] + 2) >> 2;\n\n
 """
 
 python_code = """ 
@@ -118,11 +118,9 @@ def extract_dataflow(code, lang):
     index_table = {}
     for idx, (index, code) in enumerate(zip(tokens_index, code_tokens)):
         index_table[idx] = index
-    try:
-        # call dfg_python here
-        DFG, _ = parser[1](root_node, index_to_code, {})
-    except:
-        DFG = []
+
+    DFG, _ = parser[1](root_node, index_to_code, {})
+
     DFG = sorted(DFG, key=lambda x: x[1])
     return DFG, index_table, code_tokens
 
