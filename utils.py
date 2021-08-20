@@ -3,6 +3,7 @@ import torch.nn as nn
 import copy
 import random
 from tqdm import tqdm
+from torch.utils.data.dataset import Dataset
 
 python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">",
                    '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break',
@@ -529,3 +530,14 @@ def getUID(_tokens=[], uids=[]):
                 ids[t] = [i]
     return ids
     
+
+
+class CodeDataset(Dataset):
+    def __init__(self, examples):
+        self.examples = examples
+    
+    def __len__(self):
+        return len(self.examples)
+
+    def __getitem__(self, i):       
+        return torch.tensor(self.examples[i].input_ids),torch.tensor(self.examples[i].label)
