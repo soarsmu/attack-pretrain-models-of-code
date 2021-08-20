@@ -266,8 +266,9 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     for name_and_score in sorted_list_of_names:
         tgt_word = name_and_score[0]
         tgt_positions = names_positions_dict[tgt_word] # 在words中对应的位置
-        if tgt_word in python_keywords:
-            # 如果在filter_words中就不修改
+        tgt_positions = names_positions_dict[tgt_word] # the positions of tgt_word in code
+        if not is_valid_variable_name(tgt_word, lang='c'):
+            # if the extracted name is not valid
             continue   
 
         ## 得到substitues
@@ -451,9 +452,9 @@ def gi_attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, to
 
 
     for tgt_word in names_positions_dict.keys():
-        tgt_positions = names_positions_dict[tgt_word] # 在words中对应的位置
-        if tgt_word in python_keywords:
-            # 如果在filter_words中就不修改
+        tgt_positions = names_positions_dict[tgt_word] # the positions of tgt_word in code
+        if not is_valid_variable_name(tgt_word, lang='c'):
+            # if the extracted name is not valid
             continue   
 
         ## 得到(所有位置的)substitues
@@ -482,13 +483,12 @@ def gi_attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, to
             # 这么做是为了让在python_keywords中的variable不在variable_substitue_dict中保存
 
     print("Number of identifiers to be changed:  ", len(variable_substitue_dict))
-        
+
 
     fitness_values = []
     base_chromesome = {word: word for word in variable_substitue_dict.keys()}
     population = [base_chromesome]
     # 关于chromesome的定义: {tgt_word: candidate, tgt_word_2: candidate_2, ...}
-
     for tgt_word in variable_substitue_dict.keys():
         # 这里进行初始化
         if initial_replace is None:
@@ -787,6 +787,8 @@ def main():
                     "No. Changed Tokens",
                     "Replaced Names"])
     for index, example in enumerate(eval_dataset):
+        if index < 1281:
+            continue
         code = source_codes[index]
         code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attack(args, example, code, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
 
