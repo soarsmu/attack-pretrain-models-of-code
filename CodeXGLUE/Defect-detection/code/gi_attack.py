@@ -586,6 +586,10 @@ def main():
                         help="Whether to run eval on the dev set.")    
     parser.add_argument("--eval_batch_size", default=4, type=int,
                         help="Batch size per GPU/CPU for evaluation.")
+    parser.add_argument('--seed', type=int, default=42,
+                        help="random seed for initialization")
+    parser.add_argument("--cache_dir", default="", type=str,
+                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
 
 
 
@@ -623,7 +627,7 @@ def main():
                                           cache_dir=args.cache_dir if args.cache_dir else None)
     config.num_labels=1 # 只有一个label?
     tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name,
-                                                do_lower_case=args.do_lower_case,
+                                                do_lower_case=False,
                                                 cache_dir=args.cache_dir if args.cache_dir else None)
     if args.block_size <= 0:
         args.block_size = tokenizer.max_len_single_sentence  # Our input block size will be the max possible for the model
