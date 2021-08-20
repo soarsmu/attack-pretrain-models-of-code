@@ -194,7 +194,6 @@ CUDA_VISIBLE_DEVICES=0 python gi_attack.py \
     --model_name_or_path=microsoft/codebert-base-mlm \
     --csv_store_path ./attack_genetic.csv \
     --base_model=microsoft/codebert-base-mlm \
-    --do_train \
     --train_data_file=../preprocess/dataset/train.jsonl \
     --eval_data_file=../preprocess/dataset/valid.jsonl \
     --test_data_file=../preprocess/dataset/test.jsonl \
@@ -219,18 +218,12 @@ CUDA_VISIBLE_DEVICES=1 python mhm_attack.py \
     --model_type=roberta \
     --tokenizer_name=microsoft/codebert-base \
     --model_name_or_path=microsoft/codebert-base \
-    --csv_store_path ./attack_genetic.csv \
+    --csv_store_path ./attack_mhm.csv \
     --base_model=microsoft/codebert-base-mlm \
-    --do_train \
     --train_data_file=../preprocess/dataset/train.jsonl \
     --eval_data_file=../preprocess/dataset/valid.jsonl \
     --test_data_file=../preprocess/dataset/test.jsonl \
-    --epoch 5 \
     --block_size 400 \
-    --train_batch_size 16 \
     --eval_batch_size 64 \
-    --learning_rate 2e-5 \
-    --max_grad_norm 1.0 \
-    --evaluate_during_training \
     --seed 123456  2>&1 | tee attack_mhm.log
 ```
