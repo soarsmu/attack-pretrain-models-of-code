@@ -27,13 +27,14 @@ from run import InputFeatures
 from utils import select_parents, crossover, map_chromesome, mutate, python_keywords, is_valid_substitue, _tokenize
 from utils import get_identifier_posistions_from_code, is_valid_variable_name
 from utils import get_masked_code_by_position, get_substitues
+from utils import CodeDataset
 from run_parser import get_identifiers
-from gi_attack import convert_code_to_features, get_results
-from gi_attack import CodeDataset
 from torch.utils.data.dataset import Dataset
 from torch.utils.data import SequentialSampler, DataLoader
 from transformers import RobertaForMaskedLM
 from transformers import (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
+from attacker import MHM_Attacker
+from attacker import convert_code_to_features
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning\
@@ -161,7 +162,7 @@ class MHM(object):
             new_example = []
             for tmp_tokens in candi_tokens:
                 tmp_code = " ".join(tmp_tokens)
-                new_feature = convert_code_to_features(tmp_code, tokenizer, example[1].item(), args)
+                new_feature = convert_code_to_features(tmp_code, tokenizer, _label, args)
                 new_example.append(new_feature)
             new_dataset = CodeDataset(new_example)
             prob, pred = get_results(new_dataset, model, args.eval_batch_size)
@@ -385,33 +386,10 @@ if __name__ == "__main__":
     output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
     model.load_state_dict(torch.load(output_dir))      
     model.to(args.device)
-    # 会是因为模型不同吗？我看evaluate的时候模型是重新导入的.
     print ("MODEL LOADED!")
 
     
-    data_path = "../../preprocess/dataset/oj.pkl" # all the dataset (train + test)
-    vocab_path = "../data/poj104/poj104_vocab.json" # unused
     save_path = "../data/poj104_bilstm/poj104_test_after_adv_train_3000.pkl"
-
-
-    
-    # raw, rep, tree, label = [], [], [], []
-    # with open(data_path, "r") as f:
-    #     for _line in f.readlines():
-    #         _d = json.loads(_line.strip())
-    #         raw.append(_d["raw"])
-    #         rep.append(_d["rep"])
-    #         if _d['tree'] is not None:
-    #             tree.append(Tree.dict2PTNode(_d["tree"]))
-    #         else:
-    #             tree.append(None)
-    #         label.append(_d["label"])
-    # with open(vocab_path, "r") as f:
-    #     _d = json.loads(f.readlines()[0].strip())
-    #     idx2token = _d["idx2token"][:vocab_size]
-    # token2idx = {}
-    # for i, t in zip(range(vocab_size), idx2token):
-    #     token2idx[t] = i
 
     # Load Dataset
     ## Load Dataset
@@ -431,7 +409,7 @@ if __name__ == "__main__":
 
     id2token, token2id = build_vocab(code_tokens, 5000)
 
-    attacker = MHM(model, token2id, id2token)
+    attacker = MHM_Attacker(args, model, codebert_mlm, tokenizer_mlm, token2id, id2token)
     
     # token2id: dict,key是变量名, value是id
     # id2token: list,每个元素是变量名
@@ -451,7 +429,7 @@ if __name__ == "__main__":
         new_feature = convert_code_to_features(processed_code, tokenizer, example[1].item(), args)
         new_dataset = CodeDataset([new_feature])
 
-        orig_prob, orig_label = get_results(new_dataset, model, args.eval_batch_size)
+        orig_prob, orig_label = model.get_results(new_dataset, args.eval_batch_size)
         orig_prob = orig_prob[0]
         orig_label = orig_label[0]
         ground_truth = example[1].item()
