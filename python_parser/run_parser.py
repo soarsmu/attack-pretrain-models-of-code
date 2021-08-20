@@ -1,29 +1,25 @@
 import argparse
-from parser_folder.DFG import DFG_python, DFG_java, DFG_c
+import sys
+
+from parser_folder.DFG_python import DFG_python
+from parser_folder.DFG_c import DFG_c
+from parser_folder.DFG_java import DFG_java
 from parser_folder import (remove_comments_and_docstrings,
                            tree_to_token_index,
-                           index_to_code_token,
-                           tree_to_variable_index)
+                           index_to_code_token,)
 from tree_sitter import Language, Parser
-import sys
+from utils import is_valid_variable_name
 sys.path.append('.')
 sys.path.append('../')
-from utils import is_valid_variable_name
 
 path = '../../../python_parser/parser_folder/my-languages.so'
 c_code = """    
 void vmxnet3_pop_next_tx_descr(VMXNET3State *s, int qidx, struct Vmxnet3_TxDesc *txd, uint32_t *descr_idx) { Vmxnet3Ring *ring = &s->txq_descr[qidx].tx_ring; PCIDevice *d = PCI_DEVICE(s); vmxnet3_ring_read_curr_cell(d, ring, txd); if (txd->gen == vmxnet3_ring_curr_gen(ring)) { /* Only read after generation field verification */ smp_rmb(); /* Re-read to be sure we got the latest version */ vmxnet3_ring_read_curr_cell(d, ring, txd); VMXNET3_RING_DUMP(VMW_RIPRN, "TX", qidx, ring); *descr_idx = vmxnet3_ring_curr_cell_idx(ring); vmxnet3_inc_tx_consumption_counter(s, qidx); return true; } return false; }
 """
-
 python_code = """ 
-a = "abcdefghijklmnopqrstuvwxyz" d = { } for c in a : d [ c ] = "*" i = "ejp mysljylc kd kxveddknmc re jsicpdrysi" o = "our language is impossible to understand" for k , v in zip ( i , o ) : d [ k ] = v i = "rbcpc ypc rtcsra dkh wyfrepkym veddknkmkrkcd" o = "there are twenty six factorial possibilities" for k , v in zip ( i , o ) : d [ k ] = v i = "de kr kd eoya kw aej tysr re ujdr lkgc jv" o = "so it is okay if you want to just give up" for k , v in zip ( i , o ) : d [ k ] = v i = "y qee" o = "a zoo" for k , v in zip ( i , o ) : d [ k ] = v d [ 'z' ] = 'q' import sys f = file ( "A-small-attempt1.in" ) w = file ( "answer.txt" , "w" ) 
-cnt = int ( f . readline ( ) [ : - 1 ] ) 
-for no in range ( cnt ) : i = f . readline ( ) [ : - 1 ] 
-o = "" for k in i : o += d [ k ] print >> w , "Case #%d:" % ( no + 1 ) , o
 """
 java_code = """
 """
-
 
 dfg_function = {
     'python': DFG_python,
@@ -87,7 +83,6 @@ def get_identifiers(code, lang):
     ret = unique(ret)
     ret = [ [i] for i in ret]
     return ret, code_tokens
-
 
 def main():
     parser = argparse.ArgumentParser()
