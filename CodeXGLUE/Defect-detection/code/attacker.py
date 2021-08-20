@@ -137,7 +137,6 @@ class Attacker():
                 continue
             variable_names.append(name[0])
 
-        print("Number of identifiers extracted: ", len(variable_names))
         if not orig_label == true_label:
             # 说明原来就是错的
             is_success = -4
@@ -203,8 +202,6 @@ class Attacker():
                 except:
                     variable_substitue_dict[tgt_word] = [tmp_substitue]
                 # 这么做是为了让在python_keywords中的variable不在variable_substitue_dict中保存
-
-        print("Number of identifiers to be changed:  ", len(variable_substitue_dict))
 
 
         fitness_values = []
@@ -360,7 +357,6 @@ class Attacker():
                 continue
             variable_names.append(name[0])
 
-        print("Number of identifiers extracted: ", len(variable_names))
         if not orig_label == true_label:
             # 说明原来就是错的
             is_success = -4
