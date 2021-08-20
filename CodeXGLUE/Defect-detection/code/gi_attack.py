@@ -23,7 +23,7 @@ from model import Model
 from run import TextDataset, InputFeatures
 from utils import select_parents, crossover, map_chromesome, mutate, is_valid_variable_name, _tokenize, get_identifier_posistions_from_code, get_masked_code_by_position, get_substitues, is_valid_substitue, set_seed
 
-from utils import CodeDataset
+from utils import Recorder
 from run_parser import get_identifiers
 from attacker import Attacker
 from transformers import (RobertaForMaskedLM, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
@@ -168,25 +168,9 @@ def main():
 
     success_attack = 0
     total_cnt = 0
-    f = open(args.csv_store_path, 'w')
-    
-    writer = csv.writer(f)
-    # write table head.
-    writer.writerow(["Index",
-                    "Original Code", 
-                    "Program Length", 
-                    "Adversarial Code", 
-                    "True Label", 
-                    "Original Prediction", 
-                    "Adv Prediction", 
-                    "Is Success", 
-                    "Extracted Names",
-                    "Importance Score",
-                    "No. Changed Names",
-                    "No. Changed Tokens",
-                    "Replaced Names",
-                    "Attack Type"])
 
+    recoder = Recorder(args.csv_store_path)
+    
     attacker = Attacker(args, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
@@ -207,20 +191,7 @@ def main():
             for key in replaced_words.keys():
                 replace_info += key + ':' + replaced_words[key] + ','
 
-        writer.writerow([index,
-                        code, 
-                        prog_length, 
-                        adv_code, 
-                        true_label, 
-                        orig_label, 
-                        temp_label, 
-                        is_success, 
-                        ",".join(variable_names),
-                        score_info,
-                        nb_changed_var,
-                        nb_changed_pos,
-                        replace_info,
-                        attack_type])
+        recoder.write(index, code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, score_info, nb_changed_var, nb_changed_pos, replace_info, attack_type)
         
         
         if is_success >= -1 :
