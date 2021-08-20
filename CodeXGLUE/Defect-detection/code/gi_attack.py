@@ -4,7 +4,6 @@
 # @Email   : zyang@smu.edu.sg
 # @File    : gi_attack.py
 '''For attacking CodeBERT models'''
-import enum
 import sys
 import os
 
@@ -25,18 +24,17 @@ from model import Model
 from run import set_seed
 from run import TextDataset
 from run import InputFeatures
-from utils import select_parents, crossover, map_chromesome, mutate, python_keywords, is_valid_variable_name, _tokenize
-from utils import get_identifier_posistions_from_code
-from utils import get_masked_code_by_position, get_substitues, is_valid_substitue
+from utils import select_parents, crossover, map_chromesome, mutate, is_valid_variable_name, _tokenize, get_identifier_posistions_from_code, get_masked_code_by_position, get_substitues, is_valid_substitue
+
+from utils import CodeDataset
 from run_parser import get_identifiers
 
-from torch.utils.data.dataset import Dataset
 from torch.utils.data import SequentialSampler, DataLoader
 from transformers import RobertaForMaskedLM
 from transformers import (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning\
+warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning
 
 MODEL_CLASSES = {
     'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
@@ -44,15 +42,7 @@ MODEL_CLASSES = {
 
 logger = logging.getLogger(__name__)
 
-class CodeDataset(Dataset):
-    def __init__(self, examples):
-        self.examples = examples
-    
-    def __len__(self):
-        return len(self.examples)
 
-    def __getitem__(self, i):       
-        return torch.tensor(self.examples[i].input_ids),torch.tensor(self.examples[i].label)
 
 def get_results(dataset, model, batch_size):
     '''
@@ -787,8 +777,6 @@ def main():
                     "No. Changed Tokens",
                     "Replaced Names"])
     for index, example in enumerate(eval_dataset):
-        if index < 1281:
-            continue
         code = source_codes[index]
         code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attack(args, example, code, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
 
