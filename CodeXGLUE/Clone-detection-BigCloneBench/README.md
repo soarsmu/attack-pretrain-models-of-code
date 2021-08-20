@@ -127,21 +127,37 @@ python attack.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --config_name=microsoft/codebert-base \
+    --csv_store_path ./attack_base_result.csv \
     --model_name_or_path=microsoft/codebert-base \
     --tokenizer_name=roberta-base \
-    --do_eval \
-    --do_test \
+    --base_model=microsoft/codebert-base-mlm \
     --train_data_file=../dataset/train.txt \
     --eval_data_file=../dataset/valid.txt \
     --test_data_file=../dataset/test.txt \
-    --epoch 2 \
     --block_size 512 \
-    --train_batch_size 16 \
-    --eval_batch_size 128 \
-    --learning_rate 5e-5 \
-    --max_grad_norm 1.0 \
-    --evaluate_during_training \
+    --eval_batch_size 32 \
     --seed 123456 2>&1| tee attack.log
+```
+
+#### GA-ATTACK
+
+```shell
+cd code
+python attack.py \
+    --output_dir=./saved_models \
+    --model_type=roberta \
+    --config_name=microsoft/codebert-base \
+    --csv_store_path ./attack_base_result_GA.csv \
+    --model_name_or_path=microsoft/codebert-base \
+    --tokenizer_name=roberta-base \
+    --use_ga \
+    --base_model=microsoft/codebert-base-mlm \
+    --train_data_file=../dataset/train.txt \
+    --eval_data_file=../dataset/valid.txt \
+    --test_data_file=../dataset/test.txt \
+    --block_size 512 \
+    --eval_batch_size 32 \
+    --seed 123456 2>&1| tee attack_GA.log
 ```
 
 ## Result

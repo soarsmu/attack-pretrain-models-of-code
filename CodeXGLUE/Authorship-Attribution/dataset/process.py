@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.append('../../../')
 sys.path.append('../../../python_parser')
-from run_parser import get_identifiers, remove_comments
+from run_parser import get_identifiers, get_code_tokens
 from parser_folder import remove_comments_and_docstrings
 def preprocess_gcjpy(split_portion):
     '''
@@ -30,7 +30,7 @@ def preprocess_gcjpy(split_portion):
         for file_name in files:
             with open(os.path.join(folder, name, file_name)) as code_file:
                 content = code_file.read()
-                code_tokens = remove_comments(content, 'python')
+                code_tokens = get_code_tokens(content, 'python')
                 content = " ".join(code_tokens)
                 new_content = content + ' <CODESPLIT> ' + str(index) + '\n'
                 tmp_example.append(new_content)

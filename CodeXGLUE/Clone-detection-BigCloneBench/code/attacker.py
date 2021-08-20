@@ -1,20 +1,12 @@
 import sys
-import os
 
 sys.path.append('../../../')
 sys.path.append('../../../python_parser')
 
-import csv
 import copy
-import json
-import logging
-import argparse
-import warnings
 import torch
-import numpy as np
 import random
-from model import Model
-from run import TextDataset, InputFeatures
+from run import InputFeatures, convert_examples_to_features
 from utils import select_parents, crossover, map_chromesome, mutate, is_valid_variable_name, _tokenize, get_identifier_posistions_from_code, get_masked_code_by_position, get_substitues, is_valid_substitue, set_seed
 
 from utils import CodeDataset
@@ -44,7 +36,7 @@ def convert_code_to_features(code, tokenizer, label, args):
     return InputFeatures(source_tokens,source_ids, 0, label)
 
 
-def get_importance_score(args, example, code, words_list: list, sub_words: list, variable_names: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
+def get_importance_score(args, example, code, code_2, words_list: list, sub_words: list, variable_names: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
     '''Compute the importance score of each variable'''
     # label: example[1] tensor(1)
     # 1. 过滤掉所有的keywords.
@@ -59,13 +51,15 @@ def get_importance_score(args, example, code, words_list: list, sub_words: list,
     # 2. 得到Masked_tokens
     masked_token_list, replace_token_positions = get_masked_code_by_position(words_list, positions)
     # replace_token_positions 表示着，哪一个位置的token被替换了.
+    
+    code2_tokens, _, _ = _tokenize(code_2, tokenizer)
 
-
-    for index, tokens in enumerate([words_list] + masked_token_list):
-        new_code = ' '.join(tokens)
-        new_feature = convert_code_to_features(new_code, tokenizer, example[1].item(), args)
+    for index, code1_tokens in enumerate([words_list] + masked_token_list):
+        new_feature = convert_examples_to_features(code1_tokens,code2_tokens,example[1].item(), None, None,tokenizer,args, None)
         new_example.append(new_feature)
+
     new_dataset = CodeDataset(new_example)
+
     # 3. 将他们转化成features
     logits, preds = tgt_model.get_results(new_dataset, args.eval_batch_size)
     orig_probs = logits[0]
@@ -334,6 +328,10 @@ class Attacker():
         '''
             # 先得到tgt_model针对原始Example的预测信息.
 
+        code_1 = code[2]
+        code_2 = code[3]
+        
+
         logits, preds = self.model_tgt.get_results([example], self.args.eval_batch_size)
         orig_prob = logits[0]
         orig_label = preds[0]
@@ -344,15 +342,17 @@ class Attacker():
         temp_label = None
 
 
-
-        identifiers, code_tokens = get_identifiers(code, 'c')
+        # When do attack, we only attack the first code snippet
+        identifiers, code_tokens = get_identifiers(code_1, 'java') # 只得到code_1中的identifier
+        processed_code = " ".join(code_tokens)
         prog_length = len(code_tokens)
 
+        identifiers_2, code_tokens_2 = get_identifiers(code_2, 'java')
+        processed_code_2 = " ".join(code_tokens_2)
 
-        processed_code = " ".join(code_tokens)
         
         words, sub_words, keys = _tokenize(processed_code, self.tokenizer_mlm)
-        # 这里经过了小写处理..
+        words_2, _, _ = _tokenize(processed_code_2, self.tokenizer_mlm)
 
 
         variable_names = []
@@ -383,9 +383,10 @@ class Attacker():
         # 只取subwords的部分，忽略首尾的预测结果.
 
         # 计算importance_score.
+        # 在计算Importance score时，我们只关心第一段代码中variable的score.
 
         importance_score, replace_token_positions, names_positions_dict = get_importance_score(self.args, example, 
-                                                processed_code,
+                                                processed_code, processed_code_2,
                                                 words,
                                                 sub_words,
                                                 variable_names,
@@ -431,7 +432,7 @@ class Attacker():
             tgt_word = name_and_score[0]
             tgt_positions = names_positions_dict[tgt_word] # 在words中对应的位置
             tgt_positions = names_positions_dict[tgt_word] # the positions of tgt_word in code
-            if not is_valid_variable_name(tgt_word, lang='c'):
+            if not is_valid_variable_name(tgt_word, lang='java'):
                 # if the extracted name is not valid
                 continue   
 
@@ -466,7 +467,7 @@ class Attacker():
                 # 这些头部和尾部的空格在拼接的时候并不影响，但是因为下面的第4个if语句会被跳过
                 # 这导致了部分mutants为空，而引发了runtime error
 
-                if not is_valid_substitue(substitute, tgt_word, 'c'):
+                if not is_valid_substitue(substitute, tgt_word, 'java'):
                     continue
                 
                 temp_replace = copy.deepcopy(final_words)
@@ -477,9 +478,12 @@ class Attacker():
                 # 记录了替换的顺序
 
                 # 需要将几个位置都替换成sustitue_
-                temp_code = " ".join(temp_replace)
-                                                
-                new_feature = convert_code_to_features(temp_code, self.tokenizer_tgt, example[1].item(), self.args)
+                new_feature = convert_examples_to_features(temp_replace, 
+                                                        words_2,
+                                                        example[1].item(), 
+                                                        None, None,
+                                                        self.tokenizer_tgt,
+                                                        self.args, None)
                 replace_examples.append(new_feature)
             if len(replace_examples) == 0:
                 # 并没有生成新的mutants，直接跳去下一个token
