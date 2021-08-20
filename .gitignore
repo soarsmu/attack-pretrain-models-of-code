@@ -67,3 +67,5 @@ MHM/mhm/LSTMClassifier/saved_models
 MHM/preprocess/tmp
 MHM/mhm/LSTMClassifier/logs
 *.tar
+*.csv
+

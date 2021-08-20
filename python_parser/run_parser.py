@@ -12,10 +12,14 @@ from utils import is_valid_variable_name
 
 path = '../../../python_parser/parser_folder/my-languages.so'
 c_code = """    
-static void filter_mirror_setup(NetFilterState *nf, Error **errp) { MirrorState *s = FILTER_MIRROR(nf); Chardev *chr; chr = qemu_chr_find(s->outdev); if (chr == NULL) { error_set(errp, ERROR_CLASS_DEVICE_NOT_FOUND, "Device '%s' not found", s->outdev); qemu_chr_fe_init(&s->chr_out, chr, errp);}
+void vmxnet3_pop_next_tx_descr(VMXNET3State *s, int qidx, struct Vmxnet3_TxDesc *txd, uint32_t *descr_idx) { Vmxnet3Ring *ring = &s->txq_descr[qidx].tx_ring; PCIDevice *d = PCI_DEVICE(s); vmxnet3_ring_read_curr_cell(d, ring, txd); if (txd->gen == vmxnet3_ring_curr_gen(ring)) { /* Only read after generation field verification */ smp_rmb(); /* Re-read to be sure we got the latest version */ vmxnet3_ring_read_curr_cell(d, ring, txd); VMXNET3_RING_DUMP(VMW_RIPRN, "TX", qidx, ring); *descr_idx = vmxnet3_ring_curr_cell_idx(ring); vmxnet3_inc_tx_consumption_counter(s, qidx); return true; } return false; }
 """
+
 python_code = """ 
-static void RENAME(vertical_compose53iL0)(uint8_t *_b0, uint8_t *_b1, uint8_t *_b2,\n\n                                          int width)\n\n{\n\n    int i;\n\n    TYPE *b0 = (TYPE *)_b0;\n\n    TYPE *b1 = (TYPE *)_b1;\n\n    TYPE *b2 = (TYPE *)_b2;\n\n    for (i = 0; i < width; i++)\n\n        b1[i] -= (b0[i] + b2[i] + 2) >> 2;\n\n
+a = "abcdefghijklmnopqrstuvwxyz" d = { } for c in a : d [ c ] = "*" i = "ejp mysljylc kd kxveddknmc re jsicpdrysi" o = "our language is impossible to understand" for k , v in zip ( i , o ) : d [ k ] = v i = "rbcpc ypc rtcsra dkh wyfrepkym veddknkmkrkcd" o = "there are twenty six factorial possibilities" for k , v in zip ( i , o ) : d [ k ] = v i = "de kr kd eoya kw aej tysr re ujdr lkgc jv" o = "so it is okay if you want to just give up" for k , v in zip ( i , o ) : d [ k ] = v i = "y qee" o = "a zoo" for k , v in zip ( i , o ) : d [ k ] = v d [ 'z' ] = 'q' import sys f = file ( "A-small-attempt1.in" ) w = file ( "answer.txt" , "w" ) 
+cnt = int ( f . readline ( ) [ : - 1 ] ) 
+for no in range ( cnt ) : i = f . readline ( ) [ : - 1 ] 
+o = "" for k in i : o += d [ k ] print >> w , "Case #%d:" % ( no + 1 ) , o
 """
 java_code = """
 """
@@ -76,8 +80,6 @@ def unique(sequence):
 def get_identifiers(code, lang):
 
     dfg, index_table, code_tokens = extract_dataflow(code, lang)
-    for d in dfg:
-        print(d)
     ret = []
     for d in dfg:
         if is_valid_variable_name(d[0], lang):
@@ -94,10 +96,9 @@ def main():
     args = parser.parse_args()
     code = codes[args.lang]
     data, _ = get_identifiers(code, args.lang)
-    print("final ret")
-    for identifier in data:
-        print(identifier)
-
+    # print("final ret")
+    # for identifier in data:
+    #     print(identifier)
 
 if __name__ == '__main__':
     main()
