@@ -19,15 +19,9 @@ from utils import select_parents, crossover, map_chromesome, mutate, is_valid_va
 
 from utils import CodeDataset
 from run_parser import get_identifiers
-from attacker import Attacker
 from transformers import (RobertaForMaskedLM, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning
 
-MODEL_CLASSES = {
-    'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
-}
 
 
 def convert_code_to_features(code, tokenizer, label, args):
