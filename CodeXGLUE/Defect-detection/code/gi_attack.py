@@ -27,9 +27,7 @@ from utils import select_parents, crossover, map_chromesome, mutate, is_valid_va
 from utils import CodeDataset
 from run_parser import get_identifiers
 
-from torch.utils.data import SequentialSampler, DataLoader
-from transformers import RobertaForMaskedLM
-from transformers import (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
+from transformers import (RobertaForMaskedLM, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning
@@ -41,42 +39,6 @@ MODEL_CLASSES = {
 logger = logging.getLogger(__name__)
 
 
-
-def get_results(dataset, model, batch_size):
-    '''
-    给定example和tgt model，返回预测的label和probability
-    '''
-
-    eval_sampler = SequentialSampler(dataset)
-    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size,num_workers=4,pin_memory=False)
-
-    ## Evaluate Model
-
-    eval_loss = 0.0
-    nb_eval_steps = 0
-    model.eval()
-    logits=[] 
-    labels=[]
-    for batch in eval_dataloader:
-        inputs = batch[0].to("cuda")       
-        label=batch[1].to("cuda") 
-        with torch.no_grad():
-            lm_loss,logit = model(inputs,label)
-            # 调用这个模型. 重写了反前向传播模型.
-            eval_loss += lm_loss.mean().item()
-            logits.append(logit.cpu().numpy())
-            labels.append(label.cpu().numpy())
-            
-
-        nb_eval_steps += 1
-    logits=np.concatenate(logits,0)
-    labels=np.concatenate(labels,0)
-
-    probs = [[1 - prob[0], prob[0]] for prob in logits]
-    pred_labels = [1 if label else 0 for label in logits[:,0]>0.5]
-
-    return probs, pred_labels
-
 def convert_code_to_features(code, tokenizer, label, args):
     code_tokens=tokenizer.tokenize(code)[:args.block_size-2]
     source_tokens =[tokenizer.cls_token]+code_tokens+[tokenizer.sep_token]
@@ -86,9 +48,7 @@ def convert_code_to_features(code, tokenizer, label, args):
     return InputFeatures(source_tokens,source_ids, 0, label)
 
 def get_importance_score(args, example, code, words_list: list, sub_words: list, variable_names: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
-    '''
-    计算importance score
-    '''
+    '''Compute the importance score of each variable'''
     # label: example[1] tensor(1)
     # 1. 过滤掉所有的keywords.
     positions = get_identifier_posistions_from_code(words_list, variable_names)
@@ -110,7 +70,7 @@ def get_importance_score(args, example, code, words_list: list, sub_words: list,
         new_example.append(new_feature)
     new_dataset = CodeDataset(new_example)
     # 3. 将他们转化成features
-    logits, preds = get_results(new_dataset, tgt_model, args.eval_batch_size)
+    logits, preds = tgt_model.get_results(new_dataset, args.eval_batch_size)
     orig_probs = logits[0]
     orig_label = preds[0]
     # 第一个是original code的数据.
@@ -134,7 +94,7 @@ def compute_fitness(chromesome, codebert_tgt, tokenizer_tgt, orig_prob, orig_lab
     temp_code = ' '.join(temp_replace)
     new_feature = convert_code_to_features(temp_code, tokenizer_tgt, true_label, args)
     new_dataset = CodeDataset([new_feature])
-    new_logits, preds = get_results(new_dataset, codebert_tgt, args.eval_batch_size)
+    new_logits, preds = codebert_tgt.get_results(new_dataset, args.eval_batch_size)
     # 计算fitness function
     fitness_value = orig_prob - new_logits[0][orig_label]
     return fitness_value, preds[0]
@@ -157,7 +117,7 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     '''
         # 先得到tgt_model针对原始Example的预测信息.
 
-    logits, preds = get_results([example], codebert_tgt, args.eval_batch_size)
+    logits, preds = codebert_tgt.get_results([example], args.eval_batch_size)
     orig_prob = logits[0]
     orig_label = preds[0]
     current_prob = max(orig_prob)
@@ -310,7 +270,7 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
             continue
         new_dataset = CodeDataset(replace_examples)
             # 3. 将他们转化成features
-        logits, preds = get_results(new_dataset, codebert_tgt, args.eval_batch_size)
+        logits, preds = codebert_tgt.get_results(new_dataset, args.eval_batch_size)
         assert(len(logits) == len(substitute_list))
 
 
@@ -376,7 +336,7 @@ def gi_attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, to
     '''
         # 先得到tgt_model针对原始Example的预测信息.
 
-    logits, preds = get_results([example], codebert_tgt, args.eval_batch_size)
+    logits, preds = codebert_tgt.get_results([example], args.eval_batch_size)
     orig_prob = logits[0]
     orig_label = preds[0]
     current_prob = max(orig_prob)
@@ -506,7 +466,7 @@ def gi_attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, to
                 continue
             new_dataset = CodeDataset(replace_examples)
                 # 3. 将他们转化成features
-            logits, preds = get_results(new_dataset, codebert_tgt, args.eval_batch_size)
+            logits, preds = codebert_tgt.get_results(new_dataset, args.eval_batch_size)
 
             _the_best_candidate = -1
             for index, temp_prob in enumerate(logits):
@@ -558,7 +518,7 @@ def gi_attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, to
             _tmp_feature = convert_code_to_features(_temp_code, tokenizer_tgt, true_label, args)
             feature_list.append(_tmp_feature)
         new_dataset = CodeDataset(feature_list)
-        mutate_logits, mutate_preds = get_results(new_dataset, codebert_tgt, args.eval_batch_size)
+        mutate_logits, mutate_preds = codebert_tgt.get_results(new_dataset, args.eval_batch_size)
         mutate_fitness_values = []
         for index, logits in enumerate(mutate_logits):
             if mutate_preds[index] != orig_label:
