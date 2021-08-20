@@ -592,7 +592,7 @@ class MHM_Attacker():
 
                 substitutes = get_substitues(substitutes, 
                                             self.tokenizer_mlm, 
-                                            self.classifier, 
+                                            self.model_mlm, 
                                             1, 
                                             word_pred_scores, 
                                             0)
