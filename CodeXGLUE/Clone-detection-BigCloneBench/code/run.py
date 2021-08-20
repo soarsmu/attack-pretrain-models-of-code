@@ -174,6 +174,7 @@ class TextDataset(Dataset):
                                     url_to_code[sing_example[1]]])
             with open(code_pairs_file_path, 'wb') as f:
                 pickle.dump(code_pairs, f)
+            pool = multiprocessing.Pool(7)
             self.examples=pool.map(get_example,tqdm(data,total=len(data)))
             torch.save(self.examples, cache_file_path)
         # 这应该就是处理数据的地方了.
