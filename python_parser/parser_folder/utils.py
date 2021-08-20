@@ -113,10 +113,13 @@ def tree_to_variable_index(root_node,index_to_code):
         return []
 
 def index_to_code_token(index,code):
+    # 开始位置
     start_point=index[0]
     end_point=index[1]
+    # 如果在同一行
     if start_point[0]==end_point[0]:
         s=code[start_point[0]][start_point[1]:end_point[1]]
+    # 如果多行
     else:
         s=""
         s+=code[start_point[0]][start_point[1]:]
