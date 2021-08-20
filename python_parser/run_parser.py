@@ -43,6 +43,11 @@ codes = {
     'c': c_code,
 }
 
+def get_code_tokens(code, lang):
+    code = code.split('\n')
+    code_tokens = [x + '\\n' for x in code if x ]
+    return code_tokens
+
 def extract_dataflow(code, lang):
     # remove comments
     try:
