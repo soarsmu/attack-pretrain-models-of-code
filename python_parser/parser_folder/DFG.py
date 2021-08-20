@@ -401,9 +401,6 @@ def DFG_c(root_node, index_to_code, states):
             indexs = tree_to_variable_index(name, index_to_code)
             for index in indexs:
                 idx, code = index_to_code[index]
-                print(code)
-                print(root_node.parent.type)
-                print(1)
                 DFG.append((code, idx, 'comesFrom', [], []))
                 states[code] = [idx]
             return sorted(DFG, key=lambda x: x[1]), states
