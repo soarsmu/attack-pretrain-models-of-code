@@ -23,7 +23,7 @@ from model import Model
 from run import TextDataset, InputFeatures
 from utils import select_parents, crossover, map_chromesome, mutate, is_valid_variable_name, _tokenize, get_identifier_posistions_from_code, get_masked_code_by_position, get_substitues, is_valid_substitue, set_seed
 
-from utils import CodeDataset
+from utils import Recorder
 from run_parser import get_identifiers
 from attacker import Attacker
 from transformers import (RobertaForMaskedLM, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
@@ -78,6 +78,8 @@ def main():
                              "The training dataset will be truncated in block of this size for training."
                              "Default to the model max input length for single sentence inputs (take into account special tokens).")
     parser.add_argument("--do_train", action='store_true',
+                        help="Whether to run training.")
+    parser.add_argument("--use_ga", action='store_true',
                         help="Whether to run training.")
     parser.add_argument("--do_eval", action='store_true',
                         help="Whether to run eval on the dev set.")
@@ -168,31 +170,15 @@ def main():
 
     success_attack = 0
     total_cnt = 0
-    f = open(args.csv_store_path, 'w')
-    
-    writer = csv.writer(f)
-    # write table head.
-    writer.writerow(["Index",
-                    "Original Code", 
-                    "Program Length", 
-                    "Adversarial Code", 
-                    "True Label", 
-                    "Original Prediction", 
-                    "Adv Prediction", 
-                    "Is Success", 
-                    "Extracted Names",
-                    "Importance Score",
-                    "No. Changed Names",
-                    "No. Changed Tokens",
-                    "Replaced Names",
-                    "Attack Type"])
 
+    recoder = Recorder(args.csv_store_path)
+    
     attacker = Attacker(args, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
         code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.greedy_attack(example, code)
         attack_type = "Greedy"
-        if is_success == -1:
+        if is_success == -1 and args.use_ga:
             # 如果不成功，则使用gi_attack
             code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.ga_attack(example, code, initial_replace=replaced_words)
             attack_type = "GA"
@@ -207,20 +193,7 @@ def main():
             for key in replaced_words.keys():
                 replace_info += key + ':' + replaced_words[key] + ','
 
-        writer.writerow([index,
-                        code, 
-                        prog_length, 
-                        adv_code, 
-                        true_label, 
-                        orig_label, 
-                        temp_label, 
-                        is_success, 
-                        ",".join(variable_names),
-                        score_info,
-                        nb_changed_var,
-                        nb_changed_pos,
-                        replace_info,
-                        attack_type])
+        recoder.write(index, code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, score_info, nb_changed_var, nb_changed_pos, replace_info, attack_type)
         
         
         if is_success >= -1 :

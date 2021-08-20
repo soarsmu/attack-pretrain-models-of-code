@@ -137,7 +137,6 @@ class Attacker():
                 continue
             variable_names.append(name[0])
 
-        print("Number of identifiers extracted: ", len(variable_names))
         if not orig_label == true_label:
             # 说明原来就是错的
             is_success = -4
@@ -162,7 +161,6 @@ class Attacker():
         names_positions_dict = get_identifier_posistions_from_code(words, variable_names)
 
 
-        final_words = copy.deepcopy(words)
         
         nb_changed_var = 0 # 表示被修改的variable数量
         nb_changed_pos = 0
@@ -203,8 +201,6 @@ class Attacker():
                 except:
                     variable_substitue_dict[tgt_word] = [tmp_substitue]
                 # 这么做是为了让在python_keywords中的variable不在variable_substitue_dict中保存
-
-        print("Number of identifiers to be changed:  ", len(variable_substitue_dict))
 
 
         fitness_values = []
@@ -297,7 +293,12 @@ class Attacker():
             for index, logits in enumerate(mutate_logits):
                 if mutate_preds[index] != orig_label:
                     adv_code = " ".join(map_chromesome(_temp_mutants[index], words, names_positions_dict))
-                    return code, prog_length, adv_code, true_label, orig_label, mutate_preds[index], 1, variable_names, None, None, None, child_1
+                    for old_word in variable_names.keys():
+                        if old_word == variable_names[old_word]:
+                            nb_changed_var += 1
+                            nb_changed_pos += len(names_positions_dict[old_word])
+
+                    return code, prog_length, adv_code, true_label, orig_label, mutate_preds[index], 1, variable_names, nb_changed_var, nb_changed_pos, child_1
                 _tmp_fitness = max(orig_prob) - logits[orig_label]
                 mutate_fitness_values.append(_tmp_fitness)
             
@@ -310,7 +311,7 @@ class Attacker():
                     population[min_index] = _temp_mutants[index]
                     fitness_values[min_index] = fitness_value
 
-        return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, None, None, None, None
+        return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, None, nb_changed_var, nb_changed_pos, None
         
 
 
@@ -360,7 +361,6 @@ class Attacker():
                 continue
             variable_names.append(name[0])
 
-        print("Number of identifiers extracted: ", len(variable_names))
         if not orig_label == true_label:
             # 说明原来就是错的
             is_success = -4
