@@ -177,6 +177,8 @@ def DFG_c(root_node, index_to_code, states):
                 child = child.children[1]
             else:
                 child = child.child_by_field_name('declarator')
+            if not child:
+                return [], states
         idx,code=index_to_code[(child.start_point,child.end_point)]
         states[code]=[idx]
         return [(code,idx,'comesFrom',[],[])],states
