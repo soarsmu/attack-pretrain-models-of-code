@@ -184,16 +184,18 @@ def main():
                     "Importance Score",
                     "No. Changed Names",
                     "No. Changed Tokens",
-                    "Replaced Names"])
+                    "Replaced Names",
+                    "Attack Type"])
 
     attacker = Attacker(args, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
         code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.greedy_attack(example, code)
-
+        attack_type = "Greedy"
         if is_success == -1:
             # 如果不成功，则使用gi_attack
             code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.ga_attack(example, code, initial_replace=replaced_words)
+            attack_type = "GA"
 
         score_info = ''
         if names_to_importance_score is not None:
@@ -217,7 +219,8 @@ def main():
                         score_info,
                         nb_changed_var,
                         nb_changed_pos,
-                        replace_info])
+                        replace_info,
+                        attack_type])
         
         
         if is_success >= -1 :
