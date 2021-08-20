@@ -66,3 +66,4 @@ GraphCodeBERT/Authorship-Attribution/code/*.csv
 MHM/mhm/LSTMClassifier/saved_models
 MHM/preprocess/tmp
 MHM/mhm/LSTMClassifier/logs
+*.tar

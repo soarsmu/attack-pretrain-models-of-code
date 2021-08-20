@@ -1,5 +1,4 @@
 import argparse
-import csv
 from parser_folder.DFG import DFG_python, DFG_java, DFG_c
 from parser_folder import (remove_comments_and_docstrings,
                            tree_to_token_index,
@@ -11,16 +10,17 @@ sys.path.append('.')
 sys.path.append('../')
 from utils import is_valid_variable_name
 
-path = 'parser_folder/my-languages.so'
+path = '../../../python_parser/parser_folder/my-languages.so'
 c_code = """    
 static void filter_mirror_setup(NetFilterState *nf, Error **errp) { MirrorState *s = FILTER_MIRROR(nf); Chardev *chr; chr = qemu_chr_find(s->outdev); if (chr == NULL) { error_set(errp, ERROR_CLASS_DEVICE_NOT_FOUND, "Device '%s' not found", s->outdev); qemu_chr_fe_init(&s->chr_out, chr, errp);}
 """
 python_code = """ 
 static void RENAME(vertical_compose53iL0)(uint8_t *_b0, uint8_t *_b1, uint8_t *_b2,\n\n                                          int width)\n\n{\n\n    int i;\n\n    TYPE *b0 = (TYPE *)_b0;\n\n    TYPE *b1 = (TYPE *)_b1;\n\n    TYPE *b2 = (TYPE *)_b2;\n\n    for (i = 0; i < width; i++)\n\n        b1[i] -= (b0[i] + b2[i] + 2) >> 2;\n\n
 """
-
 java_code = """
 """
+
+
 dfg_function = {
     'python': DFG_python,
     'java': DFG_java,
