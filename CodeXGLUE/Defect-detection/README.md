@@ -129,7 +129,7 @@ If you don't want to be bothered by fine-tuning models, you can download the vic
 
 ```shell
 pip install gdown
-mkdir code/saved_models/checkpoint-best-acc
+mkdir -p code/saved_models/checkpoint-best-acc
 gdown https://drive.google.com/uc?id=14STf95S3cDstI5CiyvK1giLlbDw4ZThu
 mv model.bin code/saved_models/checkpoint-best-acc/
 ```
