@@ -79,6 +79,8 @@ def main():
                              "Default to the model max input length for single sentence inputs (take into account special tokens).")
     parser.add_argument("--do_train", action='store_true',
                         help="Whether to run training.")
+    parser.add_argument("--use_ga", action='store_true',
+                        help="Whether to run training.")
     parser.add_argument("--do_eval", action='store_true',
                         help="Whether to run eval on the dev set.")
     parser.add_argument("--do_test", action='store_true',
@@ -176,7 +178,7 @@ def main():
         code = source_codes[index]
         code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.greedy_attack(example, code)
         attack_type = "Greedy"
-        if is_success == -1:
+        if is_success == -1 and args.use_ga:
             # 如果不成功，则使用gi_attack
             code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.ga_attack(example, code, initial_replace=replaced_words)
             attack_type = "GA"
