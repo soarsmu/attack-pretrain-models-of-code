@@ -9,7 +9,7 @@ import os
 
 sys.path.append('../../../')
 sys.path.append('../../../python_parser')
-retval = os.getcwd()
+
 
 import csv
 import copy
@@ -21,10 +21,8 @@ import torch
 import numpy as np
 import random
 from model import Model
-from run import set_seed
-from run import TextDataset
-from run import InputFeatures
-from utils import select_parents, crossover, map_chromesome, mutate, is_valid_variable_name, _tokenize, get_identifier_posistions_from_code, get_masked_code_by_position, get_substitues, is_valid_substitue
+from run import TextDataset, InputFeatures
+from utils import select_parents, crossover, map_chromesome, mutate, is_valid_variable_name, _tokenize, get_identifier_posistions_from_code, get_masked_code_by_position, get_substitues, is_valid_substitue, set_seed
 
 from utils import CodeDataset
 from run_parser import get_identifiers
