@@ -14,26 +14,24 @@ from utils import getUID, isUID, getTensor, build_vocab
 from run_parser import get_identifiers
 from transformers import (RobertaForMaskedLM, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
 
-def compute_fitness(chromesome, codebert_tgt, tokenizer_tgt, orig_prob, orig_label, true_label ,words, names_positions_dict, args):
+def compute_fitness(chromesome, words_2, codebert_tgt, tokenizer_tgt, orig_prob, orig_label, true_label ,words, names_positions_dict, args):
     # 计算fitness function.
     # words + chromesome + orig_label + current_prob
     temp_replace = map_chromesome(chromesome, words, names_positions_dict)
-    temp_code = ' '.join(temp_replace)
-    new_feature = convert_code_to_features(temp_code, tokenizer_tgt, true_label, args)
+    new_feature = convert_examples_to_features(temp_replace, 
+                                                words_2,
+                                                true_label, 
+                                                None, None,
+                                                tokenizer_tgt,
+                                                args, None)
+    
+
     new_dataset = CodeDataset([new_feature])
     new_logits, preds = codebert_tgt.get_results(new_dataset, args.eval_batch_size)
     # 计算fitness function
     fitness_value = orig_prob - new_logits[0][orig_label]
     return fitness_value, preds[0]
 
-
-def convert_code_to_features(code, tokenizer, label, args):
-    code_tokens=tokenizer.tokenize(code)[:args.block_size-2]
-    source_tokens =[tokenizer.cls_token]+code_tokens+[tokenizer.sep_token]
-    source_ids =  tokenizer.convert_tokens_to_ids(source_tokens)
-    padding_length = args.block_size - len(source_ids)
-    source_ids+=[tokenizer.pad_token_id]*padding_length
-    return InputFeatures(source_tokens,source_ids, 0, label)
 
 
 def get_importance_score(args, example, code, code_2, words_list: list, sub_words: list, variable_names: list, tgt_model, tokenizer, label_list, batch_size=16, max_length=512, model_type='classification'):
@@ -102,6 +100,9 @@ class Attacker():
             number of changed positions: nb_changed_pos
             substitues for variables: replaced_words
         '''
+        code_1 = code[2]
+        code_2 = code[3]
+
             # 先得到tgt_model针对原始Example的预测信息.
 
         logits, preds = self.model_tgt.get_results([example], self.args.eval_batch_size)
@@ -115,19 +116,21 @@ class Attacker():
 
 
 
-        identifiers, code_tokens = get_identifiers(code, 'c')
+        identifiers, code_tokens = get_identifiers(code_1, 'java')
         prog_length = len(code_tokens)
-
-
         processed_code = " ".join(code_tokens)
+
+        identifiers_2, code_tokens_2 = get_identifiers(code_2, 'java')
+        processed_code_2 = " ".join(code_tokens_2)
+
         
         words, sub_words, keys = _tokenize(processed_code, self.tokenizer_mlm)
-        # 这里经过了小写处理..
+        words_2, _, _ = _tokenize(processed_code_2, self.tokenizer_mlm)
 
 
         variable_names = []
         for name in identifiers:
-            if ' ' in name[0].strip() in variable_names:
+            if ' ' in name[0].strip():
                 continue
             variable_names.append(name[0])
 
@@ -167,7 +170,7 @@ class Attacker():
 
         for tgt_word in names_positions_dict.keys():
             tgt_positions = names_positions_dict[tgt_word] # the positions of tgt_word in code
-            if not is_valid_variable_name(tgt_word, lang='c'):
+            if not is_valid_variable_name(tgt_word, lang='java'):
                 # if the extracted name is not valid
                 continue   
 
@@ -188,7 +191,7 @@ class Attacker():
             all_substitues = set(all_substitues)
 
             for tmp_substitue in all_substitues:
-                if not is_valid_substitue(tmp_substitue, tgt_word, 'c'):
+                if not is_valid_substitue(tmp_substitue, tgt_word, 'java'):
                     continue
                 try:
                     variable_substitue_dict[tgt_word].append(tmp_substitue)
@@ -221,8 +224,12 @@ class Attacker():
                         temp_replace[one_pos] = a_substitue
                     substitute_list.append(a_substitue)
                     # 记录下这次换的是哪个substitue
-                    temp_code = " ".join(temp_replace)
-                    new_feature = convert_code_to_features(temp_code, self.tokenizer_tgt, example[1].item(), self.args)
+                    new_feature = convert_examples_to_features(temp_replace, 
+                                                            words_2,
+                                                            example[1].item(), 
+                                                            None, None,
+                                                            self.tokenizer_tgt,
+                                                            self.args, None)
                     replace_examples.append(new_feature)
 
                 if len(replace_examples) == 0:
@@ -250,7 +257,7 @@ class Attacker():
             temp_chromesome = copy.deepcopy(base_chromesome)
             temp_chromesome[tgt_word] = initial_candidate
             population.append(temp_chromesome)
-            temp_fitness, temp_label = compute_fitness(temp_chromesome, self.model_tgt, self.tokenizer_tgt, max(orig_prob), orig_label, true_label ,words, names_positions_dict, self.args)
+            temp_fitness, temp_label = compute_fitness(temp_chromesome, words_2, self.model_tgt, self.tokenizer_tgt, max(orig_prob), orig_label, true_label ,words, names_positions_dict, self.args)
             fitness_values.append(temp_fitness)
 
         cross_probability = 0.7
@@ -279,7 +286,13 @@ class Attacker():
             for mutant in _temp_mutants:
                 _tmp_mutate_code = map_chromesome(mutant, words, names_positions_dict)
                 _temp_code = ' '.join(_tmp_mutate_code)
-                _tmp_feature = convert_code_to_features(_temp_code, self.tokenizer_tgt, true_label, self.args)
+
+                _tmp_feature = convert_examples_to_features(_tmp_mutate_code, 
+                                                            words_2,
+                                                            true_label, 
+                                                            None, None,
+                                                            self.tokenizer_tgt,
+                                                            self.args, None)
                 feature_list.append(_tmp_feature)
             new_dataset = CodeDataset(feature_list)
             mutate_logits, mutate_preds = self.model_tgt.get_results(new_dataset, self.args.eval_batch_size)
@@ -430,7 +443,6 @@ class Attacker():
 
         for name_and_score in sorted_list_of_names:
             tgt_word = name_and_score[0]
-            tgt_positions = names_positions_dict[tgt_word] # 在words中对应的位置
             tgt_positions = names_positions_dict[tgt_word] # the positions of tgt_word in code
             if not is_valid_variable_name(tgt_word, lang='java'):
                 # if the extracted name is not valid
@@ -551,7 +563,7 @@ class MHM_Attacker():
     
     def mcmc(self, tokenizer, code=None, _label=None, _n_candi=30,
              _max_iter=100, _prob_threshold=0.95):
-        identifiers, code_tokens = get_identifiers(code, 'c')
+        identifiers, code_tokens = get_identifiers(code, 'java')
         processed_code = " ".join(code_tokens)
 
         words, sub_words, keys = _tokenize(processed_code, tokenizer)
@@ -582,7 +594,7 @@ class MHM_Attacker():
 
         variable_substitue_dict = {}
         for tgt_word in uid.keys():
-            if not is_valid_variable_name(tgt_word, 'c'):
+            if not is_valid_variable_name(tgt_word, 'java'):
                 # 如果不是变量名
                 continue   
             tgt_positions = uid[tgt_word] # 在words中对应的位置
@@ -604,7 +616,7 @@ class MHM_Attacker():
             all_substitues = set(all_substitues)
 
             for tmp_substitue in all_substitues:
-                if not is_valid_substitue(tmp_substitue, tgt_word, 'c'):
+                if not is_valid_substitue(tmp_substitue, tgt_word, 'java'):
                     continue
                 try:
                     variable_substitue_dict[tgt_word].append(tmp_substitue)
