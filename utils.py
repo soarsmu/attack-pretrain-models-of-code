@@ -3,6 +3,10 @@ import torch.nn as nn
 import copy
 import random
 from tqdm import tqdm
+from torch.utils.data.dataset import Dataset
+import os
+import numpy as np
+import csv
 
 python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">",
                    '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break',
@@ -529,3 +533,61 @@ def getUID(_tokens=[], uids=[]):
                 ids[t] = [i]
     return ids
     
+
+
+class CodeDataset(Dataset):
+    def __init__(self, examples):
+        self.examples = examples
+    
+    def __len__(self):
+        return len(self.examples)
+
+    def __getitem__(self, i):       
+        return torch.tensor(self.examples[i].input_ids),torch.tensor(self.examples[i].label)
+
+
+def set_seed(seed=42):
+    random.seed(seed)
+    os.environ['PYHTONHASHSEED'] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+
+
+
+class Recorder():
+    def __init__(self, file_path: str) -> None:
+        self.file_path = file_path
+        self.f = open(file_path, 'w')
+        self.writer = csv.writer(self.f)
+        self.writer.writerow(["Index",
+                        "Original Code", 
+                        "Program Length", 
+                        "Adversarial Code", 
+                        "True Label", 
+                        "Original Prediction", 
+                        "Adv Prediction", 
+                        "Is Success", 
+                        "Extracted Names",
+                        "Importance Score",
+                        "No. Changed Names",
+                        "No. Changed Tokens",
+                        "Replaced Names",
+                        "Attack Type"])
+    
+    def write(self, index, code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, score_info, nb_changed_var, nb_changed_pos, replace_info, attack_type):
+        self.writer.writerow([index,
+                        code, 
+                        prog_length, 
+                        adv_code, 
+                        true_label, 
+                        orig_label, 
+                        temp_label, 
+                        is_success, 
+                        ",".join(variable_names),
+                        score_info,
+                        nb_changed_var,
+                        nb_changed_pos,
+                        replace_info,
+                        attack_type])

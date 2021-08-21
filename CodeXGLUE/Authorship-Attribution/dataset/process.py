@@ -2,10 +2,9 @@ import os
 import sys
 sys.path.append('../../../')
 sys.path.append('../../../python_parser')
-from run_parser import get_identifiers
-
-
-def preprocess_gcjpy(split_pos):
+from run_parser import get_identifiers, get_code_tokens
+from parser_folder import remove_comments_and_docstrings
+def preprocess_gcjpy(split_portion):
     '''
     预处理文件.
     需要将结果分成train和valid
@@ -31,10 +30,11 @@ def preprocess_gcjpy(split_pos):
         for file_name in files:
             with open(os.path.join(folder, name, file_name)) as code_file:
                 content = code_file.read()
-                identifiers, code_tokens = get_identifiers(content, 'python')
+                code_tokens = get_code_tokens(content, 'python')
                 content = " ".join(code_tokens)
                 new_content = content + ' <CODESPLIT> ' + str(index) + '\n'
                 tmp_example.append(new_content)
+        split_pos = int(len(tmp_example) * split_portion)
         train_example += tmp_example[0:split_pos]
         valid_example += tmp_example[split_pos:]
 
@@ -83,6 +83,7 @@ def preprocess_java40(split_portion = 0.8):
                     identifiers, code_tokens = get_identifiers(content, 'java')
                     content = " ".join(code_tokens)
                     new_content = content + ' <CODESPLIT> ' + str(index) + '\n'
+                    tmp_example.append(new_content)
             split_pos = int(len(tmp_example) * split_portion)
             train_example += tmp_example[0:split_pos]
             valid_example += tmp_example[split_pos:]
@@ -99,5 +100,5 @@ def preprocess_java40(split_portion = 0.8):
 
 
 if __name__ == "__main__":
-    preprocess_gcjpy(8)
-    preprocess_java40(0.8)
+    preprocess_gcjpy(0.8)
+    # preprocess_java40(0.8)

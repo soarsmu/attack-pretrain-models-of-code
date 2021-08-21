@@ -129,7 +129,7 @@ If you don't want to be bothered by fine-tuning models, you can download the vic
 
 ```shell
 pip install gdown
-mkdir code/saved_models/checkpoint-best-acc
+mkdir -p code/saved_models/checkpoint-best-acc
 gdown https://drive.google.com/uc?id=14STf95S3cDstI5CiyvK1giLlbDw4ZThu
 mv model.bin code/saved_models/checkpoint-best-acc/
 ```
@@ -162,49 +162,38 @@ python attack.py \
 ### Attack microsoft/codebert-base-mlm
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=1 python attack.py \
+CUDA_VISIBLE_DEVICES=1 python gi_attack.py \
     --output_dir=./saved_models \
     --model_type=roberta \
-    --tokenizer_name=microsoft/codebert-base \
-    --model_name_or_path=microsoft/codebert-base \
-    --csv_store_path ./attack_base_mlm_result.csv \
+    --tokenizer_name=microsoft/codebert-base-mlm \
+    --model_name_or_path=microsoft/codebert-base-mlm \
+    --csv_store_path ./attack_no_gi.csv \
     --base_model=microsoft/codebert-base-mlm \
-    --do_test \
     --train_data_file=../preprocess/dataset/train.jsonl \
     --eval_data_file=../preprocess/dataset/valid.jsonl \
     --test_data_file=../preprocess/dataset/test.jsonl \
-    --epoch 5 \
     --block_size 512 \
-    --train_batch_size 16 \
     --eval_batch_size 64 \
-    --learning_rate 2e-5 \
-    --max_grad_norm 1.0 \
-    --evaluate_during_training \
-    --seed 123456  2>&1 | tee attack_base_mlm.log
+    --seed 123456  2>&1 | tee attack_no_gi.log
 ```
 
 # Genetic Programming
 
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=0 python gi_attack.py \
+CUDA_VISIBLE_DEVICES=1 python gi_attack.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --tokenizer_name=microsoft/codebert-base-mlm \
     --model_name_or_path=microsoft/codebert-base-mlm \
     --csv_store_path ./attack_genetic.csv \
     --base_model=microsoft/codebert-base-mlm \
-    --do_train \
+    --use_ga \
     --train_data_file=../preprocess/dataset/train.jsonl \
     --eval_data_file=../preprocess/dataset/valid.jsonl \
     --test_data_file=../preprocess/dataset/test.jsonl \
-    --epoch 5 \
-    --block_size 400 \
-    --train_batch_size 16 \
+    --block_size 512 \
     --eval_batch_size 64 \
-    --learning_rate 2e-5 \
-    --max_grad_norm 1.0 \
-    --evaluate_during_training \
     --seed 123456  2>&1 | tee attack_gi.log
 ```
 
@@ -224,18 +213,12 @@ CUDA_VISIBLE_DEVICES=1 python mhm_attack.py \
     --model_type=roberta \
     --tokenizer_name=microsoft/codebert-base \
     --model_name_or_path=microsoft/codebert-base \
-    --csv_store_path ./attack_genetic.csv \
+    --csv_store_path ./attack_mhm.csv \
     --base_model=microsoft/codebert-base-mlm \
-    --do_train \
     --train_data_file=../preprocess/dataset/train.jsonl \
     --eval_data_file=../preprocess/dataset/valid.jsonl \
     --test_data_file=../preprocess/dataset/test.jsonl \
-    --epoch 5 \
-    --block_size 400 \
-    --train_batch_size 16 \
+    --block_size 512 \
     --eval_batch_size 64 \
-    --learning_rate 2e-5 \
-    --max_grad_norm 1.0 \
-    --evaluate_during_training \
     --seed 123456  2>&1 | tee attack_mhm.log
 ```
