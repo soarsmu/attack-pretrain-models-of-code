@@ -44,6 +44,33 @@ check list
     - [x] Clone
     - [x] Defect 
 
-
-
 ### Attack
+
+checklist
+
+- [ ] Codebert
+    - [ ] Authorship
+        - [ ] Greedy
+        - [ ] GI
+        - [ ] MHM
+    - [x] Clone
+        - [x] Greedy
+        - [x] GI
+        - [x] MHM
+    - [x] Defect 
+        - [x] Greedy
+        - [x] GI
+        - [x] MHM
+- [ ] GraphCodeBert
+    - [ ] Authorship
+        - [ ] Greedy
+        - [ ] GI
+        - [ ] MHM
+    - [x] Clone
+        - [x] Greedy
+        - [x] GI
+        - [x] MHM
+    - [x] Defect 
+        - [x] Greedy
+        - [x] GI
+        - [x] MHM
