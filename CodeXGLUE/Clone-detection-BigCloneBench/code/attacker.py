@@ -561,13 +561,47 @@ class MHM_Attacker():
         self.args = args
         self.tokenizer_mlm = tokenizer_mlm
     
-    def mcmc(self, tokenizer, code=None, _label=None, _n_candi=30,
+    def mcmc(self, example, tokenizer, code_pair, _label=None, _n_candi=30,
              _max_iter=100, _prob_threshold=0.95):
-        identifiers, code_tokens = get_identifiers(code, 'java')
+        code_1 = code_pair[2]
+        code_2 = code_pair[3]
+
+        # 先得到tgt_model针对原始Example的预测信息.
+
+        logits, preds = self.classifier.get_results([example], self.args.eval_batch_size)
+        orig_prob = logits[0]
+        orig_label = preds[0]
+        current_prob = max(orig_prob)
+
+        true_label = example[1].item()
+        adv_code = ''
+        temp_label = None
+
+
+        identifiers, code_tokens = get_identifiers(code_1, 'java')
+        prog_length = len(code_tokens)
         processed_code = " ".join(code_tokens)
 
-        words, sub_words, keys = _tokenize(processed_code, tokenizer)
+        identifiers_2, code_tokens_2 = get_identifiers(code_2, 'java')
+        processed_code_2 = " ".join(code_tokens_2)
+
+        
+        words, sub_words, keys = _tokenize(processed_code, self.tokenizer_mlm)
+        words_2, _, _ = _tokenize(processed_code_2, self.tokenizer_mlm)
+
+        variable_names = []
+        for name in identifiers:
+            if ' ' in name[0].strip():
+                continue
+            variable_names.append(name[0])
+
+        if not orig_label == true_label:
+            # 说明原来就是错的
+            is_success = -4
+            return {'succ': None, 'tokens': None, 'raw_tokens': None}
+
         raw_tokens = copy.deepcopy(words)
+
         variable_names = []
         for name in identifiers:
             if ' ' in name[0].strip():
@@ -626,7 +660,7 @@ class MHM_Attacker():
 
         for iteration in range(1, 1+_max_iter):
             # 这个函数需要tokens
-            res = self.__replaceUID(_tokens=words, _label=_label, _uid=uid,
+            res = self.__replaceUID(words_2=words_2, _tokens=words, _label=_label, _uid=uid,
                                     substitute_dict=variable_substitue_dict,
                                     _n_candi=_n_candi,
                                     _prob_threshold=_prob_threshold)
@@ -644,7 +678,7 @@ class MHM_Attacker():
 
         return {'succ': False, 'tokens': None, 'raw_tokens': None}
         
-    def __replaceUID(self, _tokens=[], _label=None, _uid={}, substitute_dict={},
+    def __replaceUID(self, words_2, _tokens=[], _label=None, _uid={}, substitute_dict={},
                      _n_candi=30, _prob_threshold=0.95, _candi_mode="random"):
         
         assert _candi_mode.lower() in ["random", "nearby"]
@@ -668,8 +702,12 @@ class MHM_Attacker():
 
             new_example = []
             for tmp_tokens in candi_tokens:
-                tmp_code = " ".join(tmp_tokens)
-                new_feature = convert_code_to_features(tmp_code, self.tokenizer_mlm, _label, self.args)
+                new_feature = convert_examples_to_features(tmp_tokens, 
+                                                words_2,
+                                                _label, 
+                                                None, None,
+                                                self.tokenizer_mlm,
+                                                self.args, None)
                 new_example.append(new_feature)
             new_dataset = CodeDataset(new_example)
             prob, pred = self.classifier.get_results(new_dataset, self.args.eval_batch_size)
