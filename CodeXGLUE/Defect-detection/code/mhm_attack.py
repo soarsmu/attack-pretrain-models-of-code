@@ -118,7 +118,6 @@ if __name__ == "__main__":
         if os.path.exists(step_file):
             with open(step_file, encoding='utf-8') as stepf:
                 args.start_step = int(stepf.readlines()[0].strip())
-        logger.info("reload model from {}, resume from {} epoch".format(checkpoint_last, args.start_epoch))
 
 
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
