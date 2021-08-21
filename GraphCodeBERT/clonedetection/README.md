@@ -125,9 +125,6 @@ python run.py \
 ## Attack GraphCodeBERT
 
 
-
-## Attack GraphCodeBERT
-
 If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/checkpoint-best-f1` by [this link](https://drive.google.com/file/d/1C5Y1Lwlh_BNedU6-i-0BPgYfgMOvvK1O/view?usp=sharing).
 
 ```shell
@@ -139,25 +136,65 @@ mv model.bin code/saved_models/checkpoint-best-f1/
 
 We use full test data to evaluate out attacker.
 
-
 ```shell
+cd code
 python attack.py \
-    --output_dir=saved_models \
+    --output_dir=./saved_models \
     --model_type=roberta \
     --config_name=microsoft/graphcodebert-base \
+    --csv_store_path ./attack_base_result.csv \
     --model_name_or_path=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
-    --do_test \
+    --base_model=microsoft/graphcodebert-base \
     --train_data_file=../dataset/train.txt \
     --eval_data_file=../dataset/valid.txt \
     --test_data_file=../dataset/test.txt \
-    --epoch 1 \
     --code_length 512 \
     --data_flow_length 128 \
-    --train_batch_size 16 \
     --eval_batch_size 32 \
-    --evaluate_during_training \
-    --seed 123456 2>&1| tee saved_models/attack.log
+    --seed 123456 2>&1| tee attack.log
+```
+
+#### GA-ATTACK
+
+```shell
+cd code
+CUDA_VISIBLE_DEVICES=4 python attack.py \
+    --output_dir=./saved_models \
+    --model_type=roberta \
+    --config_name=microsoft/graphcodebert-base \
+    --csv_store_path ./attack_base_result.csv \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --base_model=microsoft/graphcodebert-base \
+    --train_data_file=../dataset/train.txt \
+    --eval_data_file=../dataset/valid.txt \
+    --test_data_file=../dataset/test.txt \
+    --code_length 512 \
+    --data_flow_length 128 \
+    --eval_batch_size 32 \
+    --use_ga \
+    --seed 123456 2>&1| tee attack_GA.log
+```
+
+#### MHM-Attack
+```shell
+cd code
+CUDA_VISIBLE_DEVICES=7 python mhm_attack.py \
+    --output_dir=./saved_models \
+    --model_type=roberta \
+    --config_name=microsoft/graphcodebert-base \
+    --csv_store_path ./attack_base_result.csv \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --base_model=microsoft/graphcodebert-base \
+    --train_data_file=../dataset/train.txt \
+    --eval_data_file=../dataset/valid.txt \
+    --test_data_file=../dataset/test.txt \
+    --code_length 512 \
+    --data_flow_length 128 \
+    --eval_batch_size 32 \
+    --seed 123456 2>&1| tee attack_mhm.log
 ```
 
 ## Result
