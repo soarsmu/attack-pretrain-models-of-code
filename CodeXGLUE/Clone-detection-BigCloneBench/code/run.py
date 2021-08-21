@@ -165,8 +165,8 @@ class TextDataset(Dataset):
                         label=1
                     data.append((url1,url2,label,tokenizer, args,cache,url_to_code))
                     # 所有东西都存进来内存不爆炸么....
-            if 'test' not in postfix:
-                data=random.sample(data,int(len(data)*0.1))
+            if 'train' not in postfix:
+                data=random.sample(data,int(len(data)*0.01))
             for sing_example in data:
                 code_pairs.append([sing_example[0], 
                                     sing_example[1], 
@@ -174,6 +174,7 @@ class TextDataset(Dataset):
                                     url_to_code[sing_example[1]]])
             with open(code_pairs_file_path, 'wb') as f:
                 pickle.dump(code_pairs, f)
+            pool = multiprocessing.Pool(7)
             self.examples=pool.map(get_example,tqdm(data,total=len(data)))
             torch.save(self.examples, cache_file_path)
         # 这应该就是处理数据的地方了.
@@ -453,6 +454,9 @@ def test(args, model, tokenizer, prefix="",pool=None,best_threshold=0):
             y_trues.append(labels.cpu().numpy())
         nb_eval_steps += 1
     logits=np.concatenate(logits,0)
+    y_trues=np.concatenate(y_trues,0)
+
+    
     y_preds=logits[:,1]>best_threshold
     from sklearn.metrics import recall_score
     recall=recall_score(y_trues, y_preds, average='macro')
