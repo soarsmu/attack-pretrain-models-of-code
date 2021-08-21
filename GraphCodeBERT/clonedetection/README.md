@@ -163,7 +163,7 @@ CUDA_VISIBLE_DEVICES=4 python attack.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --config_name=microsoft/graphcodebert-base \
-    --csv_store_path ./attack_base_result.csv \
+    --csv_store_path ./attack_base_result_GA.csv \
     --model_name_or_path=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
     --base_model=microsoft/graphcodebert-base \
@@ -184,7 +184,6 @@ CUDA_VISIBLE_DEVICES=7 python mhm_attack.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --config_name=microsoft/graphcodebert-base \
-    --csv_store_path ./attack_base_result.csv \
     --model_name_or_path=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
     --base_model=microsoft/graphcodebert-base \
