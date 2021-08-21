@@ -14,7 +14,7 @@ import numpy as np
 from model import Model
 from utils import set_seed
 from run import TextDataset
-from utils import CodeDataset
+from utils import GraphCodeDataset
 from run_parser import get_identifiers
 from transformers import RobertaForMaskedLM
 from transformers import (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
@@ -74,10 +74,10 @@ if __name__ == "__main__":
                         help="Optional pretrained config name or path if not the same as model_name_or_path")
     parser.add_argument("--tokenizer_name", default="", type=str,
                         help="Optional pretrained tokenizer name or path if not the same as model_name_or_path")
-    parser.add_argument("--block_size", default=-1, type=int,
-                        help="Optional input sequence length after tokenization."
-                             "The training dataset will be truncated in block of this size for training."
-                             "Default to the model max input length for single sentence inputs (take into account special tokens).")
+    parser.add_argument("--data_flow_length", default=64, type=int,
+                        help="Optional Data Flow input sequence length after tokenization.") 
+    parser.add_argument("--code_length", default=256, type=int,
+                        help="Optional Code input sequence length after tokenization.") 
     parser.add_argument("--do_eval", action='store_true',
                         help="Whether to run eval on the dev set.")
     parser.add_argument("--do_test", action='store_true',
@@ -118,7 +118,6 @@ if __name__ == "__main__":
         if os.path.exists(step_file):
             with open(step_file, encoding='utf-8') as stepf:
                 args.start_step = int(stepf.readlines()[0].strip())
-        logger.info("reload model from {}, resume from {} epoch".format(checkpoint_last, args.start_epoch))
 
 
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
@@ -128,9 +127,6 @@ if __name__ == "__main__":
     tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name,
                                                 do_lower_case=False,
                                                 cache_dir=args.cache_dir if args.cache_dir else None)
-    if args.block_size <= 0:
-        args.block_size = tokenizer.max_len_single_sentence  # Our input block size will be the max possible for the model
-    args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
     if args.model_name_or_path:
         model = model_class.from_pretrained(args.model_name_or_path,
                                             from_tf=bool('.ckpt' in args.model_name_or_path),
@@ -186,13 +182,13 @@ if __name__ == "__main__":
         code_tokens = [i for i in code_tokens]
         processed_code = " ".join(code_tokens)
 
-        new_feature = convert_code_to_features(processed_code, tokenizer, example[1].item(), args)
-        new_dataset = CodeDataset([new_feature])
+        new_feature = convert_code_to_features(processed_code, tokenizer, example[3].item(), args)
+        new_dataset = GraphCodeDataset([new_feature], args)
 
         orig_prob, orig_label = model.get_results(new_dataset, args.eval_batch_size)
         orig_prob = orig_prob[0]
         orig_label = orig_label[0]
-        ground_truth = example[1].item()
+        ground_truth = example[3].item()
         if orig_label != ground_truth:
             continue
         
