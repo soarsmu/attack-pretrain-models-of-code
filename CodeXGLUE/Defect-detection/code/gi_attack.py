@@ -10,8 +10,6 @@ import os
 sys.path.append('../../../')
 sys.path.append('../../../python_parser')
 
-import csv
-import copy
 import json
 import logging
 import argparse
@@ -20,11 +18,10 @@ import torch
 import numpy as np
 import random
 from model import Model
-from run import TextDataset, InputFeatures
-from utils import select_parents, crossover, map_chromesome, mutate, is_valid_variable_name, _tokenize, get_identifier_posistions_from_code, get_masked_code_by_position, get_substitues, is_valid_substitue, set_seed
+from run import TextDataset
+from utils import set_seed
 
 from utils import Recorder
-from run_parser import get_identifiers
 from attacker import Attacker
 from transformers import (RobertaForMaskedLM, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
 
