@@ -213,7 +213,9 @@ class Attacker():
             all_substitues = set(all_substitues)
 
             for tmp_substitue in all_substitues:
-                if not is_valid_substitue(tmp_substitue, tgt_word, 'c'):
+                if tmp_substitue in variable_names:
+                    continue
+                if not is_valid_substitue(tmp_substitue.strip(), tgt_word, 'c'):
                     continue
                 try:
                     variable_substitue_dict[tgt_word].append(tmp_substitue)
@@ -240,7 +242,7 @@ class Attacker():
                 
                 # 原来是随机选择的，现在要找到改变最大的.
                 for a_substitue in variable_substitue_dict[tgt_word]:
-                    a_substitue = a_substitue.strip()
+                    # a_substitue = a_substitue.strip()
                     for one_pos in tgt_positions:
                         # 将对应的位置变成substitue
                         temp_replace[one_pos] = a_substitue
@@ -476,16 +478,15 @@ class Attacker():
             replace_examples = []
 
             substitute_list = []
+            
             # 依次记录了被加进来的substitue
             # 即，每个temp_replace对应的substitue.
-            for substitute_ in all_substitues:
+            for substitute in all_substitues:
 
-                substitute = substitute_.strip()
-                # FIX: 有些substitue的开头或者末尾会产生空格
-                # 这些头部和尾部的空格在拼接的时候并不影响，但是因为下面的第4个if语句会被跳过
-                # 这导致了部分mutants为空，而引发了runtime error
+                if substitute in variable_names:
+                    continue
 
-                if not is_valid_substitue(substitute, tgt_word, 'c'):
+                if not is_valid_substitue(substitute.strip(), tgt_word, 'c'):
                     continue
                 
                 temp_replace = copy.deepcopy(final_words)
@@ -497,7 +498,6 @@ class Attacker():
 
                 # 需要将几个位置都替换成sustitue_
                 temp_code = " ".join(temp_replace)
-                                                
                 new_feature = convert_code_to_features(temp_code, self.tokenizer_tgt, example[3].item(), self.args)
                 replace_examples.append(new_feature)
             if len(replace_examples) == 0:
@@ -507,7 +507,6 @@ class Attacker():
                 # 3. 将他们转化成features
             logits, preds = self.model_tgt.get_results(new_dataset, self.args.eval_batch_size)
             assert(len(logits) == len(substitute_list))
-
 
             for index, temp_prob in enumerate(logits):
                 temp_label = preds[index]
@@ -619,7 +618,9 @@ class MHM_Attacker():
             all_substitues = set(all_substitues)
 
             for tmp_substitue in all_substitues:
-                if not is_valid_substitue(tmp_substitue, tgt_word, 'c'):
+                if tmp_substitue in variable_names:
+                    continue
+                if not is_valid_substitue(tmp_substitue.strip(), tgt_word, 'c'):
                     continue
                 try:
                     variable_substitue_dict[tgt_word].append(tmp_substitue)
