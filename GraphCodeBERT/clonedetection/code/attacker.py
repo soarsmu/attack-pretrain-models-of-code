@@ -226,10 +226,17 @@ class Attacker():
                                             self.use_bpe, 
                                             word_pred_scores, 
                                             self.threshold_pred_score)
+                # 返回subsitgutes，原来对应的sub_words的id.
+                # 使用这些新id，替换原来sub_words对应位置的id
+                # 将新的input_ids放入CodeBERT(not mlm)，得到对应位置的embedding
+                # 和原始的embedding计算相似度
+                # 选择相似度更高的top xxx.
                 all_substitues += substitutes
             all_substitues = set(all_substitues)
 
             for tmp_substitue in all_substitues:
+                if tmp_substitue in variable_names:
+                    continue
                 if not is_valid_substitue(tmp_substitue, tgt_word, 'java'):
                     continue
                 try:
@@ -257,7 +264,7 @@ class Attacker():
                 
                 # 原来是随机选择的，现在要找到改变最大的.
                 for a_substitue in variable_substitue_dict[tgt_word]:
-                    a_substitue = a_substitue.strip()
+                    # a_substitue = a_substitue.strip()
                     for one_pos in tgt_positions:
                         # 将对应的位置变成substitue
                         temp_replace[one_pos] = a_substitue
@@ -509,14 +516,10 @@ class Attacker():
             substitute_list = []
             # 依次记录了被加进来的substitue
             # 即，每个temp_replace对应的substitue.
-            for substitute_ in all_substitues:
-
-                substitute = substitute_.strip()
-                # FIX: 有些substitue的开头或者末尾会产生空格
-                # 这些头部和尾部的空格在拼接的时候并不影响，但是因为下面的第4个if语句会被跳过
-                # 这导致了部分mutants为空，而引发了runtime error
-
-                if not is_valid_substitue(substitute, tgt_word, 'java'):
+            for substitute in all_substitues:
+                if substitute in variable_names:
+                    continue
+                if not is_valid_substitue(substitute.strip(), tgt_word, 'java'):
                     continue
                 
                 temp_replace = copy.deepcopy(final_words)
@@ -686,6 +689,8 @@ class MHM_Attacker():
             all_substitues = set(all_substitues)
 
             for tmp_substitue in all_substitues:
+                if tmp_substitue in variable_names:
+                    continue
                 if not is_valid_substitue(tmp_substitue, tgt_word, 'java'):
                     continue
                 try:
