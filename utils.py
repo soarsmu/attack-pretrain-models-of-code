@@ -166,12 +166,6 @@ def is_valid_substitue(substitute: str, tgt_word: str, lang: str) -> bool:
     判断生成的substitues是否valid，如是否满足命名规范
     '''
     is_valid = True
-    if substitute == tgt_word:
-        # 如果和原来的词相同
-        is_valid = False  # filter out original word
-
-    if '##' in substitute:
-        is_valid = False  # filter out sub-word
 
     if not is_valid_variable_name(substitute, lang):
         is_valid = False
@@ -274,7 +268,7 @@ def get_substitues(substitutes, tokenizer, mlm_model, use_bpe, substitutes_score
         for (i, j) in zip(substitutes[0], substitutes_score[0]):
             if threshold != 0 and j < threshold:
                 break
-            words.append(tokenizer._convert_id_to_token(int(i)))
+            words.append(tokenizer._decode([int(i)]))
             # 将id转为token.
     else:
         # word被分解成了多个subwords
