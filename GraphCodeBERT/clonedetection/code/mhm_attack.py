@@ -173,7 +173,7 @@ if __name__ == "__main__":
 
         _res = attacker.mcmc(example, tokenizer, code_pair,
                              _label=ground_truth, _n_candi=30,
-                             _max_iter=50, _prob_threshold=1)
+                             _max_iter=400, _prob_threshold=1)
     
         if _res['succ'] is None:
             continue
