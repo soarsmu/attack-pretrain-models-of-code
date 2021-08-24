@@ -151,7 +151,7 @@ class Attacker():
         # 如果长度超了，就截断；这里的block_size是CodeBERT能接受的输入长度
         input_ids_ = torch.tensor([self.tokenizer_mlm.convert_tokens_to_ids(sub_words)])
         word_predictions = self.model_mlm(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
-        word_pred_scores_all, word_predictions = torch.topk(word_predictions, 30, -1)  # seq-len k
+        word_pred_scores_all, word_predictions = torch.topk(word_predictions, 60, -1)  # seq-len k
         # 得到前k个结果.
 
         word_predictions = word_predictions[1:len(sub_words) + 1, :]
@@ -170,7 +170,7 @@ class Attacker():
         variable_substitue_dict = {}
 
 
-
+        cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
         for tgt_word in names_positions_dict.keys():
             tgt_positions = names_positions_dict[tgt_word] # the positions of tgt_word in code
             if not is_valid_variable_name(tgt_word, lang='c'):
@@ -181,14 +181,47 @@ class Attacker():
             all_substitues = []
             for one_pos in tgt_positions:
                 ## 一个变量名会出现很多次
+                if keys[one_pos][0] >= word_predictions.size()[0]:
+                    continue
                 substitutes = word_predictions[keys[one_pos][0]:keys[one_pos][1]]  # L, k
                 word_pred_scores = word_pred_scores_all[keys[one_pos][0]:keys[one_pos][1]]
 
-                substitutes = get_substitues(substitutes, 
+                with torch.no_grad():
+                    orig_embeddings = self.model_mlm.roberta(input_ids_.to("cuda"))[0]
+                orig_word_embed = orig_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
+
+                similar_substitutes = []
+                similar_word_pred_scores = []
+                sims = []
+                subwords_leng, nums_candis = substitutes.size()
+
+                for i in range(nums_candis):
+
+                    new_ids_ = copy.deepcopy(input_ids_)
+                    new_ids_[0][keys[one_pos][0]+1:keys[one_pos][1]+1] = substitutes[:,i]
+                    # 替换词得到新embeddings
+
+                    with torch.no_grad():
+                        new_embeddings = self.model_mlm.roberta(new_ids_.to("cuda"))[0]
+                    new_word_embed = new_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
+
+                    sims.append((i, sum(cos(orig_word_embed, new_word_embed))/subwords_leng))
+                
+                sims = sorted(sims, key=lambda x: x[1], reverse=True)
+                # 排序取top 30 个
+
+                for i in range(int(nums_candis/2)):
+                    similar_substitutes.append(substitutes[:,sims[i][0]].reshape(subwords_leng, -1))
+                    similar_word_pred_scores.append(word_pred_scores[:,sims[i][0]].reshape(subwords_leng, -1))
+
+                similar_substitutes = torch.cat(similar_substitutes, 1)
+                similar_word_pred_scores = torch.cat(similar_word_pred_scores, 1)
+
+                substitutes = get_substitues(similar_substitutes, 
                                             self.tokenizer_mlm, 
                                             self.model_mlm, 
                                             self.use_bpe, 
-                                            word_pred_scores, 
+                                            similar_word_pred_scores, 
                                             self.threshold_pred_score)
                 all_substitues += substitutes
             all_substitues = set(all_substitues)
@@ -377,7 +410,7 @@ class Attacker():
         # 如果长度超了，就截断；这里的block_size是CodeBERT能接受的输入长度
         input_ids_ = torch.tensor([self.tokenizer_mlm.convert_tokens_to_ids(sub_words)])
         word_predictions = self.model_mlm(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
-        word_pred_scores_all, word_predictions = torch.topk(word_predictions, 30, -1)  # seq-len k
+        word_pred_scores_all, word_predictions = torch.topk(word_predictions, 60, -1)  # seq-len k
         # 得到前k个结果.
 
         word_predictions = word_predictions[1:len(sub_words) + 1, :]
@@ -428,6 +461,7 @@ class Attacker():
         nb_changed_pos = 0
         is_success = -1
         replaced_words = {}
+        cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
 
         for name_and_score in sorted_list_of_names:
             tgt_word = name_and_score[0]
@@ -439,16 +473,50 @@ class Attacker():
 
             ## 得到substitues
             all_substitues = []
+            
             for one_pos in tgt_positions:
                 ## 一个变量名会出现很多次
+                if keys[one_pos][0] >= word_predictions.size()[0]:
+                    continue
                 substitutes = word_predictions[keys[one_pos][0]:keys[one_pos][1]]  # L, k
                 word_pred_scores = word_pred_scores_all[keys[one_pos][0]:keys[one_pos][1]]
 
-                substitutes = get_substitues(substitutes, 
+                with torch.no_grad():
+                    orig_embeddings = self.model_mlm.roberta(input_ids_.to("cuda"))[0]
+                orig_word_embed = orig_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
+
+                similar_substitutes = []
+                similar_word_pred_scores = []
+                sims = []
+                subwords_leng, nums_candis = substitutes.size()
+
+                for i in range(nums_candis):
+
+                    new_ids_ = copy.deepcopy(input_ids_)
+                    new_ids_[0][keys[one_pos][0]+1:keys[one_pos][1]+1] = substitutes[:,i]
+                    # 替换词得到新embeddings
+
+                    with torch.no_grad():
+                        new_embeddings = self.model_mlm.roberta(new_ids_.to("cuda"))[0]
+                    new_word_embed = new_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
+                    
+                    sims.append((i, sum(cos(orig_word_embed, new_word_embed))/subwords_leng))
+                
+                sims = sorted(sims, key=lambda x: x[1], reverse=True)
+                # 排序取top 30 个
+
+                for i in range(int(nums_candis/2)):
+                    similar_substitutes.append(substitutes[:,sims[i][0]].reshape(subwords_leng, -1))
+                    similar_word_pred_scores.append(word_pred_scores[:,sims[i][0]].reshape(subwords_leng, -1))
+                
+                similar_substitutes = torch.cat(similar_substitutes, 1)
+                similar_word_pred_scores = torch.cat(similar_word_pred_scores, 1)
+
+                substitutes = get_substitues(similar_substitutes, 
                                             self.tokenizer_mlm, 
                                             self.model_mlm, 
                                             self.use_bpe, 
-                                            word_pred_scores, 
+                                            similar_word_pred_scores, 
                                             self.threshold_pred_score)
                 all_substitues += substitutes
             all_substitues = set(all_substitues)
@@ -547,6 +615,7 @@ class MHM_Attacker():
     def mcmc(self, tokenizer, code=None, _label=None, _n_candi=30,
              _max_iter=100, _prob_threshold=0.95):
         identifiers, code_tokens = get_identifiers(code, 'c')
+        prog_length = len(code_tokens)
         processed_code = " ".join(code_tokens)
 
         words, sub_words, keys = _tokenize(processed_code, tokenizer)
@@ -567,7 +636,7 @@ class MHM_Attacker():
         # 如果长度超了，就截断；这里的block_size是CodeBERT能接受的输入长度
         input_ids_ = torch.tensor([tokenizer.convert_tokens_to_ids(sub_words)])
         word_predictions = self.model_mlm(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
-        word_pred_scores_all, word_predictions = torch.topk(word_predictions, 30, -1)  # seq-len k
+        word_pred_scores_all, word_predictions = torch.topk(word_predictions, 60, -1)  # seq-len k
         # 得到前k个结果.
 
         word_predictions = word_predictions[1:len(sub_words) + 1, :]
@@ -576,6 +645,7 @@ class MHM_Attacker():
 
 
         variable_substitue_dict = {}
+        cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
         for tgt_word in uid.keys():
             if not is_valid_variable_name(tgt_word, 'c'):
                 # 如果不是变量名
@@ -586,14 +656,47 @@ class MHM_Attacker():
             all_substitues = []
             for one_pos in tgt_positions:
                 ## 一个变量名会出现很多次
+                if keys[one_pos][0] >= word_predictions.size()[0]:
+                    continue
                 substitutes = word_predictions[keys[one_pos][0]:keys[one_pos][1]]  # L, k
                 word_pred_scores = word_pred_scores_all[keys[one_pos][0]:keys[one_pos][1]]
 
-                substitutes = get_substitues(substitutes, 
+                with torch.no_grad():
+                    orig_embeddings = self.model_mlm.roberta(input_ids_.to("cuda"))[0]
+                orig_word_embed = orig_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
+
+                similar_substitutes = []
+                similar_word_pred_scores = []
+                sims = []
+                subwords_leng, nums_candis = substitutes.size()
+                
+                for i in range(nums_candis):
+
+                    new_ids_ = copy.deepcopy(input_ids_)
+                    new_ids_[0][keys[one_pos][0]+1:keys[one_pos][1]+1] = substitutes[:,i]
+                    # 替换词得到新embeddings
+
+                    with torch.no_grad():
+                        new_embeddings = self.model_mlm.roberta(new_ids_.to("cuda"))[0]
+                    new_word_embed = new_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
+
+                    sims.append((i, sum(cos(orig_word_embed, new_word_embed))/subwords_leng))
+                
+                sims = sorted(sims, key=lambda x: x[1], reverse=True)
+                # 排序取top 30 个
+
+                for i in range(int(nums_candis/2)):
+                    similar_substitutes.append(substitutes[:,sims[i][0]].reshape(subwords_leng, -1))
+                    similar_word_pred_scores.append(word_pred_scores[:,sims[i][0]].reshape(subwords_leng, -1))
+
+                similar_substitutes = torch.cat(similar_substitutes, 1)
+                similar_word_pred_scores = torch.cat(similar_word_pred_scores, 1)
+
+                substitutes = get_substitues(similar_substitutes, 
                                             self.tokenizer_mlm, 
                                             self.model_mlm, 
                                             1, 
-                                            word_pred_scores, 
+                                            similar_word_pred_scores, 
                                             0)
                 all_substitues += substitutes
             all_substitues = set(all_substitues)
@@ -608,7 +711,7 @@ class MHM_Attacker():
                 except:
                     variable_substitue_dict[tgt_word] = [tmp_substitue]
         
-
+        old_uid = ""
         for iteration in range(1, 1+_max_iter):
             # 这个函数需要tokens
             res = self.__replaceUID(_tokens=words, _label=_label, _uid=uid,
@@ -616,6 +719,10 @@ class MHM_Attacker():
                                     _n_candi=_n_candi,
                                     _prob_threshold=_prob_threshold)
             self.__printRes(_iter=iteration, _res=res, _prefix="  >> ")
+            if iteration == 1:
+                old_uid = res["old_uid"]
+            if res['status'].lower() == 'r':
+                old_uid = res["old_uid"]
             if res['status'].lower() in ['s', 'a']:
                 tokens = res['tokens']
                 uid[res['new_uid']] = uid.pop(res['old_uid']) # 替换key，但保留value.
@@ -625,9 +732,9 @@ class MHM_Attacker():
                         raw_tokens[i] = res['new_uid']
                 if res['status'].lower() == 's':
                     return {'succ': True, 'tokens': tokens,
-                            'raw_tokens': raw_tokens}
+                            'raw_tokens': raw_tokens, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": 1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "MHM"}
 
-        return {'succ': False, 'tokens': None, 'raw_tokens': None}
+        return {'succ': False, 'tokens': res['tokens'], 'raw_tokens': None, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": -1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "MHM"}
         
     def __replaceUID(self, _tokens=[], _label=None, _uid={}, substitute_dict={},
                      _n_candi=30, _prob_threshold=0.95, _candi_mode="random"):
@@ -664,7 +771,7 @@ class MHM_Attacker():
                     return {"status": "s", "alpha": 1, "tokens": candi_tokens[i],
                             "old_uid": selected_uid, "new_uid": candi_token[i],
                             "old_prob": prob[0], "new_prob": prob[i],
-                            "old_pred": pred[0], "new_pred": pred[i]}
+                            "old_pred": pred[0], "new_pred": pred[i], "nb_changed_pos": _tokens.count(selected_uid)}
 
             candi_idx = 0
             min_prob = 1.0
@@ -682,12 +789,12 @@ class MHM_Attacker():
                 return {"status": "r", "alpha": alpha, "tokens": candi_tokens[i],
                         "old_uid": selected_uid, "new_uid": candi_token[i],
                         "old_prob": prob[0], "new_prob": prob[i],
-                        "old_pred": pred[0], "new_pred": pred[i]}
+                        "old_pred": pred[0], "new_pred": pred[i], "nb_changed_pos": _tokens.count(selected_uid)}
             else:
                 return {"status": "a", "alpha": alpha, "tokens": candi_tokens[i],
                         "old_uid": selected_uid, "new_uid": candi_token[i],
                         "old_prob": prob[0], "new_prob": prob[i],
-                        "old_pred": pred[0], "new_pred": pred[i]}
+                        "old_pred": pred[0], "new_pred": pred[i], "nb_changed_pos": _tokens.count(selected_uid)}
         else:
             pass
 
