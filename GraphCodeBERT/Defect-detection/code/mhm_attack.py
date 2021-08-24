@@ -13,9 +13,8 @@ import torch
 import numpy as np
 from model import Model
 from utils import set_seed
-from utils import Recorder
 from run import TextDataset
-from utils import CodeDataset
+from utils import GraphCodeDataset
 from run_parser import get_identifiers
 from transformers import RobertaForMaskedLM
 from transformers import (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
@@ -31,7 +30,7 @@ MODEL_CLASSES = {
 
 from utils import build_vocab
             
-def main():
+if __name__ == "__main__":
     
     import json
     import pickle
@@ -64,7 +63,7 @@ def main():
     parser.add_argument("--base_model", default=None, type=str,
                         help="Base Model")
     parser.add_argument("--csv_store_path", default=None, type=str,
-                        help="results")
+                        help="Base Model")
 
     parser.add_argument("--mlm", action='store_true',
                         help="Train with masked-language modeling loss instead of language modeling.")
@@ -75,10 +74,10 @@ def main():
                         help="Optional pretrained config name or path if not the same as model_name_or_path")
     parser.add_argument("--tokenizer_name", default="", type=str,
                         help="Optional pretrained tokenizer name or path if not the same as model_name_or_path")
-    parser.add_argument("--block_size", default=-1, type=int,
-                        help="Optional input sequence length after tokenization."
-                             "The training dataset will be truncated in block of this size for training."
-                             "Default to the model max input length for single sentence inputs (take into account special tokens).")
+    parser.add_argument("--data_flow_length", default=64, type=int,
+                        help="Optional Data Flow input sequence length after tokenization.") 
+    parser.add_argument("--code_length", default=256, type=int,
+                        help="Optional Code input sequence length after tokenization.") 
     parser.add_argument("--do_eval", action='store_true',
                         help="Whether to run eval on the dev set.")
     parser.add_argument("--do_test", action='store_true',
@@ -128,9 +127,6 @@ def main():
     tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name,
                                                 do_lower_case=False,
                                                 cache_dir=args.cache_dir if args.cache_dir else None)
-    if args.block_size <= 0:
-        args.block_size = tokenizer.max_len_single_sentence  # Our input block size will be the max possible for the model
-    args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
     if args.model_name_or_path:
         model = model_class.from_pretrained(args.model_name_or_path,
                                             from_tf=bool('.ckpt' in args.model_name_or_path),
@@ -148,6 +144,8 @@ def main():
     model.to(args.device)
     print ("MODEL LOADED!")
 
+    
+    save_path = "./mlm_result.pkl"
 
     # Load Dataset
     ## Load Dataset
@@ -167,7 +165,6 @@ def main():
 
     id2token, token2id = build_vocab(code_tokens, 5000)
 
-    recoder = Recorder(args.csv_store_path)
     attacker = MHM_Attacker(args, model, codebert_mlm, tokenizer_mlm, token2id, id2token)
     
     # token2id: dict,key是变量名, value是id
@@ -185,13 +182,13 @@ def main():
         code_tokens = [i for i in code_tokens]
         processed_code = " ".join(code_tokens)
 
-        new_feature = convert_code_to_features(processed_code, tokenizer, example[1].item(), args)
-        new_dataset = CodeDataset([new_feature])
+        new_feature = convert_code_to_features(processed_code, tokenizer, example[3].item(), args)
+        new_dataset = GraphCodeDataset([new_feature], args)
 
         orig_prob, orig_label = model.get_results(new_dataset, args.eval_batch_size)
         orig_prob = orig_prob[0]
         orig_label = orig_label[0]
-        ground_truth = example[1].item()
+        ground_truth = example[3].item()
         if orig_label != ground_truth:
             continue
         
@@ -201,8 +198,8 @@ def main():
 
         _res = attacker.mcmc(tokenizer, code,
                              _label=ground_truth, _n_candi=30,
-                             _max_iter=50, _prob_threshold=1)
-        
+                             _max_iter=400, _prob_threshold=1)
+    
         if _res['succ'] is None:
             continue
         if _res['succ'] == True:
@@ -215,8 +212,9 @@ def main():
         total_cnt += 1
         print ("  time cost = %.2f min" % ((time.time()-start_time)/60))
         print ("  curr succ rate = "+str(n_succ/total_cnt))
+            
+    print ("\nFINAL SUCC RATE = "+str(n_succ/len(eval_dataset)))
 
-        recoder.writemhm(index, code, _res["prog_length"], " ".join(_res['tokens']), ground_truth, orig_label, _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"])
-
-if __name__ == "__main__":
-    main()
+    with open(save_path, "wb") as f:
+        pickle.dump(adv, f)
+    print ("\nADVERSARIAL EXAMPLES DUMPED!")

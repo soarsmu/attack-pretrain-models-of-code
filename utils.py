@@ -166,12 +166,6 @@ def is_valid_substitue(substitute: str, tgt_word: str, lang: str) -> bool:
     判断生成的substitues是否valid，如是否满足命名规范
     '''
     is_valid = True
-    if substitute == tgt_word:
-        # 如果和原来的词相同
-        is_valid = False  # filter out original word
-
-    if '##' in substitute:
-        is_valid = False  # filter out sub-word
 
     if not is_valid_variable_name(substitute, lang):
         is_valid = False
@@ -274,7 +268,7 @@ def get_substitues(substitutes, tokenizer, mlm_model, use_bpe, substitutes_score
         for (i, j) in zip(substitutes[0], substitutes_score[0]):
             if threshold != 0 and j < threshold:
                 break
-            words.append(tokenizer._convert_id_to_token(int(i)))
+            words.append(tokenizer._decode([int(i)]))
             # 将id转为token.
     else:
         # word被分解成了多个subwords
@@ -545,6 +539,106 @@ class CodeDataset(Dataset):
     def __getitem__(self, i):       
         return torch.tensor(self.examples[i].input_ids),torch.tensor(self.examples[i].label)
 
+class GraphCodeDataset(Dataset):
+    def __init__(self, examples, args):
+        self.examples = examples
+        self.args=args
+    
+    def __len__(self):
+        return len(self.examples)
+
+    def __getitem__(self, item):
+        #calculate graph-guided masked function
+        attn_mask=np.zeros((self.args.code_length+self.args.data_flow_length,
+                            self.args.code_length+self.args.data_flow_length),dtype=np.bool)
+        #calculate begin index of node and max length of input
+        
+        node_index=sum([i>1 for i in self.examples[item].position_idx])
+        max_length=sum([i!=1 for i in self.examples[item].position_idx])
+        #sequence can attend to sequence
+        attn_mask[:node_index,:node_index]=True
+        #special tokens attend to all tokens
+        for idx,i in enumerate(self.examples[item].input_ids):
+            if i in [0,2]:
+                attn_mask[idx,:max_length]=True
+        #nodes attend to code tokens that are identified from
+        for idx,(a,b) in enumerate(self.examples[item].dfg_to_code):
+            if a<node_index and b<node_index:
+                attn_mask[idx+node_index,a:b]=True
+                attn_mask[a:b,idx+node_index]=True
+        #nodes attend to adjacent nodes 
+        for idx,nodes in enumerate(self.examples[item].dfg_to_dfg):
+            for a in nodes:
+                if a+node_index<len(self.examples[item].position_idx):
+                    attn_mask[idx+node_index,a+node_index]=True
+              
+        return (torch.tensor(self.examples[item].input_ids),
+              torch.tensor(attn_mask),
+              torch.tensor(self.examples[item].position_idx),
+              torch.tensor(self.examples[item].label))
+
+class CodePairDataset(Dataset):
+    def __init__(self, examples, args):
+        self.examples = examples
+        self.args=args
+    
+    def __len__(self):
+        return len(self.examples)
+
+    def __getitem__(self, item):
+        #calculate graph-guided masked function
+        attn_mask_1= np.zeros((self.args.code_length+self.args.data_flow_length,
+                        self.args.code_length+self.args.data_flow_length),dtype=np.bool)
+        #calculate begin index of node and max length of input
+        node_index=sum([i>1 for i in self.examples[item].position_idx_1])
+        max_length=sum([i!=1 for i in self.examples[item].position_idx_1])
+        #sequence can attend to sequence
+        attn_mask_1[:node_index,:node_index]=True
+        #special tokens attend to all tokens
+        for idx,i in enumerate(self.examples[item].input_ids_1):
+            if i in [0,2]:
+                attn_mask_1[idx,:max_length]=True
+        #nodes attend to code tokens that are identified from
+        for idx,(a,b) in enumerate(self.examples[item].dfg_to_code_1):
+            if a<node_index and b<node_index:
+                attn_mask_1[idx+node_index,a:b]=True
+                attn_mask_1[a:b,idx+node_index]=True
+        #nodes attend to adjacent nodes 
+        for idx,nodes in enumerate(self.examples[item].dfg_to_dfg_1):
+            for a in nodes:
+                if a+node_index<len(self.examples[item].position_idx_1):
+                    attn_mask_1[idx+node_index,a+node_index]=True  
+                    
+        #calculate graph-guided masked function
+        attn_mask_2= np.zeros((self.args.code_length+self.args.data_flow_length,
+                        self.args.code_length+self.args.data_flow_length),dtype=np.bool)
+        #calculate begin index of node and max length of input
+        node_index=sum([i>1 for i in self.examples[item].position_idx_2])
+        max_length=sum([i!=1 for i in self.examples[item].position_idx_2])
+        #sequence can attend to sequence
+        attn_mask_2[:node_index,:node_index]=True
+        #special tokens attend to all tokens
+        for idx,i in enumerate(self.examples[item].input_ids_2):
+            if i in [0,2]:
+                attn_mask_2[idx,:max_length]=True
+        #nodes attend to code tokens that are identified from
+        for idx,(a,b) in enumerate(self.examples[item].dfg_to_code_2):
+            if a<node_index and b<node_index:
+                attn_mask_2[idx+node_index,a:b]=True
+                attn_mask_2[a:b,idx+node_index]=True
+        #nodes attend to adjacent nodes 
+        for idx,nodes in enumerate(self.examples[item].dfg_to_dfg_2):
+            for a in nodes:
+                if a+node_index<len(self.examples[item].position_idx_2):
+                    attn_mask_2[idx+node_index,a+node_index]=True                      
+                    
+        return (torch.tensor(self.examples[item].input_ids_1),
+                torch.tensor(self.examples[item].position_idx_1),
+                torch.tensor(attn_mask_1), 
+                torch.tensor(self.examples[item].input_ids_2),
+                torch.tensor(self.examples[item].position_idx_2),
+                torch.tensor(attn_mask_2),                 
+                torch.tensor(self.examples[item].label))
 
 def set_seed(seed=42):
     random.seed(seed)
@@ -586,6 +680,22 @@ class Recorder():
                         temp_label, 
                         is_success, 
                         ",".join(variable_names),
+                        score_info,
+                        nb_changed_var,
+                        nb_changed_pos,
+                        replace_info,
+                        attack_type])
+
+    def writemhm(self, index, code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, score_info, nb_changed_var, nb_changed_pos, replace_info, attack_type):
+        self.writer.writerow([index,
+                        code, 
+                        prog_length, 
+                        adv_code, 
+                        true_label, 
+                        orig_label, 
+                        temp_label, 
+                        is_success, 
+                        variable_names,
                         score_info,
                         nb_changed_var,
                         nb_changed_pos,

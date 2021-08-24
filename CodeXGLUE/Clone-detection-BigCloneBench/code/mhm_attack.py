@@ -1,3 +1,4 @@
+from pickle import NONE
 import torch
 import sys
 import os
@@ -10,7 +11,9 @@ import warnings
 import torch
 from model import Model
 from utils import set_seed
-from run import TextDataset
+from utils import Recorder
+from run import TextDataset ,convert_examples_to_features
+from utils import CodeDataset
 from attacker import MHM_Attacker
 from attack import get_code_pairs
 from run_parser import get_identifiers
@@ -114,7 +117,6 @@ if __name__ == "__main__":
         if os.path.exists(step_file):
             with open(step_file, encoding='utf-8') as stepf:
                 args.start_step = int(stepf.readlines()[0].strip())
-        logger.info("reload model from {}, resume from {} epoch".format(checkpoint_last, args.start_epoch))
 
 
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
@@ -163,6 +165,7 @@ if __name__ == "__main__":
 
     id2token, token2id = build_vocab(code_tokens, 5000)
 
+    recoder = Recorder(args.csv_store_path)
     attacker = MHM_Attacker(args, model, codebert_mlm, tokenizer_mlm, token2id, id2token)
     
     # token2id: dict,key是变量名, value是id
@@ -184,7 +187,7 @@ if __name__ == "__main__":
 
         _res = attacker.mcmc(example, tokenizer, code_pair,
                              _label=ground_truth, _n_candi=30,
-                             _max_iter=50, _prob_threshold=1)
+                             _max_iter=10, _prob_threshold=1)
     
         if _res['succ'] is None:
             continue
@@ -198,9 +201,5 @@ if __name__ == "__main__":
         total_cnt += 1
         print ("  time cost = %.2f min" % ((time.time()-start_time)/60))
         print ("  curr succ rate = "+str(n_succ/total_cnt))
-            
-    print ("\nFINAL SUCC RATE = "+str(n_succ/len(eval_dataset)))
 
-    with open(save_path, "wb") as f:
-        pickle.dump(adv, f)
-    print ("\nADVERSARIAL EXAMPLES DUMPED!")
+        recoder.writemhm(index, code, _res["prog_length"], " ".join(_res['tokens']), ground_truth, _res["orig_label"], _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"])
