@@ -13,6 +13,7 @@ import torch
 import numpy as np
 from model import Model
 from utils import set_seed
+from utils import Recorder
 from run import TextDataset
 from utils import CodeDataset
 from run_parser import get_identifiers
@@ -30,7 +31,7 @@ MODEL_CLASSES = {
 
 from utils import build_vocab
             
-if __name__ == "__main__":
+def main():
     
     import json
     import pickle
@@ -63,7 +64,7 @@ if __name__ == "__main__":
     parser.add_argument("--base_model", default=None, type=str,
                         help="Base Model")
     parser.add_argument("--csv_store_path", default=None, type=str,
-                        help="Base Model")
+                        help="results")
 
     parser.add_argument("--mlm", action='store_true',
                         help="Train with masked-language modeling loss instead of language modeling.")
@@ -147,8 +148,6 @@ if __name__ == "__main__":
     model.to(args.device)
     print ("MODEL LOADED!")
 
-    
-    save_path = "./mlm_result.pkl"
 
     # Load Dataset
     ## Load Dataset
@@ -168,6 +167,7 @@ if __name__ == "__main__":
 
     id2token, token2id = build_vocab(code_tokens, 5000)
 
+    recoder = Recorder(args.csv_store_path)
     attacker = MHM_Attacker(args, model, codebert_mlm, tokenizer_mlm, token2id, id2token)
     
     # token2id: dict,key是变量名, value是id
@@ -201,8 +201,8 @@ if __name__ == "__main__":
 
         _res = attacker.mcmc(tokenizer, code,
                              _label=ground_truth, _n_candi=30,
-                             _max_iter=400, _prob_threshold=1)
-    
+                             _max_iter=50, _prob_threshold=1)
+        
         if _res['succ'] is None:
             continue
         if _res['succ'] == True:
@@ -215,9 +215,8 @@ if __name__ == "__main__":
         total_cnt += 1
         print ("  time cost = %.2f min" % ((time.time()-start_time)/60))
         print ("  curr succ rate = "+str(n_succ/total_cnt))
-            
-    print ("\nFINAL SUCC RATE = "+str(n_succ/len(eval_dataset)))
 
-    with open(save_path, "wb") as f:
-        pickle.dump(adv, f)
-    print ("\nADVERSARIAL EXAMPLES DUMPED!")
+        recoder.writemhm(index, code, _res["prog_length"], " ".join(_res['tokens']), ground_truth, orig_label, _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"])
+
+if __name__ == "__main__":
+    main()
