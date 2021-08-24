@@ -74,3 +74,16 @@ checklist
         - [x] Greedy
         - [x] GI
         - [x] MHM
+
+- [x] G的问题 @done(2021-08-23 03:38 PM)
+- [x] 多一个函数，不能选择已经出现的词. @done(2021-08-23 03:38 PM)
+- [x] 使用embedding来找到更similar的candidate @done(2021-08-23 03:40 PM)
+	- [x] 效率问题，显存
+- [ ] authorship attibribution的attack实验 #zhouyang
+- [ ] 运行原始的MHM，得到效果，以及修改的tokens和adversarial examples.
+- [x] 新的MHM，记录相关的内容.
+- [ ] 重新运行所有的attack，在测试集上
+- [ ] 运行所有的attack，在训练机上，需要in parallel....，并记录下所有内容
+- [ ] 重新进行adversarial training
+- [ ] 重新进行attack.
+- [ ] Cross-Attack.
