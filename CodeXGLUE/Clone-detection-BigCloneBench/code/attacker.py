@@ -786,6 +786,145 @@ class MHM_Attacker():
                         old_uids[res["old_uid"]].append(res["new_uid"])
                         old_uid = res["old_uid"]
                 else:
+                    old_uids[res["old_uid"]].append(res["new_uid"])
+                    old_uid = res["old_uid"]
+
+                tokens = res['tokens']
+                uid[res['new_uid']] = uid.pop(res['old_uid']) # 替换key，但保留value.
+                variable_substitue_dict[res['new_uid']] = variable_substitue_dict.pop(res['old_uid'])
+                for i in range(len(raw_tokens)):
+                    if raw_tokens[i] == res['old_uid']:
+                        raw_tokens[i] = res['new_uid']
+                if res['status'].lower() == 's':
+                    return {'succ': True, 'tokens': tokens,
+                            'raw_tokens': raw_tokens, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": 1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "MHM","orig_label": orig_label}
+
+        return {'succ': False, 'tokens': res['tokens'], 'raw_tokens': None, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": -1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "MHM", "orig_label": orig_label}
+    
+    def mcmc_random(self, example, tokenizer, code_pair, _label=None, _n_candi=30,
+             _max_iter=100, _prob_threshold=0.95):
+        code_1 = code_pair[2]
+        code_2 = code_pair[3]
+
+        # 先得到tgt_model针对原始Example的预测信息.
+
+        logits, preds = self.classifier.get_results([example], self.args.eval_batch_size)
+        orig_prob = logits[0]
+        orig_label = preds[0]
+        current_prob = max(orig_prob)
+
+        true_label = example[1].item()
+        adv_code = ''
+        temp_label = None
+
+
+        identifiers, code_tokens = get_identifiers(code_1, 'java')
+        prog_length = len(code_tokens)
+        processed_code = " ".join(code_tokens)
+
+        identifiers_2, code_tokens_2 = get_identifiers(code_2, 'java')
+        processed_code_2 = " ".join(code_tokens_2)
+
+        
+        words, sub_words, keys = _tokenize(processed_code, self.tokenizer_mlm)
+        words_2, _, _ = _tokenize(processed_code_2, self.tokenizer_mlm)
+
+        variable_names = []
+        for name in identifiers:
+            if ' ' in name[0].strip():
+                continue
+            variable_names.append(name[0])
+
+        if not orig_label == true_label:
+            # 说明原来就是错的
+            is_success = -4
+            return {'succ': None, 'tokens': None, 'raw_tokens': None}
+
+        raw_tokens = copy.deepcopy(words)
+
+        variable_names = []
+        for name in identifiers:
+            if ' ' in name[0].strip():
+                continue
+            variable_names.append(name[0])
+        uid = get_identifier_posistions_from_code(words, variable_names)
+
+        if len(uid) <= 0: # 是有可能存在找不到变量名的情况的.
+            return {'succ': None, 'tokens': None, 'raw_tokens': None}
+
+        # 还需要得到substitues
+
+        sub_words = [tokenizer.cls_token] + sub_words[:self.args.block_size - 2] + [tokenizer.sep_token]
+        # 如果长度超了，就截断；这里的block_size是CodeBERT能接受的输入长度
+        input_ids_ = torch.tensor([tokenizer.convert_tokens_to_ids(sub_words)])
+        word_predictions = self.model_mlm(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
+        word_pred_scores_all, word_predictions = torch.topk(word_predictions, 60, -1)  # seq-len k
+        # 得到前k个结果.
+
+        word_predictions = word_predictions[1:len(sub_words) + 1, :]
+        word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
+        # 只取subwords的部分，忽略首尾的预测结果.
+
+        cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
+        variable_substitue_dict = {}
+        for tgt_word in uid.keys():
+            if not is_valid_variable_name(tgt_word, 'java'):
+                # 如果不是变量名
+                continue   
+            tgt_positions = uid[tgt_word] # 在words中对应的位置
+
+            ## 得到(所有位置的)substitues
+            all_substitues = []
+            for one_pos in tgt_positions:
+                ## 一个变量名会出现很多次
+                substitutes = word_predictions[keys[one_pos][0]:keys[one_pos][1]]  # L, k
+                word_pred_scores = word_pred_scores_all[keys[one_pos][0]:keys[one_pos][1]]
+
+                substitutes = get_substitues(substitutes, 
+                                            self.tokenizer_mlm, 
+                                            self.model_mlm, 
+                                            1, 
+                                            word_pred_scores, 
+                                            0)
+                all_substitues += substitutes
+            all_substitues = set(all_substitues)
+
+            for tmp_substitue in all_substitues:
+                if not is_valid_substitue(tmp_substitue, tgt_word, 'java'):
+                    continue
+                try:
+                    variable_substitue_dict[tgt_word].append(tmp_substitue)
+                except:
+                    variable_substitue_dict[tgt_word] = [tmp_substitue]
+        
+        old_uids = {}
+        old_uid = ""
+        for iteration in range(1, 1+_max_iter):
+            # 这个函数需要tokens
+            res = self.__replaceUID_random(words_2=words_2, _tokens=words, _label=_label, _uid=uid,
+                                    substitute_dict=variable_substitue_dict,
+                                    _n_candi=_n_candi,
+                                    _prob_threshold=_prob_threshold)
+            self.__printRes(_iter=iteration, _res=res, _prefix="  >> ")
+            if res['status'].lower() in ['s', 'a']:
+                if iteration == 1:
+                    old_uids[res["old_uid"]] = []
+                    old_uids[res["old_uid"]].append(res["new_uid"])
+                    old_uid = res["old_uid"]
+                if not res["old_uid"] in old_uids.keys():
+                    flag = 0
+                    for k in old_uids.keys():
+                        if res["old_uid"] in old_uids[k]:
+                            flag = 1
+                            old_uids[k].append(res["new_uid"])
+                            old_uid = k
+                            break
+                    if flag == 0:
+                        old_uids[res["old_uid"]] = []
+                        old_uids[res["old_uid"]].append(res["new_uid"])
+                        old_uid = res["old_uid"]
+                else:
+                    old_uids[res["old_uid"]].append(res["new_uid"])
                     old_uid = res["old_uid"]
 
                 tokens = res['tokens']
@@ -813,6 +952,72 @@ class MHM_Attacker():
             candi_tokens = [copy.deepcopy(_tokens)]
             candi_labels = [_label]
             for c in random.sample(substitute_dict[selected_uid], min(_n_candi, len(substitute_dict[selected_uid]))): # 选出_n_candi数量的候选.
+                if isUID(c): # 判断是否是变量名.
+                    candi_token.append(c)
+                    candi_tokens.append(copy.deepcopy(_tokens))
+                    candi_labels.append(_label)
+                    for i in _uid[selected_uid]: # 依次进行替换.
+                        if i >= len(candi_tokens[-1]):
+                            break
+                        candi_tokens[-1][i] = c # 替换为新的candidate.
+
+            new_example = []
+            for tmp_tokens in candi_tokens:
+                new_feature = convert_examples_to_features(tmp_tokens, 
+                                                words_2,
+                                                _label, 
+                                                None, None,
+                                                self.tokenizer_mlm,
+                                                self.args, None)
+                new_example.append(new_feature)
+            new_dataset = CodeDataset(new_example)
+            prob, pred = self.classifier.get_results(new_dataset, self.args.eval_batch_size)
+
+            for i in range(len(candi_token)):   # Find a valid example
+                if pred[i] != _label: # 如果有样本攻击成功
+                    return {"status": "s", "alpha": 1, "tokens": candi_tokens[i],
+                            "old_uid": selected_uid, "new_uid": candi_token[i],
+                            "old_prob": prob[0], "new_prob": prob[i],
+                            "old_pred": pred[0], "new_pred": pred[i], "nb_changed_pos": _tokens.count(selected_uid)}
+
+            candi_idx = 0
+            min_prob = 1.0
+
+            for idx, a_prob in enumerate(prob[1:]):
+                if a_prob[_label] < min_prob:
+                    candi_idx = idx + 1
+                    min_prob = a_prob[_label]
+
+            # 找到Ground_truth对应的probability最小的那个mutant
+            # At last, compute acceptance rate.
+            alpha = (1-prob[candi_idx][_label]+1e-10) / (1-prob[0][_label]+1e-10)
+            # 计算这个id对应的alpha值.
+            if random.uniform(0, 1) > alpha or alpha < _prob_threshold:
+                return {"status": "r", "alpha": alpha, "tokens": candi_tokens[i],
+                        "old_uid": selected_uid, "new_uid": candi_token[i],
+                        "old_prob": prob[0], "new_prob": prob[i],
+                        "old_pred": pred[0], "new_pred": pred[i], "nb_changed_pos": _tokens.count(selected_uid)}
+            else:
+                return {"status": "a", "alpha": alpha, "tokens": candi_tokens[i],
+                        "old_uid": selected_uid, "new_uid": candi_token[i],
+                        "old_prob": prob[0], "new_prob": prob[i],
+                        "old_pred": pred[0], "new_pred": pred[i], "nb_changed_pos": _tokens.count(selected_uid)}
+        else:
+            pass
+
+    def __replaceUID_random(self, words_2, _tokens=[], _label=None, _uid={}, substitute_dict={},
+                     _n_candi=30, _prob_threshold=0.95, _candi_mode="random"):
+        
+        assert _candi_mode.lower() in ["random", "nearby"]
+        
+        selected_uid = random.sample(substitute_dict.keys(), 1)[0] # 选择需要被替换的变量名
+        if _candi_mode == "random":
+            # First, generate candidate set.
+            # The transition probabilities of all candidate are the same.
+            candi_token = [selected_uid]
+            candi_tokens = [copy.deepcopy(_tokens)]
+            candi_labels = [_label]
+            for c in random.sample(self.idx2token, _n_candi): # 选出_n_candi数量的候选.
                 if isUID(c): # 判断是否是变量名.
                     candi_token.append(c)
                     candi_tokens.append(copy.deepcopy(_tokens))
