@@ -133,7 +133,7 @@ class Attacker():
 
         variable_names = []
         for name in identifiers:
-            if ' ' in name[0].strip() in variable_names:
+            if ' ' in name[0].strip():
                 continue
             variable_names.append(name[0])
 
