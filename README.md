@@ -80,6 +80,7 @@ checklist
 - [x] 使用embedding来找到更similar的candidate @done(2021-08-23 03:40 PM)
 	- [x] 效率问题，显存
 - [ ] authorship attibribution的attack实验 #zhouyang
+- [ ] 预先处理所有数据，并且cache substitutes
 - [x] 运行原始的MHM，得到效果，以及修改的tokens和adversarial examples.
 - [x] 新的MHM，记录相关的内容.
 - [ ] 重新运行所有的attack，在测试集上
