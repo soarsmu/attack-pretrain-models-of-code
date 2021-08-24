@@ -685,3 +685,19 @@ class Recorder():
                         nb_changed_pos,
                         replace_info,
                         attack_type])
+
+    def writemhm(self, index, code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, score_info, nb_changed_var, nb_changed_pos, replace_info, attack_type):
+        self.writer.writerow([index,
+                        code, 
+                        prog_length, 
+                        adv_code, 
+                        true_label, 
+                        orig_label, 
+                        temp_label, 
+                        is_success, 
+                        variable_names,
+                        score_info,
+                        nb_changed_var,
+                        nb_changed_pos,
+                        replace_info,
+                        attack_type])
