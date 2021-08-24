@@ -134,31 +134,6 @@ gdown https://drive.google.com/uc?id=14STf95S3cDstI5CiyvK1giLlbDw4ZThu
 mv model.bin code/saved_models/checkpoint-best-acc/
 ```
 
-### Attack microsoft/codebert-base
-
-```shell
-cd code
-python attack.py \
-    --output_dir=./saved_models \
-    --model_type=roberta \
-    --tokenizer_name=microsoft/codebert-base \
-    --model_name_or_path=microsoft/codebert-base \
-    --csv_store_path ./attack_base_result.csv \
-    --base_model=microsoft/codebert-base \
-    --do_test \
-    --train_data_file=../preprocess/dataset/train.jsonl \
-    --eval_data_file=../preprocess/dataset/valid.jsonl \
-    --test_data_file=../preprocess/dataset/test.jsonl \
-    --epoch 5 \
-    --block_size 512 \
-    --train_batch_size 32 \
-    --eval_batch_size 64 \
-    --learning_rate 2e-5 \
-    --max_grad_norm 1.0 \
-    --evaluate_during_training \
-    --seed 123456  2>&1 | tee attack_base.log
-```
-
 ### Attack microsoft/codebert-base-mlm
 ```shell
 cd code

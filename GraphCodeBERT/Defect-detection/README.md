@@ -140,27 +140,66 @@ gdown https://drive.google.com/uc?id=1C2wu1va4vMircV46LdEefsA74VoiIvbw
 mv model.bin code/saved_models/checkpoint-best-acc/
 ```
 
+### Greedy Attack
 
 ```shell
 cd code
-python attack.py \
+python gi_attack.py \
     --output_dir=./saved_models \
     --model_type=roberta \
-    --config_name=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
-    --do_train \
+    --csv_store_path ./attack_no_gi.csv \
+    --base_model=microsoft/graphcodebert-base \
     --train_data_file=../preprocess/dataset/train.jsonl \
     --eval_data_file=../preprocess/dataset/valid.jsonl \
     --test_data_file=../preprocess/dataset/test.jsonl \
-    --epoch 5 \
-    --block_size 350 \
     --code_length 512 \
     --data_flow_length 128 \
-    --train_batch_size 32 \
     --eval_batch_size 64 \
-    --seed 123456  2>&1 | tee attack_store.log
+    --seed 123456  2>&1 | tee attack_no_gi.log
 ```
+
+# Genetic Programming
+
+```shell
+cd code
+CUDA_VISIBLE_DEVICES=2 python gi_attack.py \
+    --output_dir=./saved_models \
+    --model_type=roberta \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --csv_store_path ./attack_genetic.csv \
+    --base_model=microsoft/graphcodebert-base \
+    --use_ga \
+    --train_data_file=../preprocess/dataset/train.jsonl \
+    --eval_data_file=../preprocess/dataset/valid.jsonl \
+    --test_data_file=../preprocess/dataset/test.jsonl \
+    --code_length 512 \
+    --data_flow_length 128 \
+    --eval_batch_size 64 \
+    --seed 123456  2>&1 | tee attack_gi.log
+```
+
+# MHM-Attack
+```shell
+cd code
+CUDA_VISIBLE_DEVICES=5 python mhm_attack.py \
+    --output_dir=./saved_models \
+    --model_type=roberta \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --csv_store_path ./attack_mhm.csv \
+    --base_model=microsoft/graphcodebert-base \
+    --train_data_file=../preprocess/dataset/train.jsonl \
+    --eval_data_file=../preprocess/dataset/valid.jsonl \
+    --test_data_file=../preprocess/dataset/test.jsonl \
+    --code_length 512 \
+    --data_flow_length 128 \
+    --eval_batch_size 64 \
+    --seed 123456  2>&1 | tee attack_mhm.log
+```
+
 ## Result
 
 | Methods  |    ACC    |  ACC (attacked)    |

@@ -10,21 +10,16 @@ import os
 sys.path.append('../../../')
 sys.path.append('../../../python_parser')
 
-import csv
-import copy
 import json
 import logging
 import argparse
 import warnings
 import torch
-import numpy as np
-import random
 from model import Model
-from run import TextDataset, InputFeatures
-from utils import select_parents, crossover, map_chromesome, mutate, is_valid_variable_name, _tokenize, get_identifier_posistions_from_code, get_masked_code_by_position, get_substitues, is_valid_substitue, set_seed
+from run import TextDataset
+from utils import set_seed
 
 from utils import Recorder
-from run_parser import get_identifiers
 from attacker import Attacker
 from transformers import (RobertaForMaskedLM, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
 
@@ -80,7 +75,7 @@ def main():
     parser.add_argument("--do_train", action='store_true',
                         help="Whether to run training.")
     parser.add_argument("--use_ga", action='store_true',
-                        help="Whether to run training.")
+                        help="Whether to GA-Attack.")
     parser.add_argument("--do_eval", action='store_true',
                         help="Whether to run eval on the dev set.")
     parser.add_argument("--do_test", action='store_true',
@@ -148,7 +143,6 @@ def main():
     output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
     model.load_state_dict(torch.load(output_dir))      
     model.to(args.device)
-    # 会是因为模型不同吗？我看evaluate的时候模型是重新导入的.
 
 
     ## Load CodeBERT (MLM) model

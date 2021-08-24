@@ -5,6 +5,8 @@ from torch.autograd import Variable
 import copy
 import torch.nn.functional as F
 from torch.nn import CrossEntropyLoss, MSELoss
+from torch.utils.data import SequentialSampler, DataLoader
+import numpy as np
 
 class RobertaClassificationHead(nn.Module):
     """Head for sentence-level classification tasks."""
@@ -59,7 +61,33 @@ class Model(nn.Module):
             return loss,prob
         else:
             return prob
-      
+    
+    def get_results(self, dataset, batch_size, threshold=0.5):
+        '''Given a dataset, return probabilities and labels.'''
+        eval_sampler = SequentialSampler(dataset)
+        eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size,num_workers=4,pin_memory=False)
+
+        self.eval()
+        logits=[] 
+        labels=[]
+        for batch in eval_dataloader:
+            (inputs_ids_1,position_idx_1,attn_mask_1,
+            inputs_ids_2,position_idx_2,attn_mask_2,
+            label)=[x.to("cuda")  for x in batch]
+            with torch.no_grad():
+                logit = self.forward(inputs_ids_1,position_idx_1,attn_mask_1,inputs_ids_2,position_idx_2,attn_mask_2)
+                logits.append(logit.cpu().numpy())
+                # 和defect detection任务不一样，这个的输出就是softmax值，而非sigmoid值
+                labels.append(label.cpu().numpy())
+
+        logits=np.concatenate(logits,0)
+        labels=np.concatenate(labels,0)
+
+        probs = logits
+        pred_labels = [0 if first_softmax  > threshold else 1 for first_softmax in logits[:,0]]
+        # 如果logits中的一个元素，其一个softmax值 > threshold, 则说明其label为0，反之为1
+
+        return probs, pred_labels
         
 
        

@@ -1,3 +1,4 @@
+from pickle import NONE
 import torch
 import sys
 import os
@@ -5,33 +6,30 @@ import os
 sys.path.append('../../../')
 sys.path.append('../../../python_parser')
 
-import csv
-import json
 import argparse
 import warnings
 import torch
-import numpy as np
 from model import Model
 from utils import set_seed
 from utils import Recorder
-from run import TextDataset
+from run import TextDataset ,convert_examples_to_features
 from utils import CodeDataset
+from attacker import MHM_Attacker
+from attack import get_code_pairs
 from run_parser import get_identifiers
 from transformers import RobertaForMaskedLM
-from transformers import (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
-from attacker import MHM_Attacker
-from attacker import convert_code_to_features
+from transformers import (RobertaConfig, RobertaModel, RobertaTokenizer)
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning\
+warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning
 
 MODEL_CLASSES = {
-    'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
+    'roberta': (RobertaConfig, RobertaModel, RobertaTokenizer)
 }
 
 from utils import build_vocab
             
-def main():
+if __name__ == "__main__":
     
     import json
     import pickle
@@ -64,7 +62,7 @@ def main():
     parser.add_argument("--base_model", default=None, type=str,
                         help="Base Model")
     parser.add_argument("--csv_store_path", default=None, type=str,
-                        help="results")
+                        help="Base Model")
 
     parser.add_argument("--mlm", action='store_true',
                         help="Train with masked-language modeling loss instead of language modeling.")
@@ -142,28 +140,28 @@ def main():
     model = Model(model,config,tokenizer,args)
 
 
-    checkpoint_prefix = 'checkpoint-best-acc/model.bin'
+    checkpoint_prefix = 'checkpoint-best-f1/model.bin'
     output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
-    model.load_state_dict(torch.load(output_dir))      
+    model.load_state_dict(torch.load(output_dir))
     model.to(args.device)
     print ("MODEL LOADED!")
 
+    
+    save_path = "./mlm_result.pkl"
 
     # Load Dataset
     ## Load Dataset
     eval_dataset = TextDataset(tokenizer, args,args.eval_data_file)
 
-    source_codes = []
-    with open(args.eval_data_file) as f:
-        for line in f:
-            js=json.loads(line.strip())
-            code = ' '.join(js['func'].split())
-            source_codes.append(code)
-    assert(len(source_codes) == len(eval_dataset))
+    ## Load tensor features
+    eval_dataset = TextDataset(tokenizer, args, args.eval_data_file)
+    ## Load code pairs
+    source_codes = get_code_pairs(args.eval_data_file)
+    assert len(source_codes) == len(eval_dataset)
 
     code_tokens = []
     for index, code in enumerate(source_codes):
-        code_tokens.append(get_identifiers(code, "c")[1])
+        code_tokens.append(get_identifiers(code[2], "java")[1])
 
     id2token, token2id = build_vocab(code_tokens, 5000)
 
@@ -180,29 +178,17 @@ def main():
     n_succ = 0.0
     total_cnt = 0
     for index, example in enumerate(eval_dataset):
-        code = source_codes[index]
-        identifiers, code_tokens = get_identifiers(code, lang='c')
-        code_tokens = [i for i in code_tokens]
-        processed_code = " ".join(code_tokens)
-
-        new_feature = convert_code_to_features(processed_code, tokenizer, example[1].item(), args)
-        new_dataset = CodeDataset([new_feature])
-
-        orig_prob, orig_label = model.get_results(new_dataset, args.eval_batch_size)
-        orig_prob = orig_prob[0]
-        orig_label = orig_label[0]
+        code_pair = source_codes[index]
         ground_truth = example[1].item()
-        if orig_label != ground_truth:
-            continue
         
         start_time = time.time()
         
         # 这里需要进行修改.
 
-        _res = attacker.mcmc(tokenizer, code,
+        _res = attacker.mcmc(example, tokenizer, code_pair,
                              _label=ground_truth, _n_candi=30,
-                             _max_iter=50, _prob_threshold=1)
-        
+                             _max_iter=10, _prob_threshold=1)
+    
         if _res['succ'] is None:
             continue
         if _res['succ'] == True:
@@ -216,7 +202,4 @@ def main():
         print ("  time cost = %.2f min" % ((time.time()-start_time)/60))
         print ("  curr succ rate = "+str(n_succ/total_cnt))
 
-        recoder.writemhm(index, code, _res["prog_length"], " ".join(_res['tokens']), ground_truth, orig_label, _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"])
-
-if __name__ == "__main__":
-    main()
+        recoder.writemhm(index, code, _res["prog_length"], " ".join(_res['tokens']), ground_truth, _res["orig_label"], _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"])
