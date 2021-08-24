@@ -197,3 +197,23 @@ CUDA_VISIBLE_DEVICES=1 python mhm_attack.py \
     --eval_batch_size 64 \
     --seed 123456  2>&1 | tee attack_mhm.log
 ```
+
+# Original MHM-Attack
+
+```shell
+cd code
+CUDA_VISIBLE_DEVICES=1 python mhm_attack.py \
+    --output_dir=./saved_models \
+    --model_type=roberta \
+    --tokenizer_name=microsoft/codebert-base \
+    --model_name_or_path=microsoft/codebert-base \
+    --csv_store_path ./attack_original_mhm.csv \
+    --original\
+    --base_model=microsoft/codebert-base-mlm \
+    --train_data_file=../preprocess/dataset/train.jsonl \
+    --eval_data_file=../preprocess/dataset/valid.jsonl \
+    --test_data_file=../preprocess/dataset/test.jsonl \
+    --block_size 512 \
+    --eval_batch_size 64 \
+    --seed 123456  2>&1 | tee attack_original_mhm.log
+```

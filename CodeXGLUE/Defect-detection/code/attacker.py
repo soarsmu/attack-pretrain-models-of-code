@@ -711,6 +711,7 @@ class MHM_Attacker():
                 except:
                     variable_substitue_dict[tgt_word] = [tmp_substitue]
         
+        old_uids = {}
         old_uid = ""
         for iteration in range(1, 1+_max_iter):
             # 这个函数需要tokens
@@ -719,11 +720,28 @@ class MHM_Attacker():
                                     _n_candi=_n_candi,
                                     _prob_threshold=_prob_threshold)
             self.__printRes(_iter=iteration, _res=res, _prefix="  >> ")
-            if iteration == 1:
-                old_uid = res["old_uid"]
-            if res['status'].lower() == 'r':
-                old_uid = res["old_uid"]
+
             if res['status'].lower() in ['s', 'a']:
+                if iteration == 1:
+                    old_uids[res["old_uid"]] = []
+                    old_uids[res["old_uid"]].append(res["new_uid"])
+                    old_uid = res["old_uid"]
+                if not res["old_uid"] in old_uids.keys():
+                    flag = 0
+                    for k in old_uids.keys():
+                        if res["old_uid"] in old_uids[k]:
+                            flag = 1
+                            old_uids[k].append(res["new_uid"])
+                            old_uid = k
+                            break
+                    if flag == 0:
+                        old_uids[res["old_uid"]] = []
+                        old_uids[res["old_uid"]].append(res["new_uid"])
+                        old_uid = res["old_uid"]
+                else:
+                    old_uids[res["old_uid"]].append(res["new_uid"])
+                    old_uid = res["old_uid"]
+
                 tokens = res['tokens']
                 uid[res['new_uid']] = uid.pop(res['old_uid']) # 替换key，但保留value.
                 variable_substitue_dict[res['new_uid']] = variable_substitue_dict.pop(res['old_uid'])
@@ -739,6 +757,7 @@ class MHM_Attacker():
     def mcmc_random(self, tokenizer, code=None, _label=None, _n_candi=30,
              _max_iter=100, _prob_threshold=0.95):
         identifiers, code_tokens = get_identifiers(code, 'c')
+        prog_length = len(code_tokens)
         processed_code = " ".join(code_tokens)
 
         words, sub_words, keys = _tokenize(processed_code, tokenizer)
@@ -798,6 +817,8 @@ class MHM_Attacker():
                 except:
                     variable_substitue_dict[tgt_word] = [tmp_substitue]
         
+        old_uids = {}
+        old_uid = ""
 
         for iteration in range(1, 1+_max_iter):
             # 这个函数需要tokens
@@ -807,6 +828,26 @@ class MHM_Attacker():
                                     _prob_threshold=_prob_threshold)
             self.__printRes(_iter=iteration, _res=res, _prefix="  >> ")
             if res['status'].lower() in ['s', 'a']:
+                if iteration == 1:
+                    old_uids[res["old_uid"]] = []
+                    old_uids[res["old_uid"]].append(res["new_uid"])
+                    old_uid = res["old_uid"]
+                if not res["old_uid"] in old_uids.keys():
+                    flag = 0
+                    for k in old_uids.keys():
+                        if res["old_uid"] in old_uids[k]:
+                            flag = 1
+                            old_uids[k].append(res["new_uid"])
+                            old_uid = k
+                            break
+                    if flag == 0:
+                        old_uids[res["old_uid"]] = []
+                        old_uids[res["old_uid"]].append(res["new_uid"])
+                        old_uid = res["old_uid"]
+                else:
+                    old_uids[res["old_uid"]].append(res["new_uid"])
+                    old_uid = res["old_uid"]
+                    
                 tokens = res['tokens']
                 uid[res['new_uid']] = uid.pop(res['old_uid']) # 替换key，但保留value.
                 variable_substitue_dict[res['new_uid']] = variable_substitue_dict.pop(res['old_uid'])
@@ -815,9 +856,9 @@ class MHM_Attacker():
                         raw_tokens[i] = res['new_uid']
                 if res['status'].lower() == 's':
                     return {'succ': True, 'tokens': tokens,
-                            'raw_tokens': raw_tokens}
+                            'raw_tokens': raw_tokens, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": 1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "MHM"}
 
-        return {'succ': False, 'tokens': None, 'raw_tokens': None}
+        return {'succ': False, 'tokens': res['tokens'], 'raw_tokens': None, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": -1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "MHM"}
     
     def __replaceUID(self, _tokens=[], _label=None, _uid={}, substitute_dict={},
                      _n_candi=30, _prob_threshold=0.95, _candi_mode="random"):
@@ -917,7 +958,7 @@ class MHM_Attacker():
                     return {"status": "s", "alpha": 1, "tokens": candi_tokens[i],
                             "old_uid": selected_uid, "new_uid": candi_token[i],
                             "old_prob": prob[0], "new_prob": prob[i],
-                            "old_pred": pred[0], "new_pred": pred[i]}
+                            "old_pred": pred[0], "new_pred": pred[i], "nb_changed_pos": _tokens.count(selected_uid)}
 
             candi_idx = 0
             min_prob = 1.0
@@ -935,12 +976,12 @@ class MHM_Attacker():
                 return {"status": "r", "alpha": alpha, "tokens": candi_tokens[i],
                         "old_uid": selected_uid, "new_uid": candi_token[i],
                         "old_prob": prob[0], "new_prob": prob[i],
-                        "old_pred": pred[0], "new_pred": pred[i]}
+                        "old_pred": pred[0], "new_pred": pred[i], "nb_changed_pos": _tokens.count(selected_uid)}
             else:
                 return {"status": "a", "alpha": alpha, "tokens": candi_tokens[i],
                         "old_uid": selected_uid, "new_uid": candi_token[i],
                         "old_prob": prob[0], "new_prob": prob[i],
-                        "old_pred": pred[0], "new_pred": pred[i]}
+                        "old_pred": pred[0], "new_pred": pred[i], "nb_changed_pos": _tokens.count(selected_uid)}
         else:
             pass
 
