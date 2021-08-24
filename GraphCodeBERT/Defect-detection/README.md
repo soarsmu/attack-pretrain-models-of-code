@@ -200,6 +200,26 @@ CUDA_VISIBLE_DEVICES=5 python mhm_attack.py \
     --seed 123456  2>&1 | tee attack_mhm.log
 ```
 
+# Original MHM-Attack
+```shell
+cd code
+CUDA_VISIBLE_DEVICES=5 python mhm_attack.py \
+    --output_dir=./saved_models \
+    --model_type=roberta \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --csv_store_path ./attack_original_mhm.csv \
+    --original\
+    --base_model=microsoft/graphcodebert-base \
+    --train_data_file=../preprocess/dataset/train.jsonl \
+    --eval_data_file=../preprocess/dataset/valid.jsonl \
+    --test_data_file=../preprocess/dataset/test.jsonl \
+    --code_length 512 \
+    --data_flow_length 128 \
+    --eval_batch_size 64 \
+    --seed 123456  2>&1 | tee attack_original_mhm.log
+```
+
 ## Result
 
 | Methods  |    ACC    |  ACC (attacked)    |

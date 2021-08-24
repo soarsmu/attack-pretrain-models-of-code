@@ -72,7 +72,7 @@ We use full train data for fine-tuning. The training cost is 20 mins on 8*P100-1
 ```shell
 cd code
 python run.py \
-    --output_dir=../saved_models/java40 \
+    --output_dir=./saved_models/java40 \
     --model_type=roberta \
     --config_name=microsoft/codebert-base \
     --model_name_or_path=microsoft/codebert-base \
