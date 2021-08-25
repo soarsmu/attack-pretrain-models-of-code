@@ -31,11 +31,11 @@ def preprocess_gcjpy(split_portion):
             with open(os.path.join(folder, name, file_name)) as code_file:
                 lines_after_removal = []
                 for a_line in code_file.readlines():
-                    if  a_line.strip().startswith("import") or a_line.strip().startswith("#"):
+                    if  a_line.strip().startswith("import") or a_line.strip().startswith("#") or a_line.strip().startswith("from"):
                         continue
                     lines_after_removal.append(a_line)
                 
-                content = "\n".join(lines_after_removal)
+                content = "".join(lines_after_removal)
                 print(content)
                 code_tokens = get_code_tokens(content, 'python')
                 content = " ".join(code_tokens)
