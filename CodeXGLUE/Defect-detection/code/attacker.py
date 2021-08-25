@@ -229,7 +229,7 @@ class Attacker():
             for tmp_substitue in all_substitues:
                 if tmp_substitue in variable_names:
                     continue
-                if not is_valid_substitue(tmp_substitue, tgt_word, 'c'):
+                if not is_valid_substitue(tmp_substitue.strip(), tgt_word, 'c'):
                     continue
                 try:
                     variable_substitue_dict[tgt_word].append(tmp_substitue)
@@ -704,7 +704,7 @@ class MHM_Attacker():
             for tmp_substitue in all_substitues:
                 if tmp_substitue in variable_names:
                     continue
-                if not is_valid_substitue(tmp_substitue, tgt_word, 'c'):
+                if not is_valid_substitue(tmp_substitue.strip(), tgt_word, 'c'):
                     continue
                 try:
                     variable_substitue_dict[tgt_word].append(tmp_substitue)
