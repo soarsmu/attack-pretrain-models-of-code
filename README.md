@@ -6,11 +6,11 @@ This is the codebase for attacking pre-trained models of code.
 
 checklist
 
-- [ ] Codebert
-    - [ ] Authorship
-        - [ ] Greedy
-        - [ ] GI
-        - [ ] MHM
+- [x] Codebert
+    - [x] Authorship
+        - [x] Greedy
+        - [x] GI
+        - [x] MHM
     - [x] Clone
         - [x] Greedy
         - [x] GI
