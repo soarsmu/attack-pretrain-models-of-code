@@ -16,6 +16,7 @@ from utils import set_seed
 from utils import Recorder
 from run import TextDataset
 from utils import CodeDataset
+from python_parser.parser_folder import remove_comments_and_docstrings
 from run_parser import get_identifiers
 from transformers import RobertaForMaskedLM
 from transformers import (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
@@ -159,7 +160,7 @@ def main():
     with open(args.eval_data_file) as f:
         for line in f:
             js=json.loads(line.strip())
-            code = ' '.join(js['func'].split())
+            code = remove_comments_and_docstrings(js['func'], "c")
             source_codes.append(code)
     assert(len(source_codes) == len(eval_dataset))
 
