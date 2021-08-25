@@ -13,10 +13,12 @@ sys.path.append('.')
 sys.path.append('../')
 
 path = '../../../python_parser/parser_folder/my-languages.so'
+# path = 'parser_folder/my-languages.so'
+
 c_code = """    
 void vmxnet3_pop_next_tx_descr(VMXNET3State *s, int qidx, struct Vmxnet3_TxDesc *txd, uint32_t *descr_idx) { Vmxnet3Ring *ring = &s->txq_descr[qidx].tx_ring; PCIDevice *d = PCI_DEVICE(s); vmxnet3_ring_read_curr_cell(d, ring, txd); if (txd->gen == vmxnet3_ring_curr_gen(ring)) { /* Only read after generation field verification */ smp_rmb(); /* Re-read to be sure we got the latest version */ vmxnet3_ring_read_curr_cell(d, ring, txd); VMXNET3_RING_DUMP(VMW_RIPRN, "TX", qidx, ring); *descr_idx = vmxnet3_ring_curr_cell_idx(ring); vmxnet3_inc_tx_consumption_counter(s, qidx); return true; } return false; }
 """
-python_code = """ 
+python_code = """
 """
 java_code = """
 """
@@ -56,10 +58,12 @@ def extract_dataflow(code, lang):
         pass
         # obtain dataflow
     parser = parsers[lang]
+    code = code.replace("\\n", "\n")
     tree = parser[0].parse(bytes(code, 'utf8'))
     root_node = tree.root_node
     tokens_index = tree_to_token_index(root_node)
     code = code.split('\n')
+    # print(code)
     code_tokens = [index_to_code_token(x, code) for x in tokens_index]
     index_to_code = {}
     for idx, (index, code) in enumerate(zip(tokens_index, code_tokens)):
@@ -87,6 +91,8 @@ def get_identifiers(code, lang):
             ret.append(d[0])
     ret = unique(ret)
     ret = [ [i] for i in ret]
+    print("ret")
+    print(ret)
     return ret, code_tokens
 
 def main():
@@ -96,9 +102,9 @@ def main():
     args = parser.parse_args()
     code = codes[args.lang]
     data, _ = get_identifiers(code, args.lang)
-    # print("final ret")
-    # for identifier in data:
-    #     print(identifier)
+    print("final ret")
+    for identifier in data:
+        print(identifier)
 
 if __name__ == '__main__':
     main()

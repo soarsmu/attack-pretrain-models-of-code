@@ -69,3 +69,4 @@ MHM/mhm/LSTMClassifier/logs
 *.tar
 *.csv
 
+/python_parser/train_python.txt
