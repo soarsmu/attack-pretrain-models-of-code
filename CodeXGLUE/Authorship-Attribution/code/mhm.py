@@ -68,6 +68,8 @@ def main():
 
     parser.add_argument("--mlm", action='store_true',
                         help="Train with masked-language modeling loss instead of language modeling.")
+    parser.add_argument("--is_original_mhm", action='store_true',
+                        help="whether to use the original mhm")
     parser.add_argument("--mlm_probability", type=float, default=0.15,
                         help="Ratio of tokens to mask for masked language modeling loss")
     parser.add_argument("--number_labels", type=int,
@@ -200,10 +202,14 @@ def main():
         start_time = time.time()
         
         # 这里需要进行修改.
-
-        _res = attacker.mcmc(tokenizer, code,
-                             _label=ground_truth, _n_candi=30,
-                             _max_iter=50, _prob_threshold=1)
+        if args.is_original_mhm:
+            _res = attacker.mcmc_random(tokenizer, code,
+                                _label=ground_truth, _n_candi=30,
+                                _max_iter=50, _prob_threshold=1)
+        else:
+            _res = attacker.mcmc(tokenizer, code,
+                                _label=ground_truth, _n_candi=30,
+                                _max_iter=50, _prob_threshold=1)
         
         if _res['succ'] is None:
             continue
