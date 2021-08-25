@@ -115,7 +115,7 @@ class Attacker():
 
 
 
-        identifiers, code_tokens = get_identifiers(code, 'c')
+        identifiers, code_tokens = get_identifiers(code, 'python')
         prog_length = len(code_tokens)
 
 
@@ -167,7 +167,7 @@ class Attacker():
         cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
         for tgt_word in names_positions_dict.keys():
             tgt_positions = names_positions_dict[tgt_word] # the positions of tgt_word in code
-            if not is_valid_variable_name(tgt_word, lang='c'):
+            if not is_valid_variable_name(tgt_word, lang='python'):
                 # if the extracted name is not valid
                 continue   
 
@@ -223,7 +223,7 @@ class Attacker():
             for tmp_substitue in all_substitues:
                 if tmp_substitue in variable_names:
                     continue
-                if not is_valid_substitue(tmp_substitue, tgt_word, 'c'):
+                if not is_valid_substitue(tmp_substitue, tgt_word, 'python'):
                     continue
                 try:
                     variable_substitue_dict[tgt_word].append(tmp_substitue)
@@ -374,7 +374,7 @@ class Attacker():
 
 
 
-        identifiers, code_tokens = get_identifiers(code, 'c')
+        identifiers, code_tokens = get_identifiers(code, 'python')
         prog_length = len(code_tokens)
 
 
@@ -461,7 +461,7 @@ class Attacker():
             tgt_word = name_and_score[0]
             tgt_positions = names_positions_dict[tgt_word] # 在words中对应的位置
             tgt_positions = names_positions_dict[tgt_word] # the positions of tgt_word in code
-            if not is_valid_variable_name(tgt_word, lang='c'):
+            if not is_valid_variable_name(tgt_word, lang='python'):
                 # if the extracted name is not valid
                 continue   
 
@@ -527,7 +527,7 @@ class Attacker():
                 if substitute in variable_names:
                     continue
 
-                if not is_valid_substitue(substitute.strip(), tgt_word, 'c'):
+                if not is_valid_substitue(substitute.strip(), tgt_word, 'python'):
                     continue
                 
                 temp_replace = copy.deepcopy(final_words)
@@ -608,7 +608,7 @@ class MHM_Attacker():
     
     def mcmc(self, tokenizer, code=None, _label=None, _n_candi=30,
              _max_iter=100, _prob_threshold=0.95):
-        identifiers, code_tokens = get_identifiers(code, 'c')
+        identifiers, code_tokens = get_identifiers(code, 'python')
         prog_length = len(code_tokens)
         processed_code = " ".join(code_tokens)
 
@@ -641,7 +641,7 @@ class MHM_Attacker():
         variable_substitue_dict = {}
         cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
         for tgt_word in uid.keys():
-            if not is_valid_variable_name(tgt_word, 'c'):
+            if not is_valid_variable_name(tgt_word, 'python'):
                 # 如果不是变量名
                 continue   
             tgt_positions = uid[tgt_word] # 在words中对应的位置
@@ -698,7 +698,7 @@ class MHM_Attacker():
             for tmp_substitue in all_substitues:
                 if tmp_substitue in variable_names:
                     continue
-                if not is_valid_substitue(tmp_substitue, tgt_word, 'c'):
+                if not is_valid_substitue(tmp_substitue, tgt_word, 'python'):
                     continue
                 try:
                     variable_substitue_dict[tgt_word].append(tmp_substitue)
@@ -732,7 +732,7 @@ class MHM_Attacker():
 
     def mcmc_random(self, tokenizer, code=None, _label=None, _n_candi=30,
              _max_iter=100, _prob_threshold=0.95):
-        identifiers, code_tokens = get_identifiers(code, 'c')
+        identifiers, code_tokens = get_identifiers(code, 'python')
         processed_code = " ".join(code_tokens)
 
         words, sub_words, keys = _tokenize(processed_code, tokenizer)
@@ -763,7 +763,7 @@ class MHM_Attacker():
 
         variable_substitue_dict = {}
         for tgt_word in uid.keys():
-            if not is_valid_variable_name(tgt_word, 'c'):
+            if not is_valid_variable_name(tgt_word, 'python'):
                 # 如果不是变量名
                 continue   
             tgt_positions = uid[tgt_word] # 在words中对应的位置
@@ -785,7 +785,7 @@ class MHM_Attacker():
             all_substitues = set(all_substitues)
 
             for tmp_substitue in all_substitues:
-                if not is_valid_substitue(tmp_substitue, tgt_word, 'c'):
+                if not is_valid_substitue(tmp_substitue, tgt_word, 'python'):
                     continue
                 try:
                     variable_substitue_dict[tgt_word].append(tmp_substitue)
