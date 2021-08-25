@@ -29,6 +29,7 @@ from utils import get_identifier_posistions_from_code
 from utils import get_masked_code_by_position, get_substitues, is_valid_variable_name
 from model import Model
 from run_parser import get_identifiers
+from attacker import Attacker
 
 from torch.utils.data.dataset import Dataset
 from torch.utils.data import SequentialSampler, DataLoader
@@ -534,10 +535,13 @@ def main():
     total_cnt = 0
 
     recoder = Recorder(args.csv_store_path)
+    attacker = Attacker(args, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
 
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
-        code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attack(args, example, code, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
+        code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.greedy_attack(example, code)
+        # attack(args, example, code, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
+        
         attack_type = "Greedy"
 
 
