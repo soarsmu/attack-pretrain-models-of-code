@@ -129,6 +129,7 @@ python attack.py \
     --tokenizer_name=roberta-base \
     --number_labels 66 \
     --do_eval \
+    --use_ga \
     --csv_store_path ./attack_no_gi.csv \
     --language_type python \
     --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
