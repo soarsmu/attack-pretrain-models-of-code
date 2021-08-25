@@ -134,6 +134,17 @@ gdown https://drive.google.com/uc?id=14STf95S3cDstI5CiyvK1giLlbDw4ZThu
 mv model.bin code/saved_models/checkpoint-best-acc/
 ```
 
+### Generate substitutes
+
+```
+cd preprocess
+CUDA_VISIBLE_DEVICES=1 python get_substitutes.py \
+    --store_path ./dataset/valid_subs.jsonl \
+    --base_model=microsoft/codebert-base-mlm \
+    --eval_data_file=./dataset/valid.jsonl \
+    --block_size 512
+```
+
 ### Attack microsoft/codebert-base-mlm
 ```shell
 cd code
@@ -218,9 +229,3 @@ CUDA_VISIBLE_DEVICES=1 python mhm_attack.py \
     --seed 123456  2>&1 | tee attack_original_mhm.log
 ```
 
-python get_adv_data.py \
-    --tokenizer_name=microsoft/codebert-base-mlm \
-    --store_path ./test.jsonl \
-    --base_model=microsoft/codebert-base-mlm \
-    --eval_data_file=./dataset/valid.jsonl \
-    --block_size 512

@@ -3,7 +3,6 @@ import sys
 import copy
 import torch
 import argparse
-import jsonlines
 from tqdm import tqdm
 
 sys.path.append('../../../')
@@ -19,14 +18,11 @@ def main():
     
     parser.add_argument("--eval_data_file", default=None, type=str,
                         help="An optional input evaluation data file to evaluate the perplexity on (a text file).")
-
     parser.add_argument("--base_model", default=None, type=str,
                         help="Base Model")
     parser.add_argument("--store_path", default=None, type=str,
                         help="results")
 
-    parser.add_argument("--tokenizer_name", default="", type=str,
-                        help="Optional pretrained tokenizer name or path if not the same as model_name_or_path")
     parser.add_argument("--block_size", default=-1, type=int,
                         help="Optional input sequence length after tokenization.")
 
@@ -38,8 +34,9 @@ def main():
     tokenizer_mlm = RobertaTokenizer.from_pretrained(args.base_model)
     codebert_mlm.to('cuda')
 
-    with open(args.eval_data_file, 'r') as rf:
-        for item in tqdm(jsonlines.Reader(rf)):
+    with open(args.eval_data_file) as rf:
+        for line in tqdm(rf):
+            item = json.loads(line.strip())
             eval_data.append(item)
 
     with open(args.store_path, "w") as wf:
@@ -54,13 +51,12 @@ def main():
                 if ' ' in name[0].strip():
                     continue
                 variable_names.append(name[0])
-            
+
             sub_words = [tokenizer_mlm.cls_token] + sub_words[:args.block_size - 2] + [tokenizer_mlm.sep_token]
             
             input_ids_ = torch.tensor([tokenizer_mlm.convert_tokens_to_ids(sub_words)])
 
-            with torch.no_grad():
-                word_predictions = codebert_mlm(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
+            word_predictions = codebert_mlm(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
             word_pred_scores_all, word_predictions = torch.topk(word_predictions, 60, -1)  # seq-len k
             # 得到前k个结果.
 
@@ -87,7 +83,6 @@ def main():
                         continue
                     substitutes = word_predictions[keys[one_pos][0]:keys[one_pos][1]]  # L, k
                     word_pred_scores = word_pred_scores_all[keys[one_pos][0]:keys[one_pos][1]]
-
                     with torch.no_grad():
                         orig_embeddings = codebert_mlm.roberta(input_ids_.to('cuda'))[0]
                     orig_word_embed = orig_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
@@ -129,15 +124,15 @@ def main():
                 all_substitues = set(all_substitues)
 
                 for tmp_substitue in all_substitues:
-                    if tmp_substitue in variable_names:
+                    if tmp_substitue.strip() in variable_names:
                         continue
-                    if not is_valid_substitue(tmp_substitue, tgt_word, 'c'):
+                    if not is_valid_substitue(tmp_substitue.strip(), tgt_word, 'c'):
                         continue
                     try:
                         variable_substitue_dict[tgt_word].append(tmp_substitue)
                     except:
                         variable_substitue_dict[tgt_word] = [tmp_substitue]
-            item["substitues"] = variable_substitue_dict
+            item["substitutes"] = variable_substitue_dict
             wf.write(json.dumps(item)+'\n')
             
 
