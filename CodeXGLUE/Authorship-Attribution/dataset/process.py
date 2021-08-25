@@ -29,14 +29,13 @@ def preprocess_gcjpy(split_portion):
         tmp_example = []
         for file_name in files:
             with open(os.path.join(folder, name, file_name)) as code_file:
-                lines_after_removal = []
-                for a_line in code_file.readlines():
-                    if  a_line.strip().startswith("import") or a_line.strip().startswith("#"):
-                        continue
-                    lines_after_removal.append(a_line)
-                
-                content = "\n".join(lines_after_removal)
-                print(content)
+                content = code_file.read()
+                # lines_after_removal = []
+                # for a_line in code_file.readlines():
+                #     if  a_line.strip().startswith("import") or a_line.strip().startswith("#"):
+                #         continue
+                #     lines_after_removal.append(a_line)
+                # content = "\n".join(lines_after_removal)
                 code_tokens = get_code_tokens(content, 'python')
                 content = " ".join(code_tokens)
                 new_content = content + ' <CODESPLIT> ' + str(index) + '\n'
