@@ -1,8 +1,8 @@
 # coding=utf-8
-# @Time    : 2020/7/8
+# @Time    : 2020/8/25
 # @Author  : Zhou Yang
 # @Email   : zyang@smu.edu.sg
-# @File    : attack.py
+# @File    : attacker.py
 '''For attacking CodeBERT models'''
 import sys
 import os
@@ -23,6 +23,7 @@ import pickle
 from run import set_seed
 from run import TextDataset
 from run import InputFeatures
+from utils import Recorder
 from utils import python_keywords, is_valid_substitue, _tokenize
 from utils import get_identifier_posistions_from_code
 from utils import get_masked_code_by_position, get_substitues, is_valid_variable_name
@@ -383,7 +384,8 @@ def main():
                         help="The model architecture to be fine-tuned.")
     parser.add_argument("--model_name_or_path", default=None, type=str,
                         help="The model checkpoint for weights initialization.")
-
+    parser.add_argument("--csv_store_path", type=str,
+                        help="Path to store the CSV file")
     parser.add_argument("--mlm", action='store_true',
                         help="Train with masked-language modeling loss instead of language modeling.")
     parser.add_argument("--mlm_probability", type=float, default=0.15,
@@ -450,17 +452,6 @@ def main():
                         help="Overwrite the cached training and evaluation sets")
     parser.add_argument('--seed', type=int, default=42,
                         help="random seed for initialization")
-    parser.add_argument('--epoch', type=int, default=42,
-                        help="random seed for initialization")
-    parser.add_argument('--fp16', action='store_true',
-                        help="Whether to use 16-bit (mixed) precision (through NVIDIA apex) instead of 32-bit")
-    parser.add_argument('--fp16_opt_level', type=str, default='O1',
-                        help="For fp16: Apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']."
-                             "See details at https://nvidia.github.io/apex/amp.html")
-    parser.add_argument("--local_rank", type=int, default=-1,
-                        help="For distributed training: local_rank")
-    parser.add_argument('--server_ip', type=str, default='', help="For distant debugging.")
-    parser.add_argument('--server_port', type=str, default='', help="For distant debugging.")
 
 
     args = parser.parse_args()
@@ -541,24 +532,13 @@ def main():
     # 现在要尝试计算importance_score了.
     success_attack = 0
     total_cnt = 0
-    f = open('./attack_result.csv', 'w')
-    writer = csv.writer(f)
-    # write table head.
-    writer.writerow(["Original Code", 
-                    "Program Length", 
-                    "Adversarial Code", 
-                    "True Label", 
-                    "Original Prediction", 
-                    "Adv Prediction", 
-                    "Is Success", 
-                    "Extracted Names",
-                    "Importance Score",
-                    "No. Changed Names",
-                    "No. Changed Tokens",
-                    "Replaced Names"])
+
+    recoder = Recorder(args.csv_store_path)
+
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
         code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attack(args, example, code, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
+        attack_type = "Greedy"
 
 
         score_info = ''
@@ -571,18 +551,7 @@ def main():
             for key in replaced_words.keys():
                 replace_info += key + ':' + replaced_words[key] + ','
 
-        writer.writerow([code, 
-                        prog_length, 
-                        adv_code, 
-                        true_label, 
-                        orig_label, 
-                        temp_label, 
-                        is_success, 
-                        ",".join(variable_names),
-                        score_info,
-                        nb_changed_var,
-                        nb_changed_pos,
-                        replace_info])
+        recoder.write(index, code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, score_info, nb_changed_var, nb_changed_pos, replace_info, attack_type)
         
         
         if is_success >= -1 :
