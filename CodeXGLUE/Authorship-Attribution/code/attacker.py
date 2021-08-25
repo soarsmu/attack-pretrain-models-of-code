@@ -4,14 +4,8 @@ import os
 sys.path.append('../../../')
 sys.path.append('../../../python_parser')
 
-import csv
 import copy
-import json
-import logging
-import argparse
-import warnings
 import torch
-import numpy as np
 import random
 from model import Model
 from run import TextDataset, InputFeatures
