@@ -50,8 +50,8 @@ CUDA_VISIBLE_DEVICES=0,2,4,5 python run.py \
     --config_name=microsoft/codebert-base \
     --model_name_or_path=microsoft/codebert-base \
     --tokenizer_name=roberta-base \
-    --number_labels 70 \
-    --do_train \
+    --number_labels 66 \
+    --do_eval \
     --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
@@ -113,13 +113,13 @@ python attack.py \
     --config_name=microsoft/codebert-base \
     --model_name_or_path=microsoft/codebert-base \
     --tokenizer_name=roberta-base \
-    --number_labels 70 \
+    --number_labels 66 \
     --do_eval \
+    --csv_store_path ./attack_no_gi.csv \
     --language_type python \
     --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
-    --epoch 5 \
     --block_size 512 \
     --train_batch_size 8 \
     --eval_batch_size 32 \

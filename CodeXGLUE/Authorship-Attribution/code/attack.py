@@ -1,8 +1,8 @@
 # coding=utf-8
-# @Time    : 2020/7/8
+# @Time    : 2020/8/25
 # @Author  : Zhou Yang
 # @Email   : zyang@smu.edu.sg
-# @File    : attack.py
+# @File    : attacker.py
 '''For attacking CodeBERT models'''
 import sys
 import os
@@ -23,9 +23,10 @@ import pickle
 from run import set_seed
 from run import TextDataset
 from run import InputFeatures
+from utils import Recorder
 from utils import python_keywords, is_valid_substitue, _tokenize
 from utils import get_identifier_posistions_from_code
-from utils import get_masked_code_by_position, get_substitues
+from utils import get_masked_code_by_position, get_substitues, is_valid_variable_name
 from model import Model
 from run_parser import get_identifiers
 
@@ -105,6 +106,7 @@ def get_importance_score(args, example, code, words_list: list, sub_words: list,
     # label: example[1] tensor(1)
     # 1. 过滤掉所有的keywords.
     positions = get_identifier_posistions_from_code(words_list, variable_names)
+    # 这里得到的positions的数量要少于variable_names的数量.
     # 需要注意大小写.
     if len(positions) == 0:
         ## 没有提取出可以mutate的position
@@ -184,9 +186,9 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
 
     variable_names = []
     for name in identifiers:
-        if ' ' in name[0].strip() or name[0].lower() in variable_names:
+        if ' ' in name[0].strip():
             continue
-        variable_names.append(name[0].lower())
+        variable_names.append(name[0])
 
     print("Number of identifiers extracted: ", len(variable_names))
     if not orig_label == true_label:
@@ -224,7 +226,8 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
                                             max_length=args.block_size, 
                                             model_type='classification')
 
-    assert(len(importance_score) == len(replace_token_positions))
+    if importance_score is None:
+        return code, prog_length, adv_code, true_label, orig_label, temp_label, -3, variable_names, None, None, None, None
 
     token_pos_to_score_pos = {}
 
@@ -232,7 +235,6 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
         token_pos_to_score_pos[token_pos] = i
     # 重新计算Importance score，将所有出现的位置加起来（而不是取平均）.
     names_to_importance_score = {}
-
     for name in names_positions_dict.keys():
         total_score = 0.0
         positions = names_positions_dict[name]
@@ -252,12 +254,11 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     nb_changed_pos = 0
     is_success = -1
     replaced_words = {}
-
     for name_and_score in sorted_list_of_names:
         tgt_word = name_and_score[0]
         tgt_positions = names_positions_dict[tgt_word] # 在words中对应的位置
-        if tgt_word in python_keywords:
-            # 如果在filter_words中就不修改
+        if not is_valid_variable_name(tgt_word, lang=args.language_type):
+            # if the extracted name is not valid
             continue   
 
         ## 得到substitues
@@ -284,14 +285,14 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
         substitute_list = []
         # 依次记录了被加进来的substitue
         # 即，每个temp_replace对应的substitue.
-        for substitute_ in all_substitues:
-
-            substitute = substitute_.strip()
+        for substitute in all_substitues:
+            if substitute in variable_names:
+                continue
             # FIX: 有些substitue的开头或者末尾会产生空格
             # 这些头部和尾部的空格在拼接的时候并不影响，但是因为下面的第4个if语句会被跳过
             # 这导致了部分mutants为空，而引发了runtime error
 
-            if not is_valid_substitue(substitute, tgt_word):
+            if not is_valid_substitue(substitute.strip(), tgt_word, args.language_type):
                 continue
 
             
@@ -315,7 +316,6 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
         logits, preds = get_results(new_dataset, codebert_tgt, args.eval_batch_size)
         assert(len(logits) == len(substitute_list))
 
-
         for index, temp_prob in enumerate(logits):
             temp_label = preds[index]
             if temp_label != orig_label:
@@ -337,7 +337,6 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
                 if gap > most_gap:
                     most_gap = gap
                     candidate = substitute_list[index]
-    
         if most_gap > 0:
             # 如果most_gap > 0，说明有mutant可以让prob减少
             nb_changed_var += 1
@@ -385,7 +384,8 @@ def main():
                         help="The model architecture to be fine-tuned.")
     parser.add_argument("--model_name_or_path", default=None, type=str,
                         help="The model checkpoint for weights initialization.")
-
+    parser.add_argument("--csv_store_path", type=str,
+                        help="Path to store the CSV file")
     parser.add_argument("--mlm", action='store_true',
                         help="Train with masked-language modeling loss instead of language modeling.")
     parser.add_argument("--mlm_probability", type=float, default=0.15,
@@ -452,17 +452,6 @@ def main():
                         help="Overwrite the cached training and evaluation sets")
     parser.add_argument('--seed', type=int, default=42,
                         help="random seed for initialization")
-    parser.add_argument('--epoch', type=int, default=42,
-                        help="random seed for initialization")
-    parser.add_argument('--fp16', action='store_true',
-                        help="Whether to use 16-bit (mixed) precision (through NVIDIA apex) instead of 32-bit")
-    parser.add_argument('--fp16_opt_level', type=str, default='O1',
-                        help="For fp16: Apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']."
-                             "See details at https://nvidia.github.io/apex/amp.html")
-    parser.add_argument("--local_rank", type=int, default=-1,
-                        help="For distributed training: local_rank")
-    parser.add_argument('--server_ip', type=str, default='', help="For distant debugging.")
-    parser.add_argument('--server_port', type=str, default='', help="For distant debugging.")
 
 
     args = parser.parse_args()
@@ -543,24 +532,13 @@ def main():
     # 现在要尝试计算importance_score了.
     success_attack = 0
     total_cnt = 0
-    f = open('./attack_result.csv', 'w')
-    writer = csv.writer(f)
-    # write table head.
-    writer.writerow(["Original Code", 
-                    "Program Length", 
-                    "Adversarial Code", 
-                    "True Label", 
-                    "Original Prediction", 
-                    "Adv Prediction", 
-                    "Is Success", 
-                    "Extracted Names",
-                    "Importance Score",
-                    "No. Changed Names",
-                    "No. Changed Tokens",
-                    "Replaced Names"])
+
+    recoder = Recorder(args.csv_store_path)
+
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
         code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attack(args, example, code, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
+        attack_type = "Greedy"
 
 
         score_info = ''
@@ -573,18 +551,7 @@ def main():
             for key in replaced_words.keys():
                 replace_info += key + ':' + replaced_words[key] + ','
 
-        writer.writerow([code, 
-                        prog_length, 
-                        adv_code, 
-                        true_label, 
-                        orig_label, 
-                        temp_label, 
-                        is_success, 
-                        ",".join(variable_names),
-                        score_info,
-                        nb_changed_var,
-                        nb_changed_pos,
-                        replace_info])
+        recoder.write(index, code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, score_info, nb_changed_var, nb_changed_pos, replace_info, attack_type)
         
         
         if is_success >= -1 :
