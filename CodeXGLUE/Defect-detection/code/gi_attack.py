@@ -57,7 +57,7 @@ def main():
     parser.add_argument("--base_model", default=None, type=str,
                         help="Base Model")
     parser.add_argument("--csv_store_path", default=None, type=str,
-                        help="Base Model")
+                        help="Path to store the CSV file")
 
     parser.add_argument("--mlm", action='store_true',
                         help="Train with masked-language modeling loss instead of language modeling.")
