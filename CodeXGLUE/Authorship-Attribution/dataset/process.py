@@ -29,7 +29,14 @@ def preprocess_gcjpy(split_portion):
         tmp_example = []
         for file_name in files:
             with open(os.path.join(folder, name, file_name)) as code_file:
-                content = code_file.read()
+                lines_after_removal = []
+                for a_line in code_file.readlines():
+                    if  a_line.strip().startswith("import") or a_line.strip().startswith("#"):
+                        continue
+                    lines_after_removal.append(a_line)
+                
+                content = "\n".join(lines_after_removal)
+                print(content)
                 code_tokens = get_code_tokens(content, 'python')
                 content = " ".join(code_tokens)
                 new_content = content + ' <CODESPLIT> ' + str(index) + '\n'
@@ -79,7 +86,13 @@ def preprocess_java40(split_portion = 0.8):
             tmp_example = []
             for file_name in files:
                 with open(os.path.join(folder, name, repo, file_name), encoding="utf8", errors='ignore') as code_file:
-                    content = code_file.read()
+                    lines_after_removal = []
+                    for a_line in code_file.readlines():
+                        if a_line.startswith("package") or a_line.startswith("import"):
+                            continue
+                        lines_after_removal.append(a_line)
+
+                    content = "\n".join(lines_after_removal)
                     identifiers, code_tokens = get_identifiers(content, 'java')
                     content = " ".join(code_tokens)
                     new_content = content + ' <CODESPLIT> ' + str(index) + '\n'
@@ -101,4 +114,4 @@ def preprocess_java40(split_portion = 0.8):
 
 if __name__ == "__main__":
     preprocess_gcjpy(0.8)
-    # preprocess_java40(0.8)
+    preprocess_java40(0.8)
