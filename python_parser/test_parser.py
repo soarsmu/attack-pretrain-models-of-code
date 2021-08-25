@@ -1,16 +1,9 @@
 import argparse
 import csv
-from parser_folder.DFG import DFG_python, DFG_java, DFG_c
-from parser_folder import (remove_comments_and_docstrings,
-                           tree_to_token_index,
-                           index_to_code_token,
-                           tree_to_variable_index)
-from tree_sitter import Language, Parser
 import sys
 sys.path.append('.')
 sys.path.append('../')
-from utils import is_valid_variable_name
-from run_parser import extract_dataflow, unique, get_identifiers
+from run_parser import  get_identifiers
 path = 'parser_folder/my-languages.so'
 
 def main():
@@ -18,9 +11,9 @@ def main():
     parser.add_argument("--lang", default=None, type=str,
                         help="language.")
     args = parser.parse_args()
-    f_write = open('attack_c_bible.csv', 'w')
+    f_write = open('attack_java_bible.csv', 'w')
     writer = csv.writer(f_write)
-    with open('attack_result_c.csv') as csv_file:
+    with open('attack_result_java.csv') as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
         line_count = 0
         for row in csv_reader:
@@ -41,6 +34,22 @@ def main():
     f_write.close()
 
 
+def read_input_from_txt_python():
+    f_write = open('attack_python.csv', 'w')
+    writer = csv.writer(f_write)
+    # train python is the file that contains preprocess python code
+    with open('train_python.txt') as f:
+        lines = f.readlines()
+    line_count = 0
+    write_data = ['Original Code', 'Extracted Variable']
+    writer.writerow(write_data)
+    for line in lines:
+        line_count += 1
+        data, _ = get_identifiers(line, 'python')
+        write_data = [line, data]
+        writer.writerow(write_data)
+    f_write.close()
+    f.close()
 if __name__ == '__main__':
-    main()
+    read_input_from_txt_python()
 
