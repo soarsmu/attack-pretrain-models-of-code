@@ -145,7 +145,7 @@ python attack.py \
 ```
 
 
-#### MHM
+#### MHM-LS
 ```shell
 cd code
 CUDA_VISIBLE_DEVICES=1 python mhm.py \
@@ -154,16 +154,36 @@ CUDA_VISIBLE_DEVICES=1 python mhm.py \
     --number_labels 66 \
     --tokenizer_name=microsoft/codebert-base \
     --model_name_or_path=microsoft/codebert-base \
-    --csv_store_path ./attack_mhm.csv \
+    --csv_store_path ./attack_mhm_LS.csv \
     --base_model=microsoft/codebert-base-mlm \
     --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --block_size 512 \
     --eval_batch_size 64 \
-    --seed 123456  2>&1 | tee attack_mhm.log
+    --seed 123456  2>&1 | tee attack_mhm_LS.log
 ```
 
+
+#### MHM-Original
+```shell
+cd code
+CUDA_VISIBLE_DEVICES=1 python mhm.py \
+    --output_dir=./saved_models/gcjpy \
+    --model_type=roberta \
+    --number_labels 66 \
+    --tokenizer_name=microsoft/codebert-base \
+    --model_name_or_path=microsoft/codebert-base \
+    --csv_store_path ./attack_mhm_original.csv \
+    --base_model=microsoft/codebert-base-mlm \
+    --is_original_mhm \
+    --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
+    --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
+    --test_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
+    --block_size 512 \
+    --eval_batch_size 64 \
+    --seed 123456  2>&1 | tee attack_mhm_original.log
+```
 
 
 ### On Java dataset
