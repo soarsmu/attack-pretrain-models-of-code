@@ -18,7 +18,7 @@ from run import TextDataset
 from utils import CodeDataset
 from run_parser import get_identifiers
 from transformers import RobertaForMaskedLM
-from transformers import (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
+from transformers import (RobertaConfig, RobertaTokenizer, RobertaModel)
 from attacker import MHM_Attacker
 from attacker import convert_code_to_features
 
@@ -26,7 +26,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning\
 
 MODEL_CLASSES = {
-    'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
+    'roberta': (RobertaConfig, RobertaModel, RobertaTokenizer),
 }
 
 from utils import build_vocab
@@ -70,7 +70,8 @@ def main():
                         help="Train with masked-language modeling loss instead of language modeling.")
     parser.add_argument("--mlm_probability", type=float, default=0.15,
                         help="Ratio of tokens to mask for masked language modeling loss")
-
+    parser.add_argument("--number_labels", type=int,
+                        help="The model checkpoint for weights initialization.")
     parser.add_argument("--config_name", default="", type=str,
                         help="Optional pretrained config name or path if not the same as model_name_or_path")
     parser.add_argument("--tokenizer_name", default="", type=str,
@@ -124,7 +125,7 @@ def main():
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
     config = config_class.from_pretrained(args.config_name if args.config_name else args.model_name_or_path,
                                           cache_dir=args.cache_dir if args.cache_dir else None)
-    config.num_labels=1 # 只有一个label?
+    config.num_labels= args.number_labels 
     tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name,
                                                 do_lower_case=False,
                                                 cache_dir=args.cache_dir if args.cache_dir else None)
@@ -142,28 +143,29 @@ def main():
     model = Model(model,config,tokenizer,args)
 
 
-    checkpoint_prefix = 'checkpoint-best-acc/model.bin'
+    checkpoint_prefix = 'checkpoint-best-f1/model.bin'
     output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
     model.load_state_dict(torch.load(output_dir))      
     model.to(args.device)
     print ("MODEL LOADED!")
 
 
-    # Load Dataset
     ## Load Dataset
-    eval_dataset = TextDataset(tokenizer, args,args.eval_data_file)
+    eval_dataset = TextDataset(tokenizer, args, args.eval_data_file)
 
-    source_codes = []
-    with open(args.eval_data_file) as f:
-        for line in f:
-            js=json.loads(line.strip())
-            code = ' '.join(js['func'].split())
-            source_codes.append(code)
+    file_type = args.eval_data_file.split('/')[-1].split('.')[0] # valid
+    folder = '/'.join(args.eval_data_file.split('/')[:-1]) # 得到文件目录
+    codes_file_path = os.path.join(folder, 'cached_{}.pkl'.format(
+                                file_type))
+    print(codes_file_path)
+
+    with open(codes_file_path, 'rb') as f:
+        source_codes = pickle.load(f)
     assert(len(source_codes) == len(eval_dataset))
 
     code_tokens = []
     for index, code in enumerate(source_codes):
-        code_tokens.append(get_identifiers(code, "c")[1])
+        code_tokens.append(get_identifiers(code, "python")[1])
 
     id2token, token2id = build_vocab(code_tokens, 5000)
 
@@ -181,7 +183,7 @@ def main():
     total_cnt = 0
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
-        identifiers, code_tokens = get_identifiers(code, lang='c')
+        identifiers, code_tokens = get_identifiers(code, lang='python')
         code_tokens = [i for i in code_tokens]
         processed_code = " ".join(code_tokens)
 
