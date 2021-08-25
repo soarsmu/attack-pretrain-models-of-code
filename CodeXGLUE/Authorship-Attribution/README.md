@@ -105,6 +105,8 @@ gdown https://drive.google.com/uc?id=14dOsW-_C0D1IINP2J4l2VqB-IAlGB15w
 mv model.bin code/saved_models/gcjpy/checkpoint-best-f1/
 ```
 
+#### GA-Attack
+
 ```shell
 cd code
 python attack.py \
@@ -115,6 +117,7 @@ python attack.py \
     --tokenizer_name=roberta-base \
     --number_labels 66 \
     --do_eval \
+    --use_ga \
     --csv_store_path ./attack_no_gi.csv \
     --language_type python \
     --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
@@ -126,6 +129,48 @@ python attack.py \
     --evaluate_during_training \
     --seed 123456 2>&1| tee attack_gcjpy.log
 ```
+
+
+#### MHM-LS
+```shell
+cd code
+CUDA_VISIBLE_DEVICES=1 python mhm.py \
+    --output_dir=./saved_models/gcjpy \
+    --model_type=roberta \
+    --number_labels 66 \
+    --tokenizer_name=microsoft/codebert-base \
+    --model_name_or_path=microsoft/codebert-base \
+    --csv_store_path ./attack_mhm_LS.csv \
+    --base_model=microsoft/codebert-base-mlm \
+    --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
+    --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
+    --test_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
+    --block_size 512 \
+    --eval_batch_size 64 \
+    --seed 123456  2>&1 | tee attack_mhm_LS.log
+```
+
+
+#### MHM-Original
+```shell
+cd code
+CUDA_VISIBLE_DEVICES=1 python mhm.py \
+    --output_dir=./saved_models/gcjpy \
+    --model_type=roberta \
+    --number_labels 66 \
+    --tokenizer_name=microsoft/codebert-base \
+    --model_name_or_path=microsoft/codebert-base \
+    --csv_store_path ./attack_mhm_original.csv \
+    --base_model=microsoft/codebert-base-mlm \
+    --is_original_mhm \
+    --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
+    --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
+    --test_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
+    --block_size 512 \
+    --eval_batch_size 64 \
+    --seed 123456  2>&1 | tee attack_mhm_original.log
+```
+
 
 ### On Java dataset
 
