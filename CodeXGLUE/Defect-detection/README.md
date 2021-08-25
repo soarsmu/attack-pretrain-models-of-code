@@ -217,3 +217,10 @@ CUDA_VISIBLE_DEVICES=1 python mhm_attack.py \
     --eval_batch_size 64 \
     --seed 123456  2>&1 | tee attack_original_mhm.log
 ```
+
+python get_adv_data.py \
+    --tokenizer_name=microsoft/codebert-base-mlm \
+    --store_path ./test.jsonl \
+    --base_model=microsoft/codebert-base-mlm \
+    --eval_data_file=./dataset/valid.jsonl \
+    --block_size 512
