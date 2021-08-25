@@ -15,6 +15,7 @@ from model import Model
 from utils import set_seed
 from run import TextDataset
 from utils import GraphCodeDataset
+from utils import Recorder
 from run_parser import get_identifiers
 from transformers import RobertaForMaskedLM
 from transformers import (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
@@ -81,7 +82,9 @@ if __name__ == "__main__":
     parser.add_argument("--do_eval", action='store_true',
                         help="Whether to run eval on the dev set.")
     parser.add_argument("--do_test", action='store_true',
-                        help="Whether to run eval on the dev set.")    
+                        help="Whether to run eval on the dev set.")
+    parser.add_argument("--original", action='store_true',
+                        help="Whether to MHM original.")  
     parser.add_argument("--eval_batch_size", default=4, type=int,
                         help="Batch size per GPU/CPU for evaluation.")
     parser.add_argument('--seed', type=int, default=42,
@@ -165,6 +168,7 @@ if __name__ == "__main__":
 
     id2token, token2id = build_vocab(code_tokens, 5000)
 
+    recoder = Recorder(args.csv_store_path)
     attacker = MHM_Attacker(args, model, codebert_mlm, tokenizer_mlm, token2id, id2token)
     
     # token2id: dict,key是变量名, value是id
@@ -195,8 +199,12 @@ if __name__ == "__main__":
         start_time = time.time()
         
         # 这里需要进行修改.
-
-        _res = attacker.mcmc(tokenizer, code,
+        if args.original:
+            _res = attacker.mcmc_random(tokenizer, code,
+                             _label=ground_truth, _n_candi=30,
+                             _max_iter=400, _prob_threshold=1)
+        else:
+            _res = attacker.mcmc(tokenizer, code,
                              _label=ground_truth, _n_candi=30,
                              _max_iter=400, _prob_threshold=1)
     
@@ -212,9 +220,5 @@ if __name__ == "__main__":
         total_cnt += 1
         print ("  time cost = %.2f min" % ((time.time()-start_time)/60))
         print ("  curr succ rate = "+str(n_succ/total_cnt))
-            
-    print ("\nFINAL SUCC RATE = "+str(n_succ/len(eval_dataset)))
-
-    with open(save_path, "wb") as f:
-        pickle.dump(adv, f)
-    print ("\nADVERSARIAL EXAMPLES DUMPED!")
+        
+        recoder.writemhm(index, code, _res["prog_length"], " ".join(_res['tokens']), ground_truth, orig_label, _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"])

@@ -16,6 +16,7 @@ from utils import set_seed
 from utils import Recorder
 from run import TextDataset
 from utils import CodeDataset
+from python_parser.parser_folder import remove_comments_and_docstrings
 from run_parser import get_identifiers
 from transformers import RobertaForMaskedLM
 from transformers import (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
@@ -82,7 +83,9 @@ def main():
     parser.add_argument("--do_eval", action='store_true',
                         help="Whether to run eval on the dev set.")
     parser.add_argument("--do_test", action='store_true',
-                        help="Whether to run eval on the dev set.")    
+                        help="Whether to run eval on the dev set.") 
+    parser.add_argument("--original", action='store_true',
+                        help="Whether to MHM original.")
     parser.add_argument("--eval_batch_size", default=4, type=int,
                         help="Batch size per GPU/CPU for evaluation.")
     parser.add_argument('--seed', type=int, default=42,
@@ -157,7 +160,7 @@ def main():
     with open(args.eval_data_file) as f:
         for line in f:
             js=json.loads(line.strip())
-            code = ' '.join(js['func'].split())
+            code = remove_comments_and_docstrings(js['func'], "c")
             source_codes.append(code)
     assert(len(source_codes) == len(eval_dataset))
 
@@ -198,11 +201,15 @@ def main():
         start_time = time.time()
         
         # 这里需要进行修改.
-
-        _res = attacker.mcmc(tokenizer, code,
+        if args.original:
+            _res = attacker.mcmc_random(tokenizer, code,
                              _label=ground_truth, _n_candi=30,
                              _max_iter=50, _prob_threshold=1)
-        
+        else:
+            _res = attacker.mcmc(tokenizer, code,
+                             _label=ground_truth, _n_candi=30,
+                             _max_iter=50, _prob_threshold=1)
+
         if _res['succ'] is None:
             continue
         if _res['succ'] == True:

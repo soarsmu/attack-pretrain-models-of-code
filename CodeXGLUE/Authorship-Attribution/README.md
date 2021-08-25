@@ -2,30 +2,16 @@
 
 ## Dataset
 
-First, you need to download 3 datasets from [dataset](https://drive.google.com/drive/u/1/folders/1UGFFC5KYMRA-9F_VTsG_VcsZjAv7SG4i). Then, you need to decompress the 3 `tar.xz` files to the `dataset/data_folder`. For example:
+First, you need to download the dataset from [link](https://drive.google.com/file/d/1CK5VwjwMM5uSqOjHngp4Z9FDu-rJ7qky/view?usp=sharing). Then, you need to decompress the `.zip` file to the `dataset/data_folder`. For example:
 
 ```
 pip install gdown
-gdown https://drive.google.com/uc?id=1qMpwdaPASYFbX0gPEMSUlRtf_ErRkI-r
-gdown https://drive.google.com/uc?id=1TXaLKEIVvkWZRwPQhUYeNAL4e11FgzDj
-gdown https://drive.google.com/uc?id=1bBx04zqrpxNC0H5F6QObKByPDZ6QGZO2
-xz -d gcjpy.tar.xz
-tar -xvf gcjpy.tar
-xz -d gcj.tar.xz
-tar -xvf gcj.tar
-xz -d java40.tar.xz
-tar -xvf java40.tar
-mkdir dataset/data_folder
-mv gcjpy dataset/data_folder/
-mv gcj dataset/data_folder/
-mv java40 dataset/data_folder/
-```
-
-Then, you can run the following command to preprocess the datasets:
-
-```
+gdown https://drive.google.com/uc?id=1CK5VwjwMM5uSqOjHngp4Z9FDu-rJ7qky
+unzip processed_java40.zip
+mkdir dataset
 cd dataset
-python process.py
+mkdir data_folder
+mv ../../processed_java40 ./
 ```
 
 ## Fine-tune CodeBERT
@@ -92,7 +78,7 @@ python run.py \
     --model_name_or_path=microsoft/codebert-base \
     --tokenizer_name=roberta-base \
     --number_labels 41 \
-    --do_train \
+    --do_eval \
     --train_data_file=../dataset/data_folder/processed_java40/train.txt \
     --eval_data_file=../dataset/data_folder/processed_java40/valid.txt \
     --test_data_file=../dataset/data_folder/processed_java40/test.txt \
@@ -204,7 +190,7 @@ python attack.py \
     --model_type=roberta \
     --tokenizer_name=microsoft/codebert-base \
     --model_name_or_path=microsoft/codebert-base \
-    --do_train \
+    --do_eval \
     --language_type java \
     --number_labels 41 \
     --train_data_file=../dataset/data_folder/processed_java40/train.txt \

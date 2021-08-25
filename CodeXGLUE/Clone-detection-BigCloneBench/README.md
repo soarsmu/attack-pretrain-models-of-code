@@ -179,6 +179,26 @@ CUDA_VISIBLE_DEVICES=0 python mhm_attack.py \
     --seed 123456  2>&1 | tee attack_mhm.log
 ```
 
+#### Original MHM-Attack
+```shell
+cd code
+CUDA_VISIBLE_DEVICES=0 python mhm_attack.py \
+    --output_dir=./saved_models \
+    --model_type=roberta \
+    --tokenizer_name=microsoft/codebert-base \
+    --model_name_or_path=microsoft/codebert-base \
+    --csv_store_path ./attack_original_mhm.csv \
+    --original \
+    --base_model=microsoft/codebert-base-mlm \
+    --train_data_file=../dataset/train.txt \
+    --eval_data_file=../dataset/valid.txt \
+    --test_data_file=../dataset/test.txt \
+    --block_size 512 \
+    --eval_batch_size 64 \
+    --seed 123456  2>&1 | tee attack_original_mhm.log
+```
+
+
 ## Result
 
 The results on the test set are shown as below:
