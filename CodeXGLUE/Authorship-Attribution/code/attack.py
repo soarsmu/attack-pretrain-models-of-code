@@ -315,7 +315,6 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
         logits, preds = get_results(new_dataset, codebert_tgt, args.eval_batch_size)
         assert(len(logits) == len(substitute_list))
 
-        print(preds)
         for index, temp_prob in enumerate(logits):
             temp_label = preds[index]
             if temp_label != orig_label:

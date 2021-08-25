@@ -63,6 +63,7 @@ def extract_dataflow(code, lang):
     root_node = tree.root_node
     tokens_index = tree_to_token_index(root_node)
     code = code.split('\n')
+    # print(code)
     code_tokens = [index_to_code_token(x, code) for x in tokens_index]
     index_to_code = {}
     for idx, (index, code) in enumerate(zip(tokens_index, code_tokens)):
@@ -90,6 +91,8 @@ def get_identifiers(code, lang):
             ret.append(d[0])
     ret = unique(ret)
     ret = [ [i] for i in ret]
+    print("ret")
+    print(ret)
     return ret, code_tokens
 
 def main():
