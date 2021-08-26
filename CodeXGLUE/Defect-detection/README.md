@@ -148,16 +148,16 @@ CUDA_VISIBLE_DEVICES=1 python get_substitutes.py \
 ### Attack microsoft/codebert-base-mlm
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=1 python gi_attack.py \
+CUDA_VISIBLE_DEVICES=0 python gi_attack.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --tokenizer_name=microsoft/codebert-base-mlm \
     --model_name_or_path=microsoft/codebert-base-mlm \
     --csv_store_path ./attack_no_gi.csv \
     --base_model=microsoft/codebert-base-mlm \
-    --train_data_file=../preprocess/dataset/train.jsonl \
-    --eval_data_file=../preprocess/dataset/valid.jsonl \
-    --test_data_file=../preprocess/dataset/test.jsonl \
+    --train_data_file=../preprocess/dataset/train_subs.jsonl \
+    --eval_data_file=../preprocess/dataset/valid_subs.jsonl \
+    --test_data_file=../preprocess/dataset/test_subs.jsonl \
     --block_size 512 \
     --eval_batch_size 64 \
     --seed 123456  2>&1 | tee attack_no_gi.log
@@ -175,9 +175,9 @@ CUDA_VISIBLE_DEVICES=1 python gi_attack.py \
     --csv_store_path ./attack_genetic.csv \
     --base_model=microsoft/codebert-base-mlm \
     --use_ga \
-    --train_data_file=../preprocess/dataset/train.jsonl \
-    --eval_data_file=../preprocess/dataset/valid.jsonl \
-    --test_data_file=../preprocess/dataset/test.jsonl \
+    --train_data_file=../preprocess/dataset/train_subs.jsonl \
+    --eval_data_file=../preprocess/dataset/valid_subs.jsonl \
+    --test_data_file=../preprocess/dataset/test_subs.jsonl \
     --block_size 512 \
     --eval_batch_size 64 \
     --seed 123456  2>&1 | tee attack_gi.log
