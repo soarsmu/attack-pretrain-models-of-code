@@ -166,7 +166,7 @@ def main():
     total_cnt = 0
 
     recoder = Recorder(args.csv_store_path)
-    
+    query_times = 0
     attacker = Attacker(args, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
@@ -187,7 +187,10 @@ def main():
             for key in replaced_words.keys():
                 replace_info += key + ':' + replaced_words[key] + ','
 
-        recoder.write(index, code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, score_info, nb_changed_var, nb_changed_pos, replace_info, attack_type)
+        print("Query times in this attack: ", model.query - query_times)
+        print("All Query times: ", model.query)
+        recoder.write(index, code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, score_info, nb_changed_var, nb_changed_pos, replace_info, attack_type, model.query - query_times)
+        query_times = model.query
         
         
         if is_success >= -1 :
