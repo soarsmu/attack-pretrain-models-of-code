@@ -4,6 +4,7 @@ sys.path.append('../../../')
 sys.path.append('../../../python_parser')
 from run_parser import get_identifiers, get_code_tokens
 from parser_folder import remove_comments_and_docstrings
+
 def preprocess_gcjpy(split_portion):
     '''
     预处理文件.
@@ -19,7 +20,6 @@ def preprocess_gcjpy(split_portion):
     with open(os.path.join(output_dir, "classes.txt"), 'w') as f:
         for index, name in enumerate(authors):
             f.write(str(index) + '\t' + name + '\n')
-
 
 
     train_example = []
@@ -114,4 +114,4 @@ def preprocess_java40(split_portion = 0.8):
 
 if __name__ == "__main__":
     preprocess_gcjpy(0.8)
-    preprocess_java40(0.8)
+    # preprocess_java40(0.8)
