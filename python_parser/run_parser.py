@@ -55,8 +55,10 @@ def extract_dataflow(code, lang):
     parser = parsers[lang]
     code = code.replace("\\n", "\n")
     # remove comments
-    code = remove_comments_and_docstrings(code, lang)
-    
+    try:
+        code = remove_comments_and_docstrings(code, lang)
+    except:
+        pass
     parser = parsers[lang]
     tree = parser[0].parse(bytes(code, 'utf8'))
     root_node = tree.root_node
