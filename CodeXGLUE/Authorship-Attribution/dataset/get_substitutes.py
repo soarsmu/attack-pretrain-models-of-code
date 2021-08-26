@@ -51,7 +51,10 @@ def main():
 
     with open(args.store_path, "w") as wf:
         for item in tqdm(eval_data):
-            identifiers, code_tokens = get_identifiers(remove_comments_and_docstrings(item["func"], "c"), "c")
+            try:
+                identifiers, code_tokens = get_identifiers(remove_comments_and_docstrings(item["code"], "python"), "python")
+            except:
+                identifiers, code_tokens = get_identifiers(item["code"], "python")
             processed_code = " ".join(code_tokens)
             
             words, sub_words, keys = _tokenize(processed_code, tokenizer_mlm)
@@ -77,11 +80,12 @@ def main():
 
             variable_substitue_dict = {}
 
-
+            with torch.no_grad():
+                orig_embeddings = codebert_mlm.roberta(input_ids_.to('cuda'))[0]
             cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
             for tgt_word in names_positions_dict.keys():
                 tgt_positions = names_positions_dict[tgt_word] # the positions of tgt_word in code
-                if not is_valid_variable_name(tgt_word, lang='c'):
+                if not is_valid_variable_name(tgt_word, lang='python'):
                     # if the extracted name is not valid
                     continue   
 
@@ -93,8 +97,7 @@ def main():
                         continue
                     substitutes = word_predictions[keys[one_pos][0]:keys[one_pos][1]]  # L, k
                     word_pred_scores = word_pred_scores_all[keys[one_pos][0]:keys[one_pos][1]]
-                    with torch.no_grad():
-                        orig_embeddings = codebert_mlm.roberta(input_ids_.to('cuda'))[0]
+                    
                     orig_word_embed = orig_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
 
                     similar_substitutes = []
@@ -136,7 +139,7 @@ def main():
                 for tmp_substitue in all_substitues:
                     if tmp_substitue.strip() in variable_names:
                         continue
-                    if not is_valid_substitue(tmp_substitue.strip(), tgt_word, 'c'):
+                    if not is_valid_substitue(tmp_substitue.strip(), tgt_word, 'python'):
                         continue
                     try:
                         variable_substitue_dict[tgt_word].append(tmp_substitue)
