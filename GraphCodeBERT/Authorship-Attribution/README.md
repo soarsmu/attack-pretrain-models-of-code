@@ -64,14 +64,14 @@ docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase
 We use full train data for fine-tuning. The training cost is 10 mins on 4*P100-16G. We use full valid data to evaluate during training.
 
 ```
-CUDA_VISIBLE_DEVICES=1,3,6,7 python run.py \
+CUDA_VISIBLE_DEVICES=4,5,6,7 python run.py \
     --output_dir=./saved_models/gcjpy \
     --config_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
     --do_train \
     --language_type python \
-    --number_labels 70 \
+    --number_labels 66 \
     --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
@@ -130,25 +130,84 @@ mv model.bin code/saved_models/gcjpy/checkpoint-best-acc/
 
 ```shell
 cd code
-python attack.py \
+python gi_attack.py \
     --output_dir=./saved_models/gcjpy \
     --model_type=roberta \
-    --config_name=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
-    --number_labels 70 \
-    --do_eval \
-    --language_type python \
+    --csv_store_path ./attack_no_gi.csv \
+    --number_labels 66 \
+    --base_model=microsoft/graphcodebert-base \
     --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
-    --epoch 20 \
     --code_length 512 \
     --data_flow_length 128 \
-    --train_batch_size 8 \
     --eval_batch_size 32 \
-    --evaluate_during_training \
-    --seed 123456 2>&1| tee attack_gcjpy.log
+    --seed 123456  2>&1 | tee attack_no_gi.log
+```
+
+
+```shell
+cd code
+python gi_attack.py \
+    --output_dir=./saved_models/gcjpy \
+    --model_type=roberta \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --csv_store_path ./attack_gi.csv \
+    --number_labels 66 \
+    --use_ga \
+    --base_model=microsoft/graphcodebert-base \
+    --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
+    --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
+    --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
+    --code_length 512 \
+    --data_flow_length 128 \
+    --eval_batch_size 32 \
+    --seed 123456  2>&1 | tee attack_gi.log
+```
+
+
+# MHM-Attack
+```shell
+cd code
+CUDA_VISIBLE_DEVICES=5 python mhm_attack.py \
+    --output_dir=./saved_models/gcjpy \
+    --model_type=roberta \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --csv_store_path ./attack_mhm.csv \
+    --number_labels 66 \
+    --base_model=microsoft/graphcodebert-base \
+    --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
+    --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
+    --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
+    --code_length 512 \
+    --data_flow_length 128 \
+    --eval_batch_size 32 \
+    --seed 123456  2>&1 | tee attack_mhm.log
+```
+
+# Original MHM-Attack
+```shell
+cd code
+CUDA_VISIBLE_DEVICES=5 python mhm_attack.py \
+    --output_dir=./saved_models/gcjpy \
+    --model_type=roberta \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --csv_store_path ./attack_original_mhm.csv \
+    --original \
+    --number_labels 66 \
+    --base_model=microsoft/graphcodebert-base \
+    --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
+    --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
+    --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
+    --code_length 512 \
+    --data_flow_length 128 \
+    --eval_batch_size 32 \
+    --seed 123456  2>&1 | tee attack_original_mhm.log
 ```
 
 ### On Java dataset
