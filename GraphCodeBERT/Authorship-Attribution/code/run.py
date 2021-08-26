@@ -129,8 +129,8 @@ class InputFeatures(object):
 def convert_examples_to_features(code, label, tokenizer,args):
     #source
     # code=' '.join(js['func'].split())
-    parser = parsers[args.language_type]
-    code_tokens,dfg = extract_dataflow(code, parser, args.language_type)
+    parser = parsers["python"]
+    code_tokens,dfg = extract_dataflow(code, parser, "python")
 
     code_tokens=[tokenizer.tokenize('@ '+x)[1:] if idx!=0 else tokenizer.tokenize(x) for idx,x in enumerate(code_tokens)]
     ori2cur_pos={}
