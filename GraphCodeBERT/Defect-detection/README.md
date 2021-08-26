@@ -140,6 +140,17 @@ gdown https://drive.google.com/uc?id=1C2wu1va4vMircV46LdEefsA74VoiIvbw
 mv model.bin code/saved_models/checkpoint-best-acc/
 ```
 
+### Generate substitutes
+
+```
+cd preprocess
+CUDA_VISIBLE_DEVICES=3 python get_substitutes.py \
+    --store_path ./dataset/valid_subs.jsonl \
+    --base_model=microsoft/graphcodebert-base \
+    --eval_data_file=./dataset/valid.jsonl \
+    --block_size 512
+```
+
 ### Greedy Attack
 
 ```shell

@@ -19,6 +19,7 @@ class Model(nn.Module):
         self.config=config
         self.tokenizer=tokenizer
         self.args=args
+        self.query = 0
         
     def forward(self, inputs_ids=None, attn_mask=None, position_idx=None, labels = None):
         #embedding
@@ -45,6 +46,7 @@ class Model(nn.Module):
       
     def get_results(self, dataset, batch_size):
         '''Given a dataset, return probabilities and labels.'''
+        self.query += len(dataset)
         eval_sampler = SequentialSampler(dataset)
         eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size,num_workers=4,pin_memory=False)
 

@@ -8,6 +8,8 @@ from parser_folder import (remove_comments_and_docstrings,
                            tree_to_token_index,
                            index_to_code_token,)
 from tree_sitter import Language, Parser
+sys.path.append('..')
+sys.path.append('../../../')
 from utils import is_valid_variable_name
 sys.path.append('.')
 sys.path.append('../')
@@ -15,9 +17,8 @@ sys.path.append('../')
 path = '../../../python_parser/parser_folder/my-languages.so'
 # path = 'parser_folder/my-languages.so'
 
-c_code = """    
-void vmxnet3_pop_next_tx_descr(VMXNET3State *s, int qidx, struct Vmxnet3_TxDesc *txd, uint32_t *descr_idx) { Vmxnet3Ring *ring = &s->txq_descr[qidx].tx_ring; PCIDevice *d = PCI_DEVICE(s); vmxnet3_ring_read_curr_cell(d, ring, txd); if (txd->gen == vmxnet3_ring_curr_gen(ring)) { /* Only read after generation field verification */ smp_rmb(); /* Re-read to be sure we got the latest version */ vmxnet3_ring_read_curr_cell(d, ring, txd); VMXNET3_RING_DUMP(VMW_RIPRN, "TX", qidx, ring); *descr_idx = vmxnet3_ring_curr_cell_idx(ring); vmxnet3_inc_tx_consumption_counter(s, qidx); return true; } return false; }
-"""
+c_code = """
+static int bit8x8_c(MpegEncContext *s, uint8_t *src1, uint8_t *src2,\n\n                    ptrdiff_t stride, int h)\n\n{\n\n    const uint8_t *scantable = s->intra_scantable.permutated;\n\n    LOCAL_ALIGNED_16(int16_t, temp, [64]);\n\n    int i, last, run, bits, level, start_i;\n\n    const int esc_length = s->ac_esc_length;\n\n    uint8_t *length, *last_length;\n\n\n\n    av_assert2(h == 8);\n\n\n\n    s->pdsp.diff_pixels(temp, src1, src2, stride);\n\n\n\n    s->block_last_index[0 /* FIXME */] =\n\n    last                               =\n\n        s->fast_dct_quantize(s, temp, 0 /* FIXME */, s->qscale, &i);\n\n\n\n    bits = 0;\n\n\n\n    if (s->mb_intra) {\n\n        start_i     = 1;\n\n        length      = s->intra_ac_vlc_length;\n\n        last_length = s->intra_ac_vlc_last_length;\n\n        bits       += s->luma_dc_vlc_length[temp[0] + 256]; // FIXME: chroma\n\n    } else {\n\n        start_i     = 0;\n\n        length      = s->inter_ac_vlc_length;\n\n        last_length = s->inter_ac_vlc_last_length;\n\n    }\n\n\n\n    if (last >= start_i) {\n\n        run = 0;\n\n        for (i = start_i; i < last; i++) {\n\n            int j = scantable[i];\n\n            level = temp[j];\n\n\n\n            if (level) {\n\n                level += 64;\n\n                if ((level & (~127)) == 0)\n\n                    bits += length[UNI_AC_ENC_INDEX(run, level)];\n\n                else\n\n                    bits += esc_length;\n\n                run = 0;\n\n            } else\n\n                run++;\n\n        }\n\n        i = scantable[last];\n\n\n\n        level = temp[i] + 64;\n\n\n\n        av_assert2(level - 64);\n\n\n\n        if ((level & (~127)) == 0)\n\n            bits += last_length[UNI_AC_ENC_INDEX(run, level)];\n\n        else\n\n            bits += esc_length;\n\n    }\n\n\n\n    return bits;\n\n}\n"""
 python_code = """
 """
 java_code = """
@@ -58,7 +59,7 @@ def extract_dataflow(code, lang):
         code = remove_comments_and_docstrings(code, lang)
     except:
         pass
-        # obtain dataflow
+    parser = parsers[lang]
     tree = parser[0].parse(bytes(code, 'utf8'))
     root_node = tree.root_node
     tokens_index = tree_to_token_index(root_node)
@@ -100,9 +101,9 @@ def main():
     args = parser.parse_args()
     code = codes[args.lang]
     data, _ = get_identifiers(code, args.lang)
-    print("final ret")
-    for identifier in data:
-        print(identifier)
+    # print("final ret")
+    # for identifier in data:
+    #     print(identifier)
 
 if __name__ == '__main__':
     main()

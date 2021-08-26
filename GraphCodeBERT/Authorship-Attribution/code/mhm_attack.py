@@ -1,40 +1,47 @@
-# coding=utf-8
-# @Time    : 2020/8/13
-# @Author  : Zhou Yang
-# @Email   : zyang@smu.edu.sg
-# @File    : gi_attack.py
-'''For attacking CodeBERT models'''
+import torch
 import sys
 import os
 
 sys.path.append('../../../')
 sys.path.append('../../../python_parser')
 
+import csv
 import json
-import logging
 import argparse
 import warnings
 import torch
+import numpy as np
 from model import Model
-from run import TextDataset
 from utils import set_seed
-
+from run import TextDataset
+from utils import GraphCodeDataset
 from utils import Recorder
-from attacker import Attacker
-from transformers import (RobertaForMaskedLM, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
+from run_parser import get_identifiers
+from transformers import RobertaForMaskedLM
+from transformers import (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
+from attacker import MHM_Attacker
+from attacker import convert_code_to_features
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning
+warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning\
 
 MODEL_CLASSES = {
     'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
 }
 
-logger = logging.getLogger(__name__)
-
-
-
-def main():
+from utils import build_vocab
+            
+if __name__ == "__main__":
+    
+    import json
+    import pickle
+    import time
+    import os
+    
+    # import tree as Tree
+    # from dataset import Dataset, POJ104_SEQ
+    # from lstm_classifier import LSTMEncoder, LSTMClassifier
+    
     parser = argparse.ArgumentParser()
 
     ## Required parameters
@@ -63,7 +70,8 @@ def main():
                         help="Train with masked-language modeling loss instead of language modeling.")
     parser.add_argument("--mlm_probability", type=float, default=0.15,
                         help="Ratio of tokens to mask for masked language modeling loss")
-
+    parser.add_argument("--number_labels", type=int,
+                        help="The number of labels.") 
     parser.add_argument("--config_name", default="", type=str,
                         help="Optional pretrained config name or path if not the same as model_name_or_path")
     parser.add_argument("--tokenizer_name", default="", type=str,
@@ -72,21 +80,18 @@ def main():
                         help="Optional Data Flow input sequence length after tokenization.") 
     parser.add_argument("--code_length", default=256, type=int,
                         help="Optional Code input sequence length after tokenization.") 
-    parser.add_argument("--do_train", action='store_true',
-                        help="Whether to run training.")
-    parser.add_argument("--use_ga", action='store_true',
-                        help="Whether to GA-Attack.")
     parser.add_argument("--do_eval", action='store_true',
                         help="Whether to run eval on the dev set.")
     parser.add_argument("--do_test", action='store_true',
-                        help="Whether to run eval on the dev set.")    
+                        help="Whether to run eval on the dev set.")
+    parser.add_argument("--original", action='store_true',
+                        help="Whether to MHM original.")  
     parser.add_argument("--eval_batch_size", default=4, type=int,
                         help="Batch size per GPU/CPU for evaluation.")
     parser.add_argument('--seed', type=int, default=42,
                         help="random seed for initialization")
     parser.add_argument("--cache_dir", default="", type=str,
                         help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
-
 
 
     args = parser.parse_args()
@@ -96,10 +101,12 @@ def main():
     # Set seed
     set_seed(args.seed)
 
+    codebert_mlm = RobertaForMaskedLM.from_pretrained(args.base_model)
+    tokenizer_mlm = RobertaTokenizer.from_pretrained(args.base_model)
+    codebert_mlm.to('cuda') 
 
     args.start_epoch = 0
     args.start_step = 0
-
 
     ## Load Target Model
     checkpoint_last = os.path.join(args.output_dir, 'checkpoint-last') # 读取model的路径
@@ -115,17 +122,15 @@ def main():
         if os.path.exists(step_file):
             with open(step_file, encoding='utf-8') as stepf:
                 args.start_step = int(stepf.readlines()[0].strip())
-        logger.info("reload model from {}, resume from {} epoch".format(checkpoint_last, args.start_epoch))
 
 
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
     config = config_class.from_pretrained(args.config_name if args.config_name else args.model_name_or_path,
                                           cache_dir=args.cache_dir if args.cache_dir else None)
-    config.num_labels=1 # 只有一个label?
+    config.num_labels=args.number_labels
     tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name,
                                                 do_lower_case=False,
                                                 cache_dir=args.cache_dir if args.cache_dir else None)
-    
     if args.model_name_or_path:
         model = model_class.from_pretrained(args.model_name_or_path,
                                             from_tf=bool('.ckpt' in args.model_name_or_path),
@@ -141,70 +146,82 @@ def main():
     output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
     model.load_state_dict(torch.load(output_dir))      
     model.to(args.device)
+    print ("MODEL LOADED!")
 
-
-    ## Load CodeBERT (MLM) model
-    codebert_mlm = RobertaForMaskedLM.from_pretrained(args.base_model)
-    tokenizer_mlm = RobertaTokenizer.from_pretrained(args.base_model)
-    codebert_mlm.to('cuda') 
 
     ## Load Dataset
     eval_dataset = TextDataset(tokenizer, args,args.eval_data_file)
 
-    # Load original source codes
-    source_codes = []
-    with open(args.eval_data_file) as f:
-        for line in f:
-            js=json.loads(line.strip())
-            code = ' '.join(js['func'].split())
-            source_codes.append(code)
+    file_type = args.eval_data_file.split('/')[-1].split('.')[0] # valid
+    folder = '/'.join(args.eval_data_file.split('/')[:-1]) # 得到文件目录
+    codes_file_path = os.path.join(folder, 'cached_{}.pkl'.format(
+                                file_type))
+
+    with open(codes_file_path, 'rb') as f:
+        source_codes = pickle.load(f)
     assert(len(source_codes) == len(eval_dataset))
 
-    success_attack = 0
-    total_cnt = 0
+    code_tokens = []
+    for index, code in enumerate(source_codes):
+        code_tokens.append(get_identifiers(code, "c")[1])
+
+    id2token, token2id = build_vocab(code_tokens, 5000)
 
     recoder = Recorder(args.csv_store_path)
+    attacker = MHM_Attacker(args, model, codebert_mlm, tokenizer_mlm, token2id, id2token)
+    
+    # token2id: dict,key是变量名, value是id
+    # id2token: list,每个元素是变量名
+
+    print ("ATTACKER BUILT!")
+    
+    adv = {"tokens": [], "raw_tokens": [], "ori_raw": [],
+           'ori_tokens': [], "label": [], }
+    n_succ = 0.0
+    total_cnt = 0
     query_times = 0
-    attacker = Attacker(args, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
-        code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.greedy_attack(example, code)
-        attack_type = "Greedy"
-        if is_success == -1 and args.use_ga:
-            # 如果不成功，则使用gi_attack
-            code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.ga_attack(example, code, initial_replace=replaced_words)
-            attack_type = "GA"
+        identifiers, code_tokens = get_identifiers(code, lang='python')
+        code_tokens = [i for i in code_tokens]
+        processed_code = " ".join(code_tokens)
 
-        score_info = ''
-        if names_to_importance_score is not None:
-            for key in names_to_importance_score.keys():
-                score_info += key + ':' + str(names_to_importance_score[key]) + ','
+        new_feature = convert_code_to_features(processed_code, tokenizer, example[3].item(), args)
+        new_dataset = GraphCodeDataset([new_feature], args)
 
-        replace_info = ''
-        if replaced_words is not None:
-            for key in replaced_words.keys():
-                replace_info += key + ':' + replaced_words[key] + ','
-
+        orig_prob, orig_label = model.get_results(new_dataset, args.eval_batch_size)
+        orig_prob = orig_prob[0]
+        orig_label = orig_label[0]
+        ground_truth = example[3].item()
+        if orig_label != ground_truth:
+            continue
+        
+        start_time = time.time()
+        
+        # 这里需要进行修改.
+        if args.original:
+            _res = attacker.mcmc_random(tokenizer, code,
+                             _label=ground_truth, _n_candi=30,
+                             _max_iter=10, _prob_threshold=1)
+        else:
+            _res = attacker.mcmc(tokenizer, code,
+                             _label=ground_truth, _n_candi=30,
+                             _max_iter=10, _prob_threshold=1)
+    
+        if _res['succ'] is None:
+            continue
+        if _res['succ'] == True:
+            print ("EXAMPLE "+str(index)+" SUCCEEDED!")
+            n_succ += 1
+            adv['tokens'].append(_res['tokens'])
+            adv['raw_tokens'].append(_res['raw_tokens'])
+        else:
+            print ("EXAMPLE "+str(index)+" FAILED.")
+        total_cnt += 1
+        print ("  time cost = %.2f min" % ((time.time()-start_time)/60))
+        print ("  curr succ rate = "+str(n_succ/total_cnt))
+        
         print("Query times in this attack: ", model.query - query_times)
         print("All Query times: ", model.query)
-        recoder.write(index, code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, score_info, nb_changed_var, nb_changed_pos, replace_info, attack_type, model.query - query_times)
+        recoder.writemhm(index, code, _res["prog_length"], " ".join(_res['tokens']), ground_truth, orig_label, _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"], model.query - query_times)
         query_times = model.query
-        
-        
-        if is_success >= -1 :
-            # 如果原来正确
-            total_cnt += 1
-        if is_success == 1:
-            success_attack += 1
-        
-        if total_cnt == 0:
-            continue
-        print("Success rate: ", 1.0 * success_attack / total_cnt)
-        print("Successful items count: ", success_attack)
-        print("Total count: ", total_cnt)
-        print("Index: ", index)
-        print()
-    
-        
-if __name__ == '__main__':
-    main()

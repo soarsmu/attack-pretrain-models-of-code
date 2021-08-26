@@ -668,9 +668,10 @@ class Recorder():
                         "No. Changed Names",
                         "No. Changed Tokens",
                         "Replaced Names",
-                        "Attack Type"])
+                        "Attack Type",
+                        "Query Times"])
     
-    def write(self, index, code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, score_info, nb_changed_var, nb_changed_pos, replace_info, attack_type):
+    def write(self, index, code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, score_info, nb_changed_var, nb_changed_pos, replace_info, attack_type, query_times):
         self.writer.writerow([index,
                         code, 
                         prog_length, 
@@ -684,9 +685,10 @@ class Recorder():
                         nb_changed_var,
                         nb_changed_pos,
                         replace_info,
-                        attack_type])
+                        attack_type,
+                        query_times])
 
-    def writemhm(self, index, code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, score_info, nb_changed_var, nb_changed_pos, replace_info, attack_type):
+    def writemhm(self, index, code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, score_info, nb_changed_var, nb_changed_pos, replace_info, attack_type, query_times):
         self.writer.writerow([index,
                         code, 
                         prog_length, 
@@ -700,4 +702,5 @@ class Recorder():
                         nb_changed_var,
                         nb_changed_pos,
                         replace_info,
-                        attack_type])
+                        attack_type,
+                        query_times])

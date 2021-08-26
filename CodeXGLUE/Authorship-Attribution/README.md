@@ -2,17 +2,25 @@
 
 ## Dataset
 
-First, you need to download the dataset from [link](https://drive.google.com/file/d/1CK5VwjwMM5uSqOjHngp4Z9FDu-rJ7qky/view?usp=sharing). Then, you need to decompress the `.zip` file to the `dataset/data_folder`. For example:
+First, you need to download the dataset from [link](https://drive.google.com/file/d/1t0lmgVHAVpB1GxVqMXpXdU8ArJEQQfqe/view?usp=sharing). Then, you need to decompress the `.zip` file to the `dataset/data_folder`. For example:
 
 ```
 pip install gdown
-gdown https://drive.google.com/uc?id=1CK5VwjwMM5uSqOjHngp4Z9FDu-rJ7qky
-unzip processed_java40.zip
-mkdir dataset
+gdown https://drive.google.com/uc?id=1t0lmgVHAVpB1GxVqMXpXdU8ArJEQQfqe
+unzip gcjpy.zip
 cd dataset
 mkdir data_folder
-mv ../../processed_java40 ./
+cd data_folder
+mv ../../gcjpy ./
 ```
+
+Then, you can run the following command to preprocess the datasets:
+
+```
+python process.py
+```
+
+❕**Notes:** The labels of preprocessed dataset rely on the directory list of your machine, so it's possible that the data generated on your side is quite different from ours. You may need to fine-tune your model again.
 
 ## Fine-tune CodeBERT
 
@@ -51,11 +59,11 @@ CUDA_VISIBLE_DEVICES=0,2,4,5 python run.py \
     --model_name_or_path=microsoft/codebert-base \
     --tokenizer_name=roberta-base \
     --number_labels 66 \
-    --do_eval \
+    --do_train \
     --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
-    --epoch 40 \
+    --epoch 20 \
     --block_size 512 \
     --train_batch_size 16 \
     --eval_batch_size 32 \
@@ -103,6 +111,15 @@ pip install gdown
 mkdir code/saved_models/gcjpy/checkpoint-best-f1
 gdown https://drive.google.com/uc?id=14dOsW-_C0D1IINP2J4l2VqB-IAlGB15w
 mv model.bin code/saved_models/gcjpy/checkpoint-best-f1/
+```
+
+```
+cd preprocess
+CUDA_VISIBLE_DEVICES=1 python get_substitutes.py \
+    --store_path ./data_folder/processed_gcjpy/valid_subs.jsonl \
+    --base_model=microsoft/codebert-base-mlm \
+    --eval_data_file=./data_folder/processed_gcjpy/valid.txt \
+    --block_size 512
 ```
 
 #### GA-Attack
