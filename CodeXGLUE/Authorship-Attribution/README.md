@@ -113,6 +113,15 @@ gdown https://drive.google.com/uc?id=14dOsW-_C0D1IINP2J4l2VqB-IAlGB15w
 mv model.bin code/saved_models/gcjpy/checkpoint-best-f1/
 ```
 
+```
+cd preprocess
+CUDA_VISIBLE_DEVICES=1 python get_substitutes.py \
+    --store_path ./data_folder/processed_gcjpy/valid_subs.jsonl \
+    --base_model=microsoft/codebert-base-mlm \
+    --eval_data_file=./data_folder/processed_gcjpy/valid.txt \
+    --block_size 512
+```
+
 #### GA-Attack
 
 ```shell
