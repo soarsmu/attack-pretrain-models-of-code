@@ -157,11 +157,13 @@ def main():
     eval_dataset = TextDataset(tokenizer, args,args.eval_data_file)
 
     source_codes = []
+    generated_substitutions = []
     with open(args.eval_data_file) as f:
         for line in f:
             js=json.loads(line.strip())
             code = remove_comments_and_docstrings(js['func'], "c")
             source_codes.append(code)
+            generated_substitutions.append(js['substitutes'])
     assert(len(source_codes) == len(eval_dataset))
 
     code_tokens = []
@@ -184,6 +186,7 @@ def main():
     total_cnt = 0
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
+        substituions = generated_substitutions[index]
         identifiers, code_tokens = get_identifiers(code, lang='c')
         code_tokens = [i for i in code_tokens]
         processed_code = " ".join(code_tokens)
@@ -206,7 +209,7 @@ def main():
                              _label=ground_truth, _n_candi=30,
                              _max_iter=50, _prob_threshold=1)
         else:
-            _res = attacker.mcmc(tokenizer, code,
+            _res = attacker.mcmc(tokenizer, substituions, code,
                              _label=ground_truth, _n_candi=30,
                              _max_iter=50, _prob_threshold=1)
 
