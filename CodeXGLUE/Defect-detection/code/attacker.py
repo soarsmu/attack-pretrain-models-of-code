@@ -160,8 +160,6 @@ class Attacker():
 
         names_positions_dict = get_identifier_posistions_from_code(words, variable_names)
 
-
-        
         nb_changed_var = 0 # 表示被修改的variable数量
         nb_changed_pos = 0
         is_success = -1
@@ -237,6 +235,9 @@ class Attacker():
                     variable_substitue_dict[tgt_word] = [tmp_substitue]
                 # 这么做是为了让在python_keywords中的variable不在variable_substitue_dict中保存
 
+        if len(variable_substitue_dict) == 0:
+            is_success = -3
+            return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, None, None, None, None
 
         fitness_values = []
         base_chromesome = {word: word for word in variable_substitue_dict.keys()}
@@ -418,7 +419,7 @@ class Attacker():
         # 只取subwords的部分，忽略首尾的预测结果.
 
         # 计算importance_score.
-
+        
         importance_score, replace_token_positions, names_positions_dict = get_importance_score(self.args, example, 
                                                 processed_code,
                                                 words,
@@ -631,7 +632,9 @@ class MHM_Attacker():
             return {'succ': None, 'tokens': None, 'raw_tokens': None}
 
         # 还需要得到substitues
-
+        import time
+        # 还需要得到substitues
+        start_time = time.time()
         sub_words = [tokenizer.cls_token] + sub_words[:self.args.block_size - 2] + [tokenizer.sep_token]
         # 如果长度超了，就截断；这里的block_size是CodeBERT能接受的输入长度
         input_ids_ = torch.tensor([tokenizer.convert_tokens_to_ids(sub_words)])
@@ -710,49 +713,49 @@ class MHM_Attacker():
                     variable_substitue_dict[tgt_word].append(tmp_substitue)
                 except:
                     variable_substitue_dict[tgt_word] = [tmp_substitue]
-        
+        print(time.time()-start_time)
         old_uids = {}
         old_uid = ""
-        for iteration in range(1, 1+_max_iter):
-            # 这个函数需要tokens
-            res = self.__replaceUID(_tokens=words, _label=_label, _uid=uid,
-                                    substitute_dict=variable_substitue_dict,
-                                    _n_candi=_n_candi,
-                                    _prob_threshold=_prob_threshold)
-            self.__printRes(_iter=iteration, _res=res, _prefix="  >> ")
+        # for iteration in range(1, 1+_max_iter):
+        #     # 这个函数需要tokens
+        #     res = self.__replaceUID(_tokens=words, _label=_label, _uid=uid,
+        #                             substitute_dict=variable_substitue_dict,
+        #                             _n_candi=_n_candi,
+        #                             _prob_threshold=_prob_threshold)
+        #     self.__printRes(_iter=iteration, _res=res, _prefix="  >> ")
 
-            if res['status'].lower() in ['s', 'a']:
-                if iteration == 1:
-                    old_uids[res["old_uid"]] = []
-                    old_uids[res["old_uid"]].append(res["new_uid"])
-                    old_uid = res["old_uid"]
-                if not res["old_uid"] in old_uids.keys():
-                    flag = 0
-                    for k in old_uids.keys():
-                        if res["old_uid"] in old_uids[k]:
-                            flag = 1
-                            old_uids[k].append(res["new_uid"])
-                            old_uid = k
-                            break
-                    if flag == 0:
-                        old_uids[res["old_uid"]] = []
-                        old_uids[res["old_uid"]].append(res["new_uid"])
-                        old_uid = res["old_uid"]
-                else:
-                    old_uids[res["old_uid"]].append(res["new_uid"])
-                    old_uid = res["old_uid"]
+        #     if res['status'].lower() in ['s', 'a']:
+        #         if iteration == 1:
+        #             old_uids[res["old_uid"]] = []
+        #             old_uids[res["old_uid"]].append(res["new_uid"])
+        #             old_uid = res["old_uid"]
+        #         if not res["old_uid"] in old_uids.keys():
+        #             flag = 0
+        #             for k in old_uids.keys():
+        #                 if res["old_uid"] in old_uids[k]:
+        #                     flag = 1
+        #                     old_uids[k].append(res["new_uid"])
+        #                     old_uid = k
+        #                     break
+        #             if flag == 0:
+        #                 old_uids[res["old_uid"]] = []
+        #                 old_uids[res["old_uid"]].append(res["new_uid"])
+        #                 old_uid = res["old_uid"]
+        #         else:
+        #             old_uids[res["old_uid"]].append(res["new_uid"])
+        #             old_uid = res["old_uid"]
 
-                tokens = res['tokens']
-                uid[res['new_uid']] = uid.pop(res['old_uid']) # 替换key，但保留value.
-                variable_substitue_dict[res['new_uid']] = variable_substitue_dict.pop(res['old_uid'])
-                for i in range(len(raw_tokens)):
-                    if raw_tokens[i] == res['old_uid']:
-                        raw_tokens[i] = res['new_uid']
-                if res['status'].lower() == 's':
-                    return {'succ': True, 'tokens': tokens,
-                            'raw_tokens': raw_tokens, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": 1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "MHM"}
-
-        return {'succ': False, 'tokens': res['tokens'], 'raw_tokens': None, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": -1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "MHM"}
+        #         tokens = res['tokens']
+        #         uid[res['new_uid']] = uid.pop(res['old_uid']) # 替换key，但保留value.
+        #         variable_substitue_dict[res['new_uid']] = variable_substitue_dict.pop(res['old_uid'])
+        #         for i in range(len(raw_tokens)):
+        #             if raw_tokens[i] == res['old_uid']:
+        #                 raw_tokens[i] = res['new_uid']
+        #         if res['status'].lower() == 's':
+        #             return {'succ': True, 'tokens': tokens,
+        #                     'raw_tokens': raw_tokens, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": 1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "MHM"}
+        return {'succ': False, 'tokens': None, 'raw_tokens': None, "prog_length": prog_length, "new_pred": None, "is_success": -1, "old_uid": old_uid, "score_info": None, "nb_changed_var": 1, "nb_changed_pos":None, "replace_info": None, "attack_type": "MHM"}
+        # return {'succ': False, 'tokens': res['tokens'], 'raw_tokens': None, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": -1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "MHM"}
 
     def mcmc_random(self, tokenizer, code=None, _label=None, _n_candi=30,
              _max_iter=100, _prob_threshold=0.95):
@@ -771,9 +774,7 @@ class MHM_Attacker():
 
         if len(uid) <= 0: # 是有可能存在找不到变量名的情况的.
             return {'succ': None, 'tokens': None, 'raw_tokens': None}
-
-        # 还需要得到substitues
-
+        
         sub_words = [tokenizer.cls_token] + sub_words[:self.args.block_size - 2] + [tokenizer.sep_token]
         # 如果长度超了，就截断；这里的block_size是CodeBERT能接受的输入长度
         input_ids_ = torch.tensor([tokenizer.convert_tokens_to_ids(sub_words)])
