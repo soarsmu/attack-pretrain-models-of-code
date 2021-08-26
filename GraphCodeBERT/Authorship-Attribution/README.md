@@ -123,6 +123,15 @@ gdown https://drive.google.com/uc?id=1CAiHsIligJD09QJ97Q2BsDosqCLWbKB9
 mv model.bin code/saved_models/gcjpy/checkpoint-best-acc/
 ```
 
+```
+cd preprocess
+CUDA_VISIBLE_DEVICES=1 python get_substitutes.py \
+    --store_path ./data_folder/processed_gcjpy/valid_subs.jsonl \
+    --base_model=microsoft/graphcodebert-base \
+    --eval_data_file=./data_folder/processed_gcjpy/valid.txt \
+    --block_size 512
+```
+
 ```shell
 cd code
 python gi_attack.py \
