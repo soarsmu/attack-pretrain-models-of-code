@@ -136,12 +136,34 @@ mv model.bin code/saved_models/checkpoint-best-acc/
 
 ### Generate substitutes
 
+#### Adversarial Validation set
+
 ```
 cd preprocess
-CUDA_VISIBLE_DEVICES=1 python get_substitutes.py \
+python get_substitutes.py \
     --store_path ./dataset/valid_subs.jsonl \
     --base_model=microsoft/codebert-base-mlm \
     --eval_data_file=./dataset/valid.jsonl \
+    --block_size 512
+```
+
+#### Adversarial test set
+```
+cd preprocess
+python get_substitutes.py \
+    --store_path ./dataset/test_subs.jsonl \
+    --base_model=microsoft/codebert-base-mlm \
+    --eval_data_file=./dataset/test.jsonl \
+    --block_size 512
+```
+
+#### Adversarial training set
+```
+cd preprocess
+python get_substitutes.py \
+    --store_path ./dataset/train_subs.jsonl \
+    --base_model=microsoft/codebert-base-mlm \
+    --eval_data_file=./dataset/train.jsonl \
     --block_size 512
 ```
 
