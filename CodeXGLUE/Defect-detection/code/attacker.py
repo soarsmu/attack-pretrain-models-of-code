@@ -713,49 +713,51 @@ class MHM_Attacker():
                     variable_substitue_dict[tgt_word].append(tmp_substitue)
                 except:
                     variable_substitue_dict[tgt_word] = [tmp_substitue]
+        if len(variable_substitue_dict) <= 0: # 是有可能存在找不到变量名的情况的.
+            return {'succ': None, 'tokens': None, 'raw_tokens': None}
         print(time.time()-start_time)
         old_uids = {}
         old_uid = ""
-        # for iteration in range(1, 1+_max_iter):
-        #     # 这个函数需要tokens
-        #     res = self.__replaceUID(_tokens=words, _label=_label, _uid=uid,
-        #                             substitute_dict=variable_substitue_dict,
-        #                             _n_candi=_n_candi,
-        #                             _prob_threshold=_prob_threshold)
-        #     self.__printRes(_iter=iteration, _res=res, _prefix="  >> ")
+        for iteration in range(1, 1+_max_iter):
+            # 这个函数需要tokens
+            res = self.__replaceUID(_tokens=words, _label=_label, _uid=uid,
+                                    substitute_dict=variable_substitue_dict,
+                                    _n_candi=_n_candi,
+                                    _prob_threshold=_prob_threshold)
+            self.__printRes(_iter=iteration, _res=res, _prefix="  >> ")
 
-        #     if res['status'].lower() in ['s', 'a']:
-        #         if iteration == 1:
-        #             old_uids[res["old_uid"]] = []
-        #             old_uids[res["old_uid"]].append(res["new_uid"])
-        #             old_uid = res["old_uid"]
-        #         if not res["old_uid"] in old_uids.keys():
-        #             flag = 0
-        #             for k in old_uids.keys():
-        #                 if res["old_uid"] in old_uids[k]:
-        #                     flag = 1
-        #                     old_uids[k].append(res["new_uid"])
-        #                     old_uid = k
-        #                     break
-        #             if flag == 0:
-        #                 old_uids[res["old_uid"]] = []
-        #                 old_uids[res["old_uid"]].append(res["new_uid"])
-        #                 old_uid = res["old_uid"]
-        #         else:
-        #             old_uids[res["old_uid"]].append(res["new_uid"])
-        #             old_uid = res["old_uid"]
+            if res['status'].lower() in ['s', 'a']:
+                if iteration == 1:
+                    old_uids[res["old_uid"]] = []
+                    old_uids[res["old_uid"]].append(res["new_uid"])
+                    old_uid = res["old_uid"]
+                if not res["old_uid"] in old_uids.keys():
+                    flag = 0
+                    for k in old_uids.keys():
+                        if res["old_uid"] in old_uids[k]:
+                            flag = 1
+                            old_uids[k].append(res["new_uid"])
+                            old_uid = k
+                            break
+                    if flag == 0:
+                        old_uids[res["old_uid"]] = []
+                        old_uids[res["old_uid"]].append(res["new_uid"])
+                        old_uid = res["old_uid"]
+                else:
+                    old_uids[res["old_uid"]].append(res["new_uid"])
+                    old_uid = res["old_uid"]
 
-        #         tokens = res['tokens']
-        #         uid[res['new_uid']] = uid.pop(res['old_uid']) # 替换key，但保留value.
-        #         variable_substitue_dict[res['new_uid']] = variable_substitue_dict.pop(res['old_uid'])
-        #         for i in range(len(raw_tokens)):
-        #             if raw_tokens[i] == res['old_uid']:
-        #                 raw_tokens[i] = res['new_uid']
-        #         if res['status'].lower() == 's':
-        #             return {'succ': True, 'tokens': tokens,
-        #                     'raw_tokens': raw_tokens, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": 1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "MHM"}
-        return {'succ': False, 'tokens': None, 'raw_tokens': None, "prog_length": prog_length, "new_pred": None, "is_success": -1, "old_uid": old_uid, "score_info": None, "nb_changed_var": 1, "nb_changed_pos":None, "replace_info": None, "attack_type": "MHM"}
-        # return {'succ': False, 'tokens': res['tokens'], 'raw_tokens': None, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": -1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "MHM"}
+                tokens = res['tokens']
+                uid[res['new_uid']] = uid.pop(res['old_uid']) # 替换key，但保留value.
+                variable_substitue_dict[res['new_uid']] = variable_substitue_dict.pop(res['old_uid'])
+                for i in range(len(raw_tokens)):
+                    if raw_tokens[i] == res['old_uid']:
+                        raw_tokens[i] = res['new_uid']
+                if res['status'].lower() == 's':
+                    return {'succ': True, 'tokens': tokens,
+                            'raw_tokens': raw_tokens, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": 1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "MHM"}
+
+        return {'succ': False, 'tokens': res['tokens'], 'raw_tokens': None, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": -1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "MHM"}
 
     def mcmc_random(self, tokenizer, code=None, _label=None, _n_candi=30,
              _max_iter=100, _prob_threshold=0.95):
