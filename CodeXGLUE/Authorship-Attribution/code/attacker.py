@@ -86,7 +86,7 @@ class Attacker():
         self.threshold_pred_score = threshold_pred_score
 
 
-    def ga_attack(self, example, code, initial_replace=None):
+    def ga_attack(self, example, code, subs, initial_replace=None):
         '''
         return
             original program: code
@@ -125,11 +125,7 @@ class Attacker():
         # 这里经过了小写处理..
 
 
-        variable_names = []
-        for name in identifiers:
-            if ' ' in name[0].strip():
-                continue
-            variable_names.append(name[0])
+        variable_names = list(subs.keys())
 
         if not orig_label == true_label:
             # 说明原来就是错的
@@ -141,21 +137,8 @@ class Attacker():
             is_success = -3
             return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, None, None, None, None
 
-        sub_words = [self.tokenizer_tgt.cls_token] + sub_words[:self.args.block_size - 2] + [self.tokenizer_tgt.sep_token]
-        # 如果长度超了，就截断；这里的block_size是CodeBERT能接受的输入长度
-        input_ids_ = torch.tensor([self.tokenizer_mlm.convert_tokens_to_ids(sub_words)])
-        word_predictions = self.model_mlm(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
-        word_pred_scores_all, word_predictions = torch.topk(word_predictions, 60, -1)  # seq-len k
-        # 得到前k个结果.
-
-        word_predictions = word_predictions[1:len(sub_words) + 1, :]
-        word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
-        # 只取subwords的部分，忽略首尾的预测结果.
-
         names_positions_dict = get_identifier_posistions_from_code(words, variable_names)
 
-
-        
         nb_changed_var = 0 # 表示被修改的variable数量
         nb_changed_pos = 0
         is_success = -1
@@ -163,74 +146,8 @@ class Attacker():
         # 我们可以先生成所有的substitues
         variable_substitue_dict = {}
 
-
-        cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
         for tgt_word in names_positions_dict.keys():
-            tgt_positions = names_positions_dict[tgt_word] # the positions of tgt_word in code
-            if not is_valid_variable_name(tgt_word, lang='python'):
-                # if the extracted name is not valid
-                continue   
-
-            ## 得到(所有位置的)substitues
-            all_substitues = []
-            for one_pos in tgt_positions:
-                ## 一个变量名会出现很多次
-                if keys[one_pos][0] >= word_predictions.size()[0]:
-                    continue
-                substitutes = word_predictions[keys[one_pos][0]:keys[one_pos][1]]  # L, k
-                word_pred_scores = word_pred_scores_all[keys[one_pos][0]:keys[one_pos][1]]
-
-                with torch.no_grad():
-                    orig_embeddings = self.model_mlm.roberta(input_ids_.to("cuda"))[0]
-                orig_word_embed = orig_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
-
-                similar_substitutes = []
-                similar_word_pred_scores = []
-                sims = []
-                subwords_leng, nums_candis = substitutes.size()
-
-                for i in range(nums_candis):
-
-                    new_ids_ = copy.deepcopy(input_ids_)
-                    new_ids_[0][keys[one_pos][0]+1:keys[one_pos][1]+1] = substitutes[:,i]
-                    # 替换词得到新embeddings
-
-                    with torch.no_grad():
-                        new_embeddings = self.model_mlm.roberta(new_ids_.to("cuda"))[0]
-                    new_word_embed = new_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
-
-                    sims.append((i, sum(cos(orig_word_embed, new_word_embed))/subwords_leng))
-                
-                sims = sorted(sims, key=lambda x: x[1], reverse=True)
-                # 排序取top 30 个
-
-                for i in range(int(nums_candis/2)):
-                    similar_substitutes.append(substitutes[:,sims[i][0]].reshape(subwords_leng, -1))
-                    similar_word_pred_scores.append(word_pred_scores[:,sims[i][0]].reshape(subwords_leng, -1))
-
-                similar_substitutes = torch.cat(similar_substitutes, 1)
-                similar_word_pred_scores = torch.cat(similar_word_pred_scores, 1)
-
-                substitutes = get_substitues(similar_substitutes, 
-                                            self.tokenizer_mlm, 
-                                            self.model_mlm, 
-                                            self.use_bpe, 
-                                            similar_word_pred_scores, 
-                                            self.threshold_pred_score)
-                all_substitues += substitutes
-            all_substitues = set(all_substitues)
-
-            for tmp_substitue in all_substitues:
-                if tmp_substitue in variable_names:
-                    continue
-                if not is_valid_substitue(tmp_substitue, tgt_word, 'python'):
-                    continue
-                try:
-                    variable_substitue_dict[tgt_word].append(tmp_substitue)
-                except:
-                    variable_substitue_dict[tgt_word] = [tmp_substitue]
-                # 这么做是为了让在python_keywords中的variable不在variable_substitue_dict中保存
-
+            variable_substitue_dict[tgt_word] = subs[tgt_word]
 
         fitness_values = []
         base_chromesome = {word: word for word in variable_substitue_dict.keys()}
@@ -343,9 +260,7 @@ class Attacker():
         return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, None, nb_changed_var, nb_changed_pos, None
         
 
-
-
-    def greedy_attack(self, example, code):
+    def greedy_attack(self, example, code, subs):
         '''
         return
             original program: code
@@ -373,10 +288,8 @@ class Attacker():
         temp_label = None
 
 
-
         identifiers, code_tokens = get_identifiers(code, 'python')
         prog_length = len(code_tokens)
-
 
         processed_code = " ".join(code_tokens)
         
@@ -384,11 +297,7 @@ class Attacker():
         # 这里经过了小写处理..
 
 
-        variable_names = []
-        for name in identifiers:
-            if ' ' in name[0].strip():
-                continue
-            variable_names.append(name[0])
+        variable_names = list(subs.keys())
 
         if not orig_label == true_label:
             # 说明原来就是错的
@@ -401,15 +310,6 @@ class Attacker():
             return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, None, None, None, None
 
         sub_words = [self.tokenizer_tgt.cls_token] + sub_words[:self.args.block_size - 2] + [self.tokenizer_tgt.sep_token]
-        # 如果长度超了，就截断；这里的block_size是CodeBERT能接受的输入长度
-        input_ids_ = torch.tensor([self.tokenizer_mlm.convert_tokens_to_ids(sub_words)])
-        word_predictions = self.model_mlm(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
-        word_pred_scores_all, word_predictions = torch.topk(word_predictions, 60, -1)  # seq-len k
-        # 得到前k个结果.
-
-        word_predictions = word_predictions[1:len(sub_words) + 1, :]
-        word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
-        # 只取subwords的部分，忽略首尾的预测结果.
 
         # 计算importance_score.
 
@@ -455,66 +355,12 @@ class Attacker():
         nb_changed_pos = 0
         is_success = -1
         replaced_words = {}
-        cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
 
         for name_and_score in sorted_list_of_names:
             tgt_word = name_and_score[0]
-            tgt_positions = names_positions_dict[tgt_word] # 在words中对应的位置
             tgt_positions = names_positions_dict[tgt_word] # the positions of tgt_word in code
-            if not is_valid_variable_name(tgt_word, lang='python'):
-                # if the extracted name is not valid
-                continue   
 
-            ## 得到substitues
-            all_substitues = []
-            
-            for one_pos in tgt_positions:
-                ## 一个变量名会出现很多次
-                if keys[one_pos][0] >= word_predictions.size()[0]:
-                    continue
-                substitutes = word_predictions[keys[one_pos][0]:keys[one_pos][1]]  # L, k
-                word_pred_scores = word_pred_scores_all[keys[one_pos][0]:keys[one_pos][1]]
-
-                with torch.no_grad():
-                    orig_embeddings = self.model_mlm.roberta(input_ids_.to("cuda"))[0]
-                orig_word_embed = orig_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
-
-                similar_substitutes = []
-                similar_word_pred_scores = []
-                sims = []
-                subwords_leng, nums_candis = substitutes.size()
-
-                for i in range(nums_candis):
-
-                    new_ids_ = copy.deepcopy(input_ids_)
-                    new_ids_[0][keys[one_pos][0]+1:keys[one_pos][1]+1] = substitutes[:,i]
-                    # 替换词得到新embeddings
-
-                    with torch.no_grad():
-                        new_embeddings = self.model_mlm.roberta(new_ids_.to("cuda"))[0]
-                    new_word_embed = new_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
-                    
-                    sims.append((i, sum(cos(orig_word_embed, new_word_embed))/subwords_leng))
-                
-                sims = sorted(sims, key=lambda x: x[1], reverse=True)
-                # 排序取top 30 个
-
-                for i in range(int(nums_candis/2)):
-                    similar_substitutes.append(substitutes[:,sims[i][0]].reshape(subwords_leng, -1))
-                    similar_word_pred_scores.append(word_pred_scores[:,sims[i][0]].reshape(subwords_leng, -1))
-                
-                similar_substitutes = torch.cat(similar_substitutes, 1)
-                similar_word_pred_scores = torch.cat(similar_word_pred_scores, 1)
-
-                substitutes = get_substitues(similar_substitutes, 
-                                            self.tokenizer_mlm, 
-                                            self.model_mlm, 
-                                            self.use_bpe, 
-                                            similar_word_pred_scores, 
-                                            self.threshold_pred_score)
-                all_substitues += substitutes
-            all_substitues = set(all_substitues)
-            # 得到了所有位置的substitue，并使用set来去重
+            all_substitues = subs[tgt_word]
 
             most_gap = 0.0
             candidate = None
@@ -524,11 +370,11 @@ class Attacker():
             # 依次记录了被加进来的substitue
             # 即，每个temp_replace对应的substitue.
             for substitute in all_substitues:
-                if substitute in variable_names:
-                    continue
+                # if substitute in variable_names:
+                #     continue
 
-                if not is_valid_substitue(substitute.strip(), tgt_word, 'python'):
-                    continue
+                # if not is_valid_substitue(substitute.strip(), tgt_word, 'python'):
+                #     continue
                 
                 temp_replace = copy.deepcopy(final_words)
                 for one_pos in tgt_positions:
@@ -607,18 +453,15 @@ class MHM_Attacker():
         self.tokenizer_mlm = tokenizer_mlm
     
     def mcmc(self, tokenizer, code=None, _label=None, _n_candi=30,
-             _max_iter=100, _prob_threshold=0.95):
+             _max_iter=100, _prob_threshold=0.95, subs = {}):
         identifiers, code_tokens = get_identifiers(code, 'python')
         prog_length = len(code_tokens)
         processed_code = " ".join(code_tokens)
 
         words, sub_words, keys = _tokenize(processed_code, tokenizer)
         raw_tokens = copy.deepcopy(words)
-        variable_names = []
-        for name in identifiers:
-            if ' ' in name[0].strip():
-                continue
-            variable_names.append(name[0])
+        variable_names = list(subs.keys())
+        
         uid = get_identifier_posistions_from_code(words, variable_names)
 
         if len(uid) <= 0: # 是有可能存在找不到变量名的情况的.
@@ -626,84 +469,10 @@ class MHM_Attacker():
 
         # 还需要得到substitues
 
-        sub_words = [tokenizer.cls_token] + sub_words[:self.args.block_size - 2] + [tokenizer.sep_token]
-        # 如果长度超了，就截断；这里的block_size是CodeBERT能接受的输入长度
-        input_ids_ = torch.tensor([tokenizer.convert_tokens_to_ids(sub_words)])
-        word_predictions = self.model_mlm(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
-        word_pred_scores_all, word_predictions = torch.topk(word_predictions, 60, -1)  # seq-len k
-        # 得到前k个结果.
-
-        word_predictions = word_predictions[1:len(sub_words) + 1, :]
-        word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
-        # 只取subwords的部分，忽略首尾的预测结果.
-
-
         variable_substitue_dict = {}
-        cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
+        
         for tgt_word in uid.keys():
-            if not is_valid_variable_name(tgt_word, 'python'):
-                # 如果不是变量名
-                continue   
-            tgt_positions = uid[tgt_word] # 在words中对应的位置
-
-            ## 得到(所有位置的)substitues
-            all_substitues = []
-            for one_pos in tgt_positions:
-                ## 一个变量名会出现很多次
-                if keys[one_pos][0] >= word_predictions.size()[0]:
-                    continue
-                substitutes = word_predictions[keys[one_pos][0]:keys[one_pos][1]]  # L, k
-                word_pred_scores = word_pred_scores_all[keys[one_pos][0]:keys[one_pos][1]]
-
-                with torch.no_grad():
-                    orig_embeddings = self.model_mlm.roberta(input_ids_.to("cuda"))[0]
-                orig_word_embed = orig_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
-
-                similar_substitutes = []
-                similar_word_pred_scores = []
-                sims = []
-                subwords_leng, nums_candis = substitutes.size()
-                
-                for i in range(nums_candis):
-
-                    new_ids_ = copy.deepcopy(input_ids_)
-                    new_ids_[0][keys[one_pos][0]+1:keys[one_pos][1]+1] = substitutes[:,i]
-                    # 替换词得到新embeddings
-
-                    with torch.no_grad():
-                        new_embeddings = self.model_mlm.roberta(new_ids_.to("cuda"))[0]
-                    new_word_embed = new_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
-
-                    sims.append((i, sum(cos(orig_word_embed, new_word_embed))/subwords_leng))
-                
-                sims = sorted(sims, key=lambda x: x[1], reverse=True)
-                # 排序取top 30 个
-
-                for i in range(int(nums_candis/2)):
-                    similar_substitutes.append(substitutes[:,sims[i][0]].reshape(subwords_leng, -1))
-                    similar_word_pred_scores.append(word_pred_scores[:,sims[i][0]].reshape(subwords_leng, -1))
-
-                similar_substitutes = torch.cat(similar_substitutes, 1)
-                similar_word_pred_scores = torch.cat(similar_word_pred_scores, 1)
-
-                substitutes = get_substitues(similar_substitutes, 
-                                            self.tokenizer_mlm, 
-                                            self.model_mlm, 
-                                            1, 
-                                            similar_word_pred_scores, 
-                                            0)
-                all_substitues += substitutes
-            all_substitues = set(all_substitues)
-
-            for tmp_substitue in all_substitues:
-                if tmp_substitue in variable_names:
-                    continue
-                if not is_valid_substitue(tmp_substitue, tgt_word, 'python'):
-                    continue
-                try:
-                    variable_substitue_dict[tgt_word].append(tmp_substitue)
-                except:
-                    variable_substitue_dict[tgt_word] = [tmp_substitue]
+            variable_substitue_dict[tgt_word] = subs[tgt_word]
         
         old_uid = ""
         for iteration in range(1, 1+_max_iter):
@@ -731,17 +500,14 @@ class MHM_Attacker():
         return {'succ': False, 'tokens': res['tokens'], 'raw_tokens': None, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": -1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "MHM-LS"}
 
     def mcmc_random(self, tokenizer, code=None, _label=None, _n_candi=30,
-             _max_iter=100, _prob_threshold=0.95):
+             _max_iter=100, _prob_threshold=0.95, subs = {}):
         identifiers, code_tokens = get_identifiers(code, 'python')
         processed_code = " ".join(code_tokens)
         prog_length = len(code_tokens)
         words, sub_words, keys = _tokenize(processed_code, tokenizer)
         raw_tokens = copy.deepcopy(words)
-        variable_names = []
-        for name in identifiers:
-            if ' ' in name[0].strip():
-                continue
-            variable_names.append(name[0])
+        variable_names = list(subs.keys())
+        
         uid = get_identifier_posistions_from_code(words, variable_names)
 
         if len(uid) <= 0: # 是有可能存在找不到变量名的情况的.
@@ -750,10 +516,8 @@ class MHM_Attacker():
 
         variable_substitue_dict = {}
         for tgt_word in uid.keys():
-            if not is_valid_variable_name(tgt_word, 'python'):
-                # 如果不是变量名
-                continue   
-            variable_substitue_dict[tgt_word] = [tgt_word]
+    
+            variable_substitue_dict[tgt_word] = subs[tgt_word]
 
 
         for iteration in range(1, 1+_max_iter):
