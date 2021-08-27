@@ -18,7 +18,6 @@ import torch
 from model import Model
 from run import TextDataset
 from utils import set_seed
-
 from utils import Recorder
 from attacker import Attacker
 from transformers import (RobertaForMaskedLM, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
@@ -38,15 +37,11 @@ def main():
     parser = argparse.ArgumentParser()
 
     ## Required parameters
-    parser.add_argument("--train_data_file", default=None, type=str, required=True,
-                        help="The input training data file (a text file).")
     parser.add_argument("--output_dir", default=None, type=str, required=True,
                         help="The output directory where the model predictions and checkpoints will be written.")
 
     ## Other parameters
     parser.add_argument("--eval_data_file", default=None, type=str,
-                        help="An optional input evaluation data file to evaluate the perplexity on (a text file).")
-    parser.add_argument("--test_data_file", default=None, type=str,
                         help="An optional input evaluation data file to evaluate the perplexity on (a text file).")
                     
     parser.add_argument("--model_type", default="bert", type=str,
@@ -153,11 +148,13 @@ def main():
 
     # Load original source codes
     source_codes = []
+    generated_substitutions = []
     with open(args.eval_data_file) as f:
         for line in f:
             js=json.loads(line.strip())
-            code = ' '.join(js['func'].split())
+            code = js['func']
             source_codes.append(code)
+            generated_substitutions.append(js['substitutes'])
     assert(len(source_codes) == len(eval_dataset))
 
     success_attack = 0
