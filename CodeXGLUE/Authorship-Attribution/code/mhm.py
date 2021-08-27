@@ -157,13 +157,17 @@ def main():
 
     file_type = args.eval_data_file.split('/')[-1].split('.')[0] # valid
     folder = '/'.join(args.eval_data_file.split('/')[:-1]) # 得到文件目录
-    codes_file_path = os.path.join(folder, 'cached_{}.pkl'.format(
+    codes_file_path = os.path.join(folder, '{}_subs.jsonl'.format(
                                 file_type))
     print(codes_file_path)
-
-    with open(codes_file_path, 'rb') as f:
-        source_codes = pickle.load(f)
-    assert(len(source_codes) == len(eval_dataset))
+    source_codes = []
+    substs = []
+    with open(codes_file_path) as rf:
+        for line in rf:
+            item = json.loads(line.strip())
+            source_codes.append(item["code"])
+            substs.append(item["substitutes"])
+    assert(len(source_codes) == len(eval_dataset) == len(substs))
 
     code_tokens = []
     for index, code in enumerate(source_codes):
@@ -186,6 +190,7 @@ def main():
     query_times = 0
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
+        subs = substs[index]
         identifiers, code_tokens = get_identifiers(code, lang='python')
         code_tokens = [i for i in code_tokens]
         processed_code = " ".join(code_tokens)
@@ -206,11 +211,11 @@ def main():
         if args.is_original_mhm:
             _res = attacker.mcmc_random(tokenizer, code,
                                 _label=ground_truth, _n_candi=30,
-                                _max_iter=50, _prob_threshold=1)
+                                _max_iter=50, _prob_threshold=1, subs = subs)
         else:
             _res = attacker.mcmc(tokenizer, code,
                                 _label=ground_truth, _n_candi=30,
-                                _max_iter=50, _prob_threshold=1)
+                                _max_iter=50, _prob_threshold=1, subs = subs)
         
         if _res['succ'] is None:
             continue
