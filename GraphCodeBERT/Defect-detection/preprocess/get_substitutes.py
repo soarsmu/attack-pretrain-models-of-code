@@ -25,6 +25,8 @@ def main():
 
     parser.add_argument("--block_size", default=-1, type=int,
                         help="Optional input sequence length after tokenization.")
+    parser.add_argument("--index", nargs='+',
+                        help="Optional input sequence length after tokenization.")
 
     args = parser.parse_args()
 
@@ -35,10 +37,12 @@ def main():
     codebert_mlm.to('cuda')
 
     with open(args.eval_data_file) as rf:
-        for line in tqdm(rf):
+        for i, line in enumerate(rf):
+            if i < int(args.index[0]) or i >= int(args.index[1]):
+                continue
             item = json.loads(line.strip())
             eval_data.append(item)
-
+    print(len(eval_data))
     with open(args.store_path, "w") as wf:
         for item in tqdm(eval_data):
             identifiers, code_tokens = get_identifiers(remove_comments_and_docstrings(item["func"], "c"), "c")
