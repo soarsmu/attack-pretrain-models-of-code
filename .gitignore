@@ -29,6 +29,9 @@ CodeXGLUE/Clone-detection-BigCloneBench/code/saved_models/
 CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_train
 CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test
 CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_valid
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_train_sampled
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_valid_sampled
 
 GraphCodeBERT/Defect-detection/code/saved_models/
 GraphCodeBERT/Defect-detection/preprocess/dataset/
@@ -42,7 +45,10 @@ GraphCodeBERT/clonedetection/code/parser/tree-sitter-python
 GraphCodeBERT/clonedetection/code/parser/tree-sitter-go
 GraphCodeBERT/Defect-detection/preprocess/function.json
 CodeXGLUE/Defect-detection/preprocess/function.json
-GraphCodeBERT/clonedetection/dataset/
+GraphCodeBERT/clonedetection/dataset/cached_valid
+GraphCodeBERT/clonedetection/dataset/cached_test
+GraphCodeBERT/clonedetection/dataset/cached_train
+
 
 CodeXGLUE/Clone-detection-BigCloneBench/dataset/*.pkl
 CodeXGLUE/Authorship-Attribution/dataset/data_folder
