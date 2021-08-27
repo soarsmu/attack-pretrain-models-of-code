@@ -119,6 +119,15 @@ gdown https://drive.google.com/uc?id=14YamUwCoyNIJ3XLU8U5kM84xjk223aC9
 mv model.bin code/saved_models/checkpoint-best-f1/
 ```
 
+```
+cd preprocess
+CUDA_VISIBLE_DEVICES=1 python get_substitutes.py \
+    --store_path ./test_subs.jsonl \
+    --base_model=microsoft/codebert-base-mlm \
+    --eval_data_file=./test_sampled.txt \
+    --block_size 512
+```
+
 We use full test data for attacking. 
 
 ```shell
