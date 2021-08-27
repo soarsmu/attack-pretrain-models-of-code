@@ -26,7 +26,8 @@ def main():
                         help="results")
     parser.add_argument("--block_size", default=-1, type=int,
                         help="Optional input sequence length after tokenization.")
-
+    parser.add_argument("--index", nargs='+',
+                        help="Optional input sequence length after tokenization.")
     args = parser.parse_args()
 
     eval_data = []
@@ -44,7 +45,9 @@ def main():
             url_to_code[js['idx']]=js['func']
     
     with open(args.eval_data_file) as f:
-        for line in f:
+        for i, line in enumerate(f):
+            if i < int(args.index[0]) or i >= int(args.index[1]):
+                continue
             item = {}
             line=line.strip()
             url1, url2, label = line.split('\t')
@@ -52,17 +55,21 @@ def main():
                 continue
             if label=='0':
                 label=0
+                item["id1"] = url1
+                item["id2"] = url2
                 item["code1"] = url_to_code[url1]
                 item["code2"] = url_to_code[url2]
                 item["label"] = label
                 eval_data.append(item)
             else:
                 label=1
+                item["id1"] = url1
+                item["id2"] = url2
                 item["code1"] = url_to_code[url1]
                 item["code2"] = url_to_code[url2]
                 item["label"] = label
                 eval_data.append(item)
-
+    print(len(eval_data))
     with open(args.store_path, "w") as wf:
         for item in tqdm(eval_data):
             try:
