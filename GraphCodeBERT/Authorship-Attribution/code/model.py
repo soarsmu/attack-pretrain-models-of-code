@@ -5,8 +5,10 @@ import torch.nn as nn
 import torch
 from torch.autograd import Variable
 import copy
+import numpy as np
 import torch.nn.functional as F
 from torch.nn import CrossEntropyLoss, MSELoss
+from torch.utils.data import SequentialSampler, DataLoader
 
 class RobertaClassificationHead(nn.Module):
     """Head for sentence-level classification tasks."""
@@ -35,6 +37,7 @@ class Model(nn.Module):
         self.tokenizer=tokenizer
         self.classifier=RobertaClassificationHead(config)
         self.args=args
+        self.query = 0
     
         
     def forward(self, inputs_ids=None, attn_mask=None, position_idx=None, labels=None): 
@@ -60,6 +63,34 @@ class Model(nn.Module):
         else:
             return prob
       
+    def get_results(self, dataset, batch_size):
+        '''Given a dataset, return probabilities and labels.'''
+        self.query += len(dataset)
+        eval_sampler = SequentialSampler(dataset)
+        eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size,num_workers=4,pin_memory=False)
+
+        self.eval()
+        logits=[] 
+        labels=[]
+        for batch in eval_dataloader:
+            inputs_ids = batch[0].to("cuda")       
+            attn_mask = batch[1].to("cuda") 
+            position_idx = batch[2].to("cuda") 
+            label=batch[3].to("cuda")  
+            with torch.no_grad():
+                lm_loss,logit = self.forward(inputs_ids, attn_mask, position_idx, label)
+                logits.append(logit.cpu().numpy())
+                labels.append(label.cpu().numpy())
+                
+        logits=np.concatenate(logits,0)
+        labels=np.concatenate(labels,0)
+
+        probs = logits
+        pred_labels = []
+        for logit in logits:
+            pred_labels.append(np.argmax(logit))
+
+        return probs, pred_labels
         
  
         

@@ -2,30 +2,25 @@
 
 ## Dataset
 
-First, you need to download 3 datasets from [dataset](https://drive.google.com/drive/u/1/folders/1UGFFC5KYMRA-9F_VTsG_VcsZjAv7SG4i). Then, you need to decompress the 3 `tar.xz` files to the `dataset/data_folder`. For example:
+First, you need to download the dataset from [link](https://drive.google.com/file/d/1t0lmgVHAVpB1GxVqMXpXdU8ArJEQQfqe/view?usp=sharing). Then, you need to decompress the `.zip` file to the `dataset/data_folder`. For example:
 
 ```
-gdown https://drive.google.com/uc?id=1qMpwdaPASYFbX0gPEMSUlRtf_ErRkI-r
-gdown https://drive.google.com/uc?id=1TXaLKEIVvkWZRwPQhUYeNAL4e11FgzDj
-gdown https://drive.google.com/uc?id=1bBx04zqrpxNC0H5F6QObKByPDZ6QGZO2
-xz -d gcjpy.tar.xz
-tar -xvf gcjpy.tar
-xz -d gcj.tar.xz
-tar -xvf gcj.tar
-xz -d java40.tar.xz
-tar -xvf java40.tar
-mkdir dataset/data_folder
-mv gcjpy dataset/data_folder/
-mv gcj dataset/data_folder/
-mv java40 dataset/data_folder/
+pip install gdown
+gdown https://drive.google.com/uc?id=1t0lmgVHAVpB1GxVqMXpXdU8ArJEQQfqe
+unzip gcjpy.zip
+cd dataset
+mkdir data_folder
+cd data_folder
+mv ../../gcjpy ./
 ```
 
 Then, you can run the following command to preprocess the datasets:
 
 ```
-cd dataset
 python process.py
 ```
+
+❕**Notes:** The labels of preprocessed dataset rely on the directory list of your machine, so it's possible that the data generated on your side is quite different from ours. You may need to fine-tune your model again.
 
 ## Fine-tune CodeBERT
 
@@ -64,14 +59,14 @@ docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase
 We use full train data for fine-tuning. The training cost is 10 mins on 4*P100-16G. We use full valid data to evaluate during training.
 
 ```
-CUDA_VISIBLE_DEVICES=1,3,6,7 python run.py \
+CUDA_VISIBLE_DEVICES=4,5,6,7 python run.py \
     --output_dir=./saved_models/gcjpy \
     --config_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
     --do_train \
     --language_type python \
-    --number_labels 70 \
+    --number_labels 66 \
     --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
@@ -128,27 +123,95 @@ gdown https://drive.google.com/uc?id=1CAiHsIligJD09QJ97Q2BsDosqCLWbKB9
 mv model.bin code/saved_models/gcjpy/checkpoint-best-acc/
 ```
 
+```
+cd preprocess
+CUDA_VISIBLE_DEVICES=1 python get_substitutes.py \
+    --store_path ./data_folder/processed_gcjpy/valid_subs.jsonl \
+    --base_model=microsoft/graphcodebert-base \
+    --eval_data_file=./data_folder/processed_gcjpy/valid.txt \
+    --block_size 512
+```
+
 ```shell
 cd code
-python attack.py \
+python gi_attack.py \
     --output_dir=./saved_models/gcjpy \
     --model_type=roberta \
-    --config_name=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
-    --number_labels 70 \
-    --do_eval \
-    --language_type python \
+    --csv_store_path ./attack_no_gi.csv \
+    --number_labels 66 \
+    --base_model=microsoft/graphcodebert-base \
     --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
-    --epoch 20 \
     --code_length 512 \
     --data_flow_length 128 \
-    --train_batch_size 8 \
     --eval_batch_size 32 \
-    --evaluate_during_training \
-    --seed 123456 2>&1| tee attack_gcjpy.log
+    --seed 123456  2>&1 | tee attack_no_gi.log
+```
+
+
+```shell
+cd code
+python gi_attack.py \
+    --output_dir=./saved_models/gcjpy \
+    --model_type=roberta \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --csv_store_path ./attack_gi.csv \
+    --number_labels 66 \
+    --use_ga \
+    --base_model=microsoft/graphcodebert-base \
+    --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
+    --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
+    --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
+    --code_length 512 \
+    --data_flow_length 128 \
+    --eval_batch_size 32 \
+    --seed 123456  2>&1 | tee attack_gi.log
+```
+
+
+# MHM-Attack
+```shell
+cd code
+CUDA_VISIBLE_DEVICES=5 python mhm_attack.py \
+    --output_dir=./saved_models/gcjpy \
+    --model_type=roberta \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --csv_store_path ./attack_mhm.csv \
+    --number_labels 66 \
+    --base_model=microsoft/graphcodebert-base \
+    --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
+    --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
+    --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
+    --code_length 512 \
+    --data_flow_length 128 \
+    --eval_batch_size 32 \
+    --seed 123456  2>&1 | tee attack_mhm.log
+```
+
+# Original MHM-Attack
+```shell
+cd code
+CUDA_VISIBLE_DEVICES=5 python mhm_attack.py \
+    --output_dir=./saved_models/gcjpy \
+    --model_type=roberta \
+    --tokenizer_name=microsoft/graphcodebert-base \
+    --model_name_or_path=microsoft/graphcodebert-base \
+    --csv_store_path ./attack_original_mhm.csv \
+    --original \
+    --number_labels 66 \
+    --base_model=microsoft/graphcodebert-base \
+    --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
+    --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
+    --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
+    --code_length 512 \
+    --data_flow_length 128 \
+    --eval_batch_size 32 \
+    --seed 123456  2>&1 | tee attack_original_mhm.log
 ```
 
 ### On Java dataset
@@ -189,5 +252,4 @@ python attack.py \
 
 | Dataset  |    ACC    |  ACC (attacked)    | F1| F1(attacked) |Recall| Recall(attacked)|
 | -------- | :-------: |   :-------: | :-------: | :-------: | :-------: | :-------: |
-| Python(70 labels) | **0.9381** |  |**0.911**| |**0.9143**| |
-| Java(41 labels) | **0.9841** |  |**0.9745**| |**0.9719**| |
+| Python(66 labels) | **0.8841** |  |**0.8106**| |**0.811**| |

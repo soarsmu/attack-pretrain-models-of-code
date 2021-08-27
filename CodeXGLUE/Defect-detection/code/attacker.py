@@ -546,8 +546,10 @@ class MHM_Attacker():
                     variable_substitue_dict[tgt_word].append(tmp_substitue)
                 except:
                     variable_substitue_dict[tgt_word] = [tmp_substitue]
+
         if len(variable_substitue_dict) <= 0: # 是有可能存在找不到变量名的情况的.
             return {'succ': None, 'tokens': None, 'raw_tokens': None}
+
         old_uids = {}
         old_uid = ""
         for iteration in range(1, 1+_max_iter):

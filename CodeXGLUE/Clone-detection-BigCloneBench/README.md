@@ -67,9 +67,9 @@ python run.py \
     --model_name_or_path=microsoft/codebert-base \
     --tokenizer_name=roberta-base \
     --do_train \
-    --train_data_file=../dataset/train.txt \
-    --eval_data_file=../dataset/valid.txt \
-    --test_data_file=../dataset/test.txt \
+    --train_data_file=../dataset/train_sampled.txt \
+    --eval_data_file=../dataset/valid_sampled.txt \
+    --test_data_file=../dataset/test_sampled.txt \
     --epoch 2 \
     --block_size 512 \
     --train_batch_size 16 \
@@ -94,9 +94,9 @@ python run.py \
     --tokenizer_name=roberta-base \
     --do_eval \
     --do_test \
-    --train_data_file=../dataset/train.txt \
-    --eval_data_file=../dataset/valid.txt \
-    --test_data_file=../dataset/test.txt \
+    --train_data_file=../dataset/train_sampled.txt \
+    --eval_data_file=../dataset/valid_sampled.txt \
+    --test_data_file=../dataset/test_sampled.txt \
     --epoch 2 \
     --block_size 512 \
     --train_batch_size 16 \
@@ -119,6 +119,15 @@ gdown https://drive.google.com/uc?id=14YamUwCoyNIJ3XLU8U5kM84xjk223aC9
 mv model.bin code/saved_models/checkpoint-best-f1/
 ```
 
+```
+cd preprocess
+CUDA_VISIBLE_DEVICES=1 python get_substitutes.py \
+    --store_path ./test_subs.jsonl \
+    --base_model=microsoft/codebert-base-mlm \
+    --eval_data_file=./test_sampled.txt \
+    --block_size 512
+```
+
 We use full test data for attacking. 
 
 ```shell
@@ -131,9 +140,9 @@ python attack.py \
     --model_name_or_path=microsoft/codebert-base \
     --tokenizer_name=roberta-base \
     --base_model=microsoft/codebert-base-mlm \
-    --train_data_file=../dataset/train.txt \
-    --eval_data_file=../dataset/valid.txt \
-    --test_data_file=../dataset/test.txt \
+    --train_data_file=../dataset/train_sampled.txt \
+    --eval_data_file=../dataset/valid_sampled.txt \
+    --test_data_file=../dataset/test_sampled.txt \
     --block_size 512 \
     --eval_batch_size 32 \
     --seed 123456 2>&1| tee attack.log
@@ -152,9 +161,9 @@ python attack.py \
     --tokenizer_name=roberta-base \
     --use_ga \
     --base_model=microsoft/codebert-base-mlm \
-    --train_data_file=../dataset/train.txt \
-    --eval_data_file=../dataset/valid.txt \
-    --test_data_file=../dataset/test.txt \
+    --train_data_file=../dataset/train_sampled.txt \
+    --eval_data_file=../dataset/valid_sampled.txt \
+    --test_data_file=../dataset/test_sampled.txt \
     --block_size 512 \
     --eval_batch_size 32 \
     --seed 123456 2>&1| tee attack_GA.log
@@ -171,9 +180,9 @@ CUDA_VISIBLE_DEVICES=0 python mhm_attack.py \
     --model_name_or_path=microsoft/codebert-base \
     --csv_store_path ./attack_mhm.csv \
     --base_model=microsoft/codebert-base-mlm \
-    --train_data_file=../dataset/train.txt \
-    --eval_data_file=../dataset/valid.txt \
-    --test_data_file=../dataset/test.txt \
+    --train_data_file=../dataset/train_sampled.txt \
+    --eval_data_file=../dataset/valid_sampled.txt \
+    --test_data_file=../dataset/test_sampled.txt \
     --block_size 512 \
     --eval_batch_size 64 \
     --seed 123456  2>&1 | tee attack_mhm.log
@@ -190,9 +199,9 @@ CUDA_VISIBLE_DEVICES=0 python mhm_attack.py \
     --csv_store_path ./attack_original_mhm.csv \
     --original \
     --base_model=microsoft/codebert-base-mlm \
-    --train_data_file=../dataset/train.txt \
-    --eval_data_file=../dataset/valid.txt \
-    --test_data_file=../dataset/test.txt \
+    --train_data_file=../dataset/train_sampled.txt \
+    --eval_data_file=../dataset/valid_sampled.txt \
+    --test_data_file=../dataset/test_sampled.txt \
     --block_size 512 \
     --eval_batch_size 64 \
     --seed 123456  2>&1 | tee attack_original_mhm.log

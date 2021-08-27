@@ -66,7 +66,8 @@ def main():
             names_positions_dict = get_identifier_posistions_from_code(words, variable_names)
 
             variable_substitue_dict = {}
-
+            with torch.no_grad():
+                orig_embeddings = codebert_mlm.roberta(input_ids_.to('cuda'))[0]
 
             cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
             for tgt_word in names_positions_dict.keys():
@@ -83,8 +84,7 @@ def main():
                         continue
                     substitutes = word_predictions[keys[one_pos][0]:keys[one_pos][1]]  # L, k
                     word_pred_scores = word_pred_scores_all[keys[one_pos][0]:keys[one_pos][1]]
-                    with torch.no_grad():
-                        orig_embeddings = codebert_mlm.roberta(input_ids_.to('cuda'))[0]
+                    
                     orig_word_embed = orig_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
 
                     similar_substitutes = []

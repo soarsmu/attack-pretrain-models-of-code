@@ -37,6 +37,7 @@ class Model(nn.Module):
         self.tokenizer=tokenizer
         self.classifier=RobertaClassificationHead(config)
         self.args=args
+        self.query = 0
     
         
     def forward(self, input_ids=None,labels=None): 
@@ -56,7 +57,7 @@ class Model(nn.Module):
         '''
         给定example和tgt model，返回预测的label和probability
         '''
-
+        self.query += len(dataset)
         eval_sampler = SequentialSampler(dataset)
         eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size,num_workers=4,pin_memory=False)
 
