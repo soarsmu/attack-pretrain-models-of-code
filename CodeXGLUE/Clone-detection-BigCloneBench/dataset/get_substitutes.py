@@ -35,19 +35,40 @@ def main():
     tokenizer_mlm = RobertaTokenizer.from_pretrained(args.base_model)
     codebert_mlm.to('cuda')
 
-    code_1 = code[2]
-    code_2 = code[3]
-    for code in source_codes:
-        item = {}
-        item["code"] = code
-        eval_data.append(item)
+    url_to_code={}
+
+    with open('./data.jsonl') as f:
+        for line in f:
+            line=line.strip()
+            js=json.loads(line)
+            url_to_code[js['idx']]=js['func']
+    
+    with open(args.eval_data_file) as f:
+        for line in f:
+            item = {}
+            line=line.strip()
+            url1, url2, label = line.split('\t')
+            if url1 not in url_to_code or url2 not in url_to_code:
+                continue
+            if label=='0':
+                label=0
+                item["code1"] = url_to_code[url1]
+                item["code2"] = url_to_code[url2]
+                item["label"] = label
+                eval_data.append(item)
+            else:
+                label=1
+                item["code1"] = url_to_code[url1]
+                item["code2"] = url_to_code[url2]
+                item["label"] = label
+                eval_data.append(item)
 
     with open(args.store_path, "w") as wf:
         for item in tqdm(eval_data):
             try:
-                identifiers, code_tokens = get_identifiers(remove_comments_and_docstrings(item["code"], "python"), "python")
+                identifiers, code_tokens = get_identifiers(remove_comments_and_docstrings(item["code1"], "java"), "java")
             except:
-                identifiers, code_tokens = get_identifiers(item["code"], "python")
+                identifiers, code_tokens = get_identifiers(item["code1"], "java")
             processed_code = " ".join(code_tokens)
             
             words, sub_words, keys = _tokenize(processed_code, tokenizer_mlm)
@@ -78,7 +99,7 @@ def main():
             cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
             for tgt_word in names_positions_dict.keys():
                 tgt_positions = names_positions_dict[tgt_word] # the positions of tgt_word in code
-                if not is_valid_variable_name(tgt_word, lang='python'):
+                if not is_valid_variable_name(tgt_word, lang='java'):
                     # if the extracted name is not valid
                     continue   
 
@@ -132,7 +153,7 @@ def main():
                 for tmp_substitue in all_substitues:
                     if tmp_substitue.strip() in variable_names:
                         continue
-                    if not is_valid_substitue(tmp_substitue.strip(), tgt_word, 'python'):
+                    if not is_valid_substitue(tmp_substitue.strip(), tgt_word, 'java'):
                         continue
                     try:
                         variable_substitue_dict[tgt_word].append(tmp_substitue)
