@@ -2,17 +2,25 @@
 
 ## Dataset
 
-First, you need to download the dataset from [link](https://drive.google.com/file/d/1CK5VwjwMM5uSqOjHngp4Z9FDu-rJ7qky/view?usp=sharing). Then, you need to decompress the `.zip` file to the `dataset/data_folder`. For example:
+First, you need to download the dataset from [link](https://drive.google.com/file/d/1t0lmgVHAVpB1GxVqMXpXdU8ArJEQQfqe/view?usp=sharing). Then, you need to decompress the `.zip` file to the `dataset/data_folder`. For example:
 
 ```
 pip install gdown
-gdown https://drive.google.com/uc?id=1CK5VwjwMM5uSqOjHngp4Z9FDu-rJ7qky
-unzip processed_java40.zip
-mkdir dataset
+gdown https://drive.google.com/uc?id=1t0lmgVHAVpB1GxVqMXpXdU8ArJEQQfqe
+unzip gcjpy.zip
 cd dataset
 mkdir data_folder
-mv ../../processed_java40 ./
+cd data_folder
+mv ../../gcjpy ./
 ```
+
+Then, you can run the following command to preprocess the datasets:
+
+```
+python process.py
+```
+
+❕**Notes:** The labels of preprocessed dataset rely on the directory list of your machine, so it's possible that the data generated on your side is quite different from ours. You may need to fine-tune your model again.
 
 ## Fine-tune CodeBERT
 
@@ -55,7 +63,7 @@ CUDA_VISIBLE_DEVICES=0,2,4,5 python run.py \
     --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
-    --epoch 40 \
+    --epoch 20 \
     --block_size 512 \
     --train_batch_size 16 \
     --eval_batch_size 32 \
@@ -63,33 +71,6 @@ CUDA_VISIBLE_DEVICES=0,2,4,5 python run.py \
     --max_grad_norm 1.0 \
     --evaluate_during_training \
     --seed 123456 2>&1| tee train_gcjpy.log
-```
-
-### On Java dataset
-
-We use full train data for fine-tuning. The training cost is 20 mins on 8*P100-16G. We use full valid data to evaluate during training.
-
-```shell
-cd code
-python run.py \
-    --output_dir=./saved_models/java40 \
-    --model_type=roberta \
-    --config_name=microsoft/codebert-base \
-    --model_name_or_path=microsoft/codebert-base \
-    --tokenizer_name=roberta-base \
-    --number_labels 41 \
-    --do_eval \
-    --train_data_file=../dataset/data_folder/processed_java40/train.txt \
-    --eval_data_file=../dataset/data_folder/processed_java40/valid.txt \
-    --test_data_file=../dataset/data_folder/processed_java40/test.txt \
-    --epoch 10 \
-    --block_size 512 \
-    --train_batch_size 16 \
-    --eval_batch_size 32 \
-    --learning_rate 5e-5 \
-    --max_grad_norm 1.0 \
-    --evaluate_during_training \
-    --seed 123456 2>&1| tee train_java40.log
 ```
 
 ## Attack
@@ -105,6 +86,15 @@ gdown https://drive.google.com/uc?id=14dOsW-_C0D1IINP2J4l2VqB-IAlGB15w
 mv model.bin code/saved_models/gcjpy/checkpoint-best-f1/
 ```
 
+```
+cd preprocess
+CUDA_VISIBLE_DEVICES=1 python get_substitutes.py \
+    --store_path ./data_folder/processed_gcjpy/valid_subs.jsonl \
+    --base_model=microsoft/codebert-base-mlm \
+    --eval_data_file=./data_folder/processed_gcjpy/valid.txt \
+    --block_size 512
+```
+
 #### GA-Attack
 
 ```shell
@@ -118,7 +108,7 @@ python attack.py \
     --number_labels 66 \
     --do_eval \
     --use_ga \
-    --csv_store_path ./attack_no_gi.csv \
+    --csv_store_path ./attack_gi.csv \
     --language_type python \
     --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
@@ -172,41 +162,8 @@ CUDA_VISIBLE_DEVICES=1 python mhm.py \
 ```
 
 
-### On Java dataset
-
-If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/java40/checkpoint-best-f1` by [this link](https://drive.google.com/file/d/14_XxUo9Pcx4QnK50BUazBK6VbnP93pIC/view?usp=sharing).
-
-```shell
-pip install gdown
-mkdir code/saved_models/java40/checkpoint-best-f1
-gdown https://drive.google.com/uc?id=14_XxUo9Pcx4QnK50BUazBK6VbnP93pIC
-mv model.bin code/saved_models/java40/checkpoint-best-f1/
-```
-
-```shell
-cd code
-python attack.py \
-    --output_dir=./saved_models/java40 \
-    --model_type=roberta \
-    --tokenizer_name=microsoft/codebert-base \
-    --model_name_or_path=microsoft/codebert-base \
-    --do_eval \
-    --language_type java \
-    --number_labels 41 \
-    --train_data_file=../dataset/data_folder/processed_java40/train.txt \
-    --eval_data_file=../dataset/data_folder/processed_java40/valid.txt \
-    --test_data_file=../dataset/data_folder/processed_java40/test.txt \
-    --epoch 5 \
-    --block_size 512 \
-    --train_batch_size 16 \
-    --eval_batch_size 64 \
-    --evaluate_during_training \
-    --seed 123456  2>&1 | tee attack_java40.log
-```
-
 ## results 
 
 | Dataset  |    ACC    |  ACC (attacked)    | F1| F1(attacked) |Recall| Recall(attacked)|
 | -------- | :-------: |   :-------: | :-------: | :-------: | :-------: | :-------: |
-| Python(70 labels) | **0.9129** |  |**0.8777**| |**0.8857**| |
-| Java(41 labels) | **0.982** |  |**0.974**| |**0.9713**| |
+| Python(66 labels) | **0.8806** |  |**0.824**| |**0.8258**| |

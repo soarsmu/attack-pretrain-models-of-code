@@ -184,6 +184,7 @@ def main():
            'ori_tokens': [], "label": [], }
     n_succ = 0.0
     total_cnt = 0
+    query_times = 0
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
         substituions = generated_substitutions[index]
@@ -225,8 +226,10 @@ def main():
         total_cnt += 1
         print ("  time cost = %.2f min" % ((time.time()-start_time)/60))
         print ("  curr succ rate = "+str(n_succ/total_cnt))
-
-        recoder.writemhm(index, code, _res["prog_length"], " ".join(_res['tokens']), ground_truth, orig_label, _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"])
+        print("Query times in this attack: ", model.query - query_times)
+        print("All Query times: ", model.query)
+        recoder.writemhm(index, code, _res["prog_length"], " ".join(_res['tokens']), ground_truth, orig_label, _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"], model.query - query_times)
+        query_times = model.query
 
 if __name__ == "__main__":
     main()
