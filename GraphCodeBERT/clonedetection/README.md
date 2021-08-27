@@ -84,9 +84,9 @@ python run.py \
     --model_name_or_path=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
     --do_train \
-    --train_data_file=../dataset/train.txt \
-    --eval_data_file=../dataset/valid.txt \
-    --test_data_file=../dataset/test.txt \
+    --train_data_file=../dataset/train_sampled.txt \
+    --eval_data_file=../dataset/valid_sampled.txt \
+    --test_data_file=../dataset/test_sampled.txt \
     --epoch 2 \
     --code_length 512 \
     --data_flow_length 128 \
@@ -108,9 +108,9 @@ python run.py \
     --model_name_or_path=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
     --do_test \
-    --train_data_file=../dataset/train.txt \
-    --eval_data_file=../dataset/valid.txt \
-    --test_data_file=../dataset/test.txt \
+    --train_data_file=../dataset/train_sampled.txt \
+    --eval_data_file=../dataset/valid_sampled.txt \
+    --test_data_file=../dataset/test_sampled.txt \
     --epoch 2 \
     --code_length 512 \
     --data_flow_length 128 \
@@ -146,9 +146,9 @@ python attack.py \
     --model_name_or_path=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
     --base_model=microsoft/graphcodebert-base \
-    --train_data_file=../dataset/train.txt \
-    --eval_data_file=../dataset/valid.txt \
-    --test_data_file=../dataset/test.txt \
+    --train_data_file=../dataset/train_sampled.txt \
+    --eval_data_file=../dataset/valid_sampled.txt \
+    --test_data_file=../dataset/test_sampled.txt \
     --code_length 512 \
     --data_flow_length 128 \
     --eval_batch_size 32 \
@@ -167,9 +167,9 @@ CUDA_VISIBLE_DEVICES=4 python attack.py \
     --model_name_or_path=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
     --base_model=microsoft/graphcodebert-base \
-    --train_data_file=../dataset/train.txt \
-    --eval_data_file=../dataset/valid.txt \
-    --test_data_file=../dataset/test.txt \
+    --train_data_file=../dataset/train_sampled.txt \
+    --eval_data_file=../dataset/valid_sampled.txt \
+    --test_data_file=../dataset/test_sampled.txt \
     --code_length 512 \
     --data_flow_length 128 \
     --eval_batch_size 32 \
@@ -187,9 +187,9 @@ CUDA_VISIBLE_DEVICES=7 python mhm_attack.py \
     --model_name_or_path=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
     --base_model=microsoft/graphcodebert-base \
-    --train_data_file=../dataset/train.txt \
-    --eval_data_file=../dataset/valid.txt \
-    --test_data_file=../dataset/test.txt \
+    --train_data_file=../dataset/train_sampled.txt \
+    --eval_data_file=../dataset/valid_sampled.txt \
+    --test_data_file=../dataset/test_sampled.txt \
     --code_length 512 \
     --data_flow_length 128 \
     --eval_batch_size 32 \
