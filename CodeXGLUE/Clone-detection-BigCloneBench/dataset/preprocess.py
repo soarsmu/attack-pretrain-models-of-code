@@ -23,7 +23,7 @@ def main():
                 else:
                     label=1
                     data_1.append((url1, url2, label))
-            data = random.sample(data_1, int((len(data_0) + len(data_1))*0.05)) + random.sample(data_0,int((len(data_0) + len(data_1))*0.05))
+            data = random.sample(data_1, 2000) + random.sample(data_0, 2000)
             random.shuffle(data)
 
             with open("./valid_sampled.txt", "w") as wf:
@@ -45,7 +45,7 @@ def main():
                 else:
                     label=1
                     data_1.append((url1, url2, label))
-            data = random.sample(data_1, int((len(data_0) + len(data_1))*0.05)) + random.sample(data_0,int((len(data_0) + len(data_1))*0.05))
+            data = random.sample(data_1, 2000) + random.sample(data_0, 2000)
             random.shuffle(data)
 
             with open("./test_sampled.txt", "w") as wf:
