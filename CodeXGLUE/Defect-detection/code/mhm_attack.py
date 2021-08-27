@@ -164,7 +164,7 @@ def main():
             code = remove_comments_and_docstrings(js['func'], "c")
             source_codes.append(code)
             generated_substitutions.append(js['substitutes'])
-    assert(len(source_codes) == len(eval_dataset))
+    assert(len(source_codes) == len(eval_dataset) == len(generated_substitutions))
 
     code_tokens = []
     for index, code in enumerate(source_codes):
@@ -207,7 +207,7 @@ def main():
         
         # 这里需要进行修改.
         if args.original:
-            _res = attacker.mcmc_random(tokenizer, code,
+            _res = attacker.mcmc_random(tokenizer,substituions, code,
                              _label=ground_truth, _n_candi=30,
                              _max_iter=50, _prob_threshold=1)
         else:
