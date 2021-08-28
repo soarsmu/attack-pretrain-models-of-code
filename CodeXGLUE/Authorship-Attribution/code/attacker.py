@@ -370,11 +370,6 @@ class Attacker():
             # 依次记录了被加进来的substitue
             # 即，每个temp_replace对应的substitue.
             for substitute in all_substitues:
-                # if substitute in variable_names:
-                #     continue
-
-                # if not is_valid_substitue(substitute.strip(), tgt_word, 'python'):
-                #     continue
                 
                 temp_replace = copy.deepcopy(final_words)
                 for one_pos in tgt_positions:
@@ -474,6 +469,7 @@ class MHM_Attacker():
         for tgt_word in uid.keys():
             variable_substitue_dict[tgt_word] = subs[tgt_word]
         
+        old_uids = {}
         old_uid = ""
         for iteration in range(1, 1+_max_iter):
             # 这个函数需要tokens
@@ -482,11 +478,29 @@ class MHM_Attacker():
                                     _n_candi=_n_candi,
                                     _prob_threshold=_prob_threshold)
             self.__printRes(_iter=iteration, _res=res, _prefix="  >> ")
-            if iteration == 1:
-                old_uid = res["old_uid"]
-            if res['status'].lower() == 'r':
-                old_uid = res["old_uid"]
+            
             if res['status'].lower() in ['s', 'a']:
+
+                if iteration == 1:
+                    old_uids[res["old_uid"]] = []
+                    old_uids[res["old_uid"]].append(res["new_uid"])
+                    old_uid = res["old_uid"]
+                if not res["old_uid"] in old_uids.keys():
+                    flag = 0
+                    for k in old_uids.keys():
+                        if res["old_uid"] in old_uids[k]:
+                            flag = 1
+                            old_uids[k].append(res["new_uid"])
+                            old_uid = k
+                            break
+                    if flag == 0:
+                        old_uids[res["old_uid"]] = []
+                        old_uids[res["old_uid"]].append(res["new_uid"])
+                        old_uid = res["old_uid"]
+                else:
+                    old_uids[res["old_uid"]].append(res["new_uid"])
+                    old_uid = res["old_uid"]
+
                 tokens = res['tokens']
                 uid[res['new_uid']] = uid.pop(res['old_uid']) # 替换key，但保留value.
                 variable_substitue_dict[res['new_uid']] = variable_substitue_dict.pop(res['old_uid'])
@@ -519,7 +533,8 @@ class MHM_Attacker():
     
             variable_substitue_dict[tgt_word] = subs[tgt_word]
 
-
+        old_uids = {}
+        old_uid = ""
         for iteration in range(1, 1+_max_iter):
             # 这个函数需要tokens
             res = self.__replaceUID_random(_tokens=words, _label=_label, _uid=uid,
@@ -527,11 +542,28 @@ class MHM_Attacker():
                                     _n_candi=_n_candi,
                                     _prob_threshold=_prob_threshold)
             self.__printRes(_iter=iteration, _res=res, _prefix="  >> ")
-            if iteration == 1:
-                old_uid = res["old_uid"]
-            if res['status'].lower() == 'r':
-                old_uid = res["old_uid"]
+            
             if res['status'].lower() in ['s', 'a']:
+                if iteration == 1:
+                    old_uids[res["old_uid"]] = []
+                    old_uids[res["old_uid"]].append(res["new_uid"])
+                    old_uid = res["old_uid"]
+                if not res["old_uid"] in old_uids.keys():
+                    flag = 0
+                    for k in old_uids.keys():
+                        if res["old_uid"] in old_uids[k]:
+                            flag = 1
+                            old_uids[k].append(res["new_uid"])
+                            old_uid = k
+                            break
+                    if flag == 0:
+                        old_uids[res["old_uid"]] = []
+                        old_uids[res["old_uid"]].append(res["new_uid"])
+                        old_uid = res["old_uid"]
+                else:
+                    old_uids[res["old_uid"]].append(res["new_uid"])
+                    old_uid = res["old_uid"]
+                    
                 tokens = res['tokens']
                 uid[res['new_uid']] = uid.pop(res['old_uid']) # 替换key，但保留value.
                 variable_substitue_dict[res['new_uid']] = variable_substitue_dict.pop(res['old_uid'])
