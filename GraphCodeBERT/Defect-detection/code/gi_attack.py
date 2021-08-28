@@ -161,7 +161,7 @@ def main():
         attack_type = "Greedy"
         if is_success == -1 and args.use_ga:
             # 如果不成功，则使用gi_attack
-            code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.ga_attack(example, code, initial_replace=replaced_words)
+            code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.ga_attack(example, code, substituions, initial_replace=replaced_words)
             attack_type = "GA"
 
         score_info = ''
@@ -176,7 +176,7 @@ def main():
 
         print("Query times in this attack: ", model.query - query_times)
         print("All Query times: ", model.query)
-        recoder.write(index, code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, score_info, nb_changed_var, nb_changed_pos, replace_info, attack_type, model.query - query_times)
+        recoder.write(index, code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, score_info, nb_changed_var, nb_changed_pos, replace_info, attack_type, model.query - query_times, time_cost=0)
         query_times = model.query
         
         
