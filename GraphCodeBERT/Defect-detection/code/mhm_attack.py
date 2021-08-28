@@ -154,12 +154,15 @@ if __name__ == "__main__":
     ## Load Dataset
     eval_dataset = TextDataset(tokenizer, args,args.eval_data_file)
 
+    # Load original source codes
     source_codes = []
+    generated_substitutions = []
     with open(args.eval_data_file) as f:
         for line in f:
             js=json.loads(line.strip())
             code = js['func']
             source_codes.append(code)
+            generated_substitutions.append(js['substitutes'])
     assert(len(source_codes) == len(eval_dataset))
 
     code_tokens = []
@@ -183,6 +186,7 @@ if __name__ == "__main__":
     query_times = 0
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
+        substituions = generated_substitutions[index]
         identifiers, code_tokens = get_identifiers(code, lang='c')
         code_tokens = [i for i in code_tokens]
         processed_code = " ".join(code_tokens)
@@ -205,7 +209,7 @@ if __name__ == "__main__":
                              _label=ground_truth, _n_candi=30,
                              _max_iter=400, _prob_threshold=1)
         else:
-            _res = attacker.mcmc(tokenizer, code,
+            _res = attacker.mcmc(tokenizer, substituions, code,
                              _label=ground_truth, _n_candi=30,
                              _max_iter=400, _prob_threshold=1)
     
@@ -224,6 +228,6 @@ if __name__ == "__main__":
         
         print("Query times in this attack: ", model.query - query_times)
         print("All Query times: ", model.query)
-        recoder.writemhm(index, code, _res["prog_length"], " ".join(_res['tokens']), ground_truth, orig_label, _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"], model.query - query_times)
+        recoder.writemhm(index, code, _res["prog_length"], " ".join(_res['tokens']), ground_truth, orig_label, _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"], model.query - query_times, time_cost=(time.time()-start_time)/60)
         query_times = model.query
 

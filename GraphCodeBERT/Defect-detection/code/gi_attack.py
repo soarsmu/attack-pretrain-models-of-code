@@ -18,7 +18,6 @@ import torch
 from model import Model
 from run import TextDataset
 from utils import set_seed
-
 from utils import Recorder
 from attacker import Attacker
 from transformers import (RobertaForMaskedLM, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
@@ -38,15 +37,11 @@ def main():
     parser = argparse.ArgumentParser()
 
     ## Required parameters
-    parser.add_argument("--train_data_file", default=None, type=str, required=True,
-                        help="The input training data file (a text file).")
     parser.add_argument("--output_dir", default=None, type=str, required=True,
                         help="The output directory where the model predictions and checkpoints will be written.")
 
     ## Other parameters
     parser.add_argument("--eval_data_file", default=None, type=str,
-                        help="An optional input evaluation data file to evaluate the perplexity on (a text file).")
-    parser.add_argument("--test_data_file", default=None, type=str,
                         help="An optional input evaluation data file to evaluate the perplexity on (a text file).")
                     
     parser.add_argument("--model_type", default="bert", type=str,
@@ -58,11 +53,6 @@ def main():
                         help="Base Model")
     parser.add_argument("--csv_store_path", default=None, type=str,
                         help="Base Model")
-
-    parser.add_argument("--mlm", action='store_true',
-                        help="Train with masked-language modeling loss instead of language modeling.")
-    parser.add_argument("--mlm_probability", type=float, default=0.15,
-                        help="Ratio of tokens to mask for masked language modeling loss")
 
     parser.add_argument("--config_name", default="", type=str,
                         help="Optional pretrained config name or path if not the same as model_name_or_path")
@@ -76,10 +66,6 @@ def main():
                         help="Whether to run training.")
     parser.add_argument("--use_ga", action='store_true',
                         help="Whether to GA-Attack.")
-    parser.add_argument("--do_eval", action='store_true',
-                        help="Whether to run eval on the dev set.")
-    parser.add_argument("--do_test", action='store_true',
-                        help="Whether to run eval on the dev set.")    
     parser.add_argument("--eval_batch_size", default=4, type=int,
                         help="Batch size per GPU/CPU for evaluation.")
     parser.add_argument('--seed', type=int, default=42,
@@ -153,11 +139,13 @@ def main():
 
     # Load original source codes
     source_codes = []
+    generated_substitutions = []
     with open(args.eval_data_file) as f:
         for line in f:
             js=json.loads(line.strip())
             code = js['func']
             source_codes.append(code)
+            generated_substitutions.append(js['substitutes'])
     assert(len(source_codes) == len(eval_dataset))
 
     success_attack = 0
@@ -168,11 +156,12 @@ def main():
     attacker = Attacker(args, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
-        code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.greedy_attack(example, code)
+        substituions = generated_substitutions[index]
+        code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.greedy_attack(example, code, substituions)
         attack_type = "Greedy"
         if is_success == -1 and args.use_ga:
             # 如果不成功，则使用gi_attack
-            code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.ga_attack(example, code, initial_replace=replaced_words)
+            code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.ga_attack(example, code, substituions, initial_replace=replaced_words)
             attack_type = "GA"
 
         score_info = ''
@@ -187,7 +176,7 @@ def main():
 
         print("Query times in this attack: ", model.query - query_times)
         print("All Query times: ", model.query)
-        recoder.write(index, code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, score_info, nb_changed_var, nb_changed_pos, replace_info, attack_type, model.query - query_times)
+        recoder.write(index, code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, score_info, nb_changed_var, nb_changed_pos, replace_info, attack_type, model.query - query_times, time_cost=0)
         query_times = model.query
         
         
