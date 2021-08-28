@@ -150,11 +150,7 @@ class Attacker():
         # 这里经过了小写处理..
 
 
-        variable_names = []
-        for name in identifiers:
-            if ' ' in name[0].strip() in variable_names:
-                continue
-            variable_names.append(name[0])
+        variable_names = list(substituions.keys())
 
         if not orig_label == true_label:
             # 说明原来就是错的
@@ -166,12 +162,10 @@ class Attacker():
             is_success = -3
             return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, None, None, None, None
 
-        sub_words = [self.tokenizer_tgt.cls_token] + sub_words[:self.args.code_length - 2] + [self.tokenizer_tgt.sep_token]
 
         names_positions_dict = get_identifier_posistions_from_code(words, variable_names)
 
 
-        
         nb_changed_var = 0 # 表示被修改的variable数量
         nb_changed_pos = 0
         is_success = -1
@@ -181,29 +175,11 @@ class Attacker():
 
 
         for tgt_word in names_positions_dict.keys():
-            tgt_positions = names_positions_dict[tgt_word] # the positions of tgt_word in code
-            if not is_valid_variable_name(tgt_word, lang='c'):
-                # if the extracted name is not valid
-                continue   
+            variable_substitue_dict[tgt_word] = substituions[tgt_word]
 
-            ## 得到substitues
-            try:
-                all_substitues = set(substituions[tgt_word])
-            except:
-                continue
-            # 得到了所有位置的substitue，并使用set来去重
-
-            for tmp_substitue in all_substitues:
-                if tmp_substitue in variable_names:
-                    continue
-                if not is_valid_substitue(tmp_substitue.strip(), tgt_word, 'c'):
-                    continue
-                try:
-                    variable_substitue_dict[tgt_word].append(tmp_substitue)
-                except:
-                    variable_substitue_dict[tgt_word] = [tmp_substitue]
-                # 这么做是为了让在python_keywords中的variable不在variable_substitue_dict中保存
-
+        if len(variable_substitue_dict) == 0:
+            is_success = -3
+            return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, None, None, None, None
 
         fitness_values = []
         base_chromesome = {word: word for word in variable_substitue_dict.keys()}
@@ -357,11 +333,7 @@ class Attacker():
         # 这里经过了小写处理..
 
 
-        variable_names = []
-        for name in identifiers:
-            if ' ' in name[0].strip():
-                continue
-            variable_names.append(name[0])
+        variable_names = list(substituions.keys())
 
         if not orig_label == true_label:
             # 说明原来就是错的
@@ -421,17 +393,8 @@ class Attacker():
         for name_and_score in sorted_list_of_names:
             tgt_word = name_and_score[0]
             tgt_positions = names_positions_dict[tgt_word] # 在words中对应的位置
-            tgt_positions = names_positions_dict[tgt_word] # the positions of tgt_word in code
-            if not is_valid_variable_name(tgt_word, lang='c'):
-                # if the extracted name is not valid
-                continue   
-
-            ## 得到substitues
-            try:
-                all_substitues = set(substituions[tgt_word])
-            except:
-                continue
-            # 得到了所有位置的substitue，并使用set来去重
+            
+            all_substitues = substituions[tgt_word]
 
             most_gap = 0.0
             candidate = None
@@ -442,12 +405,6 @@ class Attacker():
             # 依次记录了被加进来的substitue
             # 即，每个temp_replace对应的substitue.
             for substitute in all_substitues:
-
-                if substitute in variable_names:
-                    continue
-
-                if not is_valid_substitue(substitute.strip(), tgt_word, 'c'):
-                    continue
                 
                 temp_replace = copy.deepcopy(final_words)
                 for one_pos in tgt_positions:
@@ -530,11 +487,8 @@ class MHM_Attacker():
         prog_length = len(code_tokens)
         words, sub_words, keys = _tokenize(processed_code, tokenizer)
         raw_tokens = copy.deepcopy(words)
-        variable_names = []
-        for name in identifiers:
-            if ' ' in name[0].strip():
-                continue
-            variable_names.append(name[0])
+        variable_names = list(substituions.keys())
+
         uid = get_identifier_posistions_from_code(words, variable_names)
 
         if len(uid) <= 0: # 是有可能存在找不到变量名的情况的.
@@ -542,30 +496,14 @@ class MHM_Attacker():
 
         # 还需要得到substitues
 
-        sub_words = [tokenizer.cls_token] + sub_words[:self.args.code_length - 2] + [tokenizer.sep_token]
-        # 如果长度超了，就截断；这里的block_size是CodeBERT能接受的输入长度
 
         variable_substitue_dict = {}
         for tgt_word in uid.keys():
-            if not is_valid_variable_name(tgt_word, 'c'):
-                # 如果不是变量名
-                continue   
-            try:
-                all_substitues = set(substituions[tgt_word])
-            except:
-                continue
-            # 得到了所有位置的substitue，并使用set来去重
-
-            for tmp_substitue in all_substitues:
-                if tmp_substitue in variable_names:
-                    continue
-                if not is_valid_substitue(tmp_substitue.strip(), tgt_word, 'c'):
-                    continue
-                try:
-                    variable_substitue_dict[tgt_word].append(tmp_substitue)
-                except:
-                    variable_substitue_dict[tgt_word] = [tmp_substitue]
+            variable_substitue_dict[tgt_word] = substituions[tgt_word]
         
+        if len(variable_substitue_dict) <= 0: # 是有可能存在找不到变量名的情况的.
+            return {'succ': None, 'tokens': None, 'raw_tokens': None}
+
         old_uids = {}
         old_uid = ""
         for iteration in range(1, 1+_max_iter):
@@ -609,7 +547,7 @@ class MHM_Attacker():
         return {'succ': False, 'tokens': res['tokens'], 'raw_tokens': None, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": -1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "MHM"}
     
     
-    def mcmc_random(self, tokenizer, code=None, _label=None, _n_candi=30,
+    def mcmc_random(self, tokenizer, substituions, code=None, _label=None, _n_candi=30,
              _max_iter=100, _prob_threshold=0.95):
         identifiers, code_tokens = get_identifiers(code, 'c')
         prog_length = len(code_tokens)
@@ -617,62 +555,16 @@ class MHM_Attacker():
 
         words, sub_words, keys = _tokenize(processed_code, tokenizer)
         raw_tokens = copy.deepcopy(words)
-        variable_names = []
-        for name in identifiers:
-            if ' ' in name[0].strip():
-                continue
-            variable_names.append(name[0])
+        variable_names = list(substituions.keys())
+
         uid = get_identifier_posistions_from_code(words, variable_names)
 
         if len(uid) <= 0: # 是有可能存在找不到变量名的情况的.
             return {'succ': None, 'tokens': None, 'raw_tokens': None}
 
-        # 还需要得到substitues
-
-        sub_words = [tokenizer.cls_token] + sub_words[:self.args.code_length - 2] + [tokenizer.sep_token]
-        # 如果长度超了，就截断；这里的block_size是CodeBERT能接受的输入长度
-        input_ids_ = torch.tensor([tokenizer.convert_tokens_to_ids(sub_words)])
-        word_predictions = self.model_mlm(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
-        word_pred_scores_all, word_predictions = torch.topk(word_predictions, 30, -1)  # seq-len k
-        # 得到前k个结果.
-
-        word_predictions = word_predictions[1:len(sub_words) + 1, :]
-        word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
-        # 只取subwords的部分，忽略首尾的预测结果.
-
-
         variable_substitue_dict = {}
         for tgt_word in uid.keys():
-            if not is_valid_variable_name(tgt_word, 'c'):
-                # 如果不是变量名
-                continue   
-            tgt_positions = uid[tgt_word] # 在words中对应的位置
-
-            ## 得到(所有位置的)substitues
-            all_substitues = []
-            for one_pos in tgt_positions:
-                ## 一个变量名会出现很多次
-                substitutes = word_predictions[keys[one_pos][0]:keys[one_pos][1]]  # L, k
-                word_pred_scores = word_pred_scores_all[keys[one_pos][0]:keys[one_pos][1]]
-
-                substitutes = get_substitues(substitutes, 
-                                            self.tokenizer_mlm, 
-                                            self.model_mlm, 
-                                            1, 
-                                            word_pred_scores, 
-                                            0)
-                all_substitues += substitutes
-            all_substitues = set(all_substitues)
-
-            for tmp_substitue in all_substitues:
-                if tmp_substitue in variable_names:
-                    continue
-                if not is_valid_substitue(tmp_substitue.strip(), tgt_word, 'c'):
-                    continue
-                try:
-                    variable_substitue_dict[tgt_word].append(tmp_substitue)
-                except:
-                    variable_substitue_dict[tgt_word] = [tmp_substitue]
+            variable_substitue_dict[tgt_word] = substituions[tgt_word]
         
         old_uids = {}
         old_uid = ""
