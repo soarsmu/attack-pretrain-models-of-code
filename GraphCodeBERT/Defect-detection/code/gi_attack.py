@@ -54,11 +54,6 @@ def main():
     parser.add_argument("--csv_store_path", default=None, type=str,
                         help="Base Model")
 
-    parser.add_argument("--mlm", action='store_true',
-                        help="Train with masked-language modeling loss instead of language modeling.")
-    parser.add_argument("--mlm_probability", type=float, default=0.15,
-                        help="Ratio of tokens to mask for masked language modeling loss")
-
     parser.add_argument("--config_name", default="", type=str,
                         help="Optional pretrained config name or path if not the same as model_name_or_path")
     parser.add_argument("--tokenizer_name", default="", type=str,
@@ -71,10 +66,6 @@ def main():
                         help="Whether to run training.")
     parser.add_argument("--use_ga", action='store_true',
                         help="Whether to GA-Attack.")
-    parser.add_argument("--do_eval", action='store_true',
-                        help="Whether to run eval on the dev set.")
-    parser.add_argument("--do_test", action='store_true',
-                        help="Whether to run eval on the dev set.")    
     parser.add_argument("--eval_batch_size", default=4, type=int,
                         help="Batch size per GPU/CPU for evaluation.")
     parser.add_argument('--seed', type=int, default=42,
@@ -165,7 +156,8 @@ def main():
     attacker = Attacker(args, model, tokenizer, codebert_mlm, tokenizer_mlm, use_bpe=1, threshold_pred_score=0)
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
-        code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.greedy_attack(example, code)
+        substituions = generated_substitutions[index]
+        code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.greedy_attack(example, code, substituions)
         attack_type = "Greedy"
         if is_success == -1 and args.use_ga:
             # 如果不成功，则使用gi_attack
