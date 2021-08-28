@@ -1,29 +1,16 @@
 *.DS_Store
-BERT-Attack/models/
-Assess_CodeBERT/codesearch/data/
-Assess_CodeBERT/codesearch/models
-BERT-Attack/data_defense/imdb_logs.tsv
-Assess_CodeBERT/codesearch/CodeBERT/__pycache__/
-Assess_CodeBERT/codesearch/CodeBERT/models/
-Assess_CodeBERT/codesearch/CodeBERT/runs/
 *.coverage
 *.pyc
-Assess_CodeBERT/codesearch/CodeBERT/authorship_Datasets/gcjpy/
-GraphCodeBERT/codesearch/dataset/*
-Assess_CodeBERT/codesearch/CodeBERT/authorship_Datasets/
-Assess_CodeBERT/codesearch/CodeBERT/fse_authorship/
-GraphCodeBERT/codesearch/saved_models/
-Assess_CodeBERT/jit/data/
-Assess_CodeBERT/jit/trained_model_op/
 parser/parser/my-languages.so
 my-languages.so
 .idea/
 venv/
-CodeXGLUE/Code-Search-Adv/dataset/
 
 CodeXGLUE/Defect-detection/code/saved_models/
 *.log
-CodeXGLUE/Defect-detection/preprocess/dataset/
+CodeXGLUE/Defect-detection/preprocess/dataset/cached_test
+CodeXGLUE/Defect-detection/preprocess/dataset/cached_train
+CodeXGLUE/Defect-detection/preprocess/dataset/cached_valid
 CodeXGLUE/Code-Search-Adv/code/saved_models/
 CodeXGLUE/Clone-detection-BigCloneBench/code/saved_models/
 CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_train
@@ -34,7 +21,9 @@ CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled
 CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_valid_sampled
 
 GraphCodeBERT/Defect-detection/code/saved_models/
-GraphCodeBERT/Defect-detection/preprocess/dataset/
+GraphCodeBERT/Defect-detection/preprocess/dataset/cached_test
+GraphCodeBERT/Defect-detection/preprocess/dataset/cached_train
+GraphCodeBERT/Defect-detection/preprocess/dataset/cached_valid
 GraphCodeBERT/clonedetection/code/saved_models/
 GraphCodeBERT/clonedetection/code/parser/tree-sitter-ruby
 GraphCodeBERT/clonedetection/code/parser/tree-sitter-c-sharp
@@ -43,15 +32,16 @@ GraphCodeBERT/clonedetection/code/parser/tree-sitter-php
 GraphCodeBERT/clonedetection/code/parser/tree-sitter-javascript
 GraphCodeBERT/clonedetection/code/parser/tree-sitter-python
 GraphCodeBERT/clonedetection/code/parser/tree-sitter-go
-GraphCodeBERT/Defect-detection/preprocess/function.json
-CodeXGLUE/Defect-detection/preprocess/function.json
+
 GraphCodeBERT/clonedetection/dataset/cached_valid
 GraphCodeBERT/clonedetection/dataset/cached_test
 GraphCodeBERT/clonedetection/dataset/cached_train
 
 
 CodeXGLUE/Clone-detection-BigCloneBench/dataset/*.pkl
-CodeXGLUE/Authorship-Attribution/dataset/data_folder
+CodeXGLUE/Authorship-Attribution/dataset/data_folder/gcjpy
+CodeXGLUE/Authorship-Attribution/dataset/data_folder/processed_gcjpy/cached_train
+CodeXGLUE/Authorship-Attribution/dataset/data_folder/processed_gcjpy/cached_valid
 CodeXGLUE/Authorship-Attribution/fse_authorship/
 CodeXGLUE/Authorship-Attribution/code/saved_models/
 CodeXGLUE/Defect-detection/code/attack_result.csv
@@ -63,7 +53,8 @@ GraphCodeBERT/Defect-detection/code/attack_result.csv
 CodeXGLUE/Defect-detection/code/*.csv
 
 GraphCodeBERT/Authorship-Attribution/code/saved_models/
-GraphCodeBERT/Authorship-Attribution/dataset/data_folder
+GraphCodeBERT/Authorship-Attribution/dataset/data_folder/processed_gcjpy/cached_train
+GraphCodeBERT/Authorship-Attribution/dataset/data_folder/processed_gcjpy/cached_valid
 
 
 CodeXGLUE/Authorship-Attribution/code/*.csv

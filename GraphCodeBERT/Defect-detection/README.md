@@ -151,6 +151,61 @@ CUDA_VISIBLE_DEVICES=3 python get_substitutes.py \
     --block_size 512
 ```
 
+tmux0:
+CUDA_VISIBLE_DEVICES=0 python get_substitutes.py \
+    --store_path ./dataset/test_subs_0_400.jsonl \
+    --base_model=microsoft/graphcodebert-base \
+    --eval_data_file=./dataset/test.jsonl \
+    --block_size 512 \
+    --index 0 400
+
+tmux1:
+CUDA_VISIBLE_DEVICES=0 python get_substitutes.py \
+    --store_path ./dataset/test_subs_400_800.jsonl \
+    --base_model=microsoft/graphcodebert-base \
+    --eval_data_file=./dataset/test.jsonl \
+    --block_size 512 \
+    --index 400 800
+
+tmux2:
+CUDA_VISIBLE_DEVICES=2 python get_substitutes.py \
+    --store_path ./dataset/test_subs_800_1200.jsonl \
+    --base_model=microsoft/graphcodebert-base \
+    --eval_data_file=./dataset/test.jsonl \
+    --block_size 512 \
+    --index 800 1200
+
+tmux3:
+CUDA_VISIBLE_DEVICES=3 python get_substitutes.py \
+    --store_path ./dataset/test_subs_1200_1600.jsonl \
+    --base_model=microsoft/graphcodebert-base \
+    --eval_data_file=./dataset/test.jsonl \
+    --block_size 512 \
+    --index 1200 1600
+
+tmux4:
+CUDA_VISIBLE_DEVICES=5 python get_substitutes.py \
+    --store_path ./dataset/test_subs_1600_2000.jsonl \
+    --base_model=microsoft/graphcodebert-base \
+    --eval_data_file=./dataset/test.jsonl \
+    --block_size 512 \
+    --index 1600 2000
+
+tmux5:
+CUDA_VISIBLE_DEVICES=6 python get_substitutes.py \
+    --store_path ./dataset/test_subs_2000_2400.jsonl \
+    --base_model=microsoft/graphcodebert-base \
+    --eval_data_file=./dataset/test.jsonl \
+    --block_size 512 \
+    --index 2000 2400
+
+tmux6:
+CUDA_VISIBLE_DEVICES=6 python get_substitutes.py \
+    --store_path ./dataset/test_subs_2400_2800.jsonl \
+    --base_model=microsoft/graphcodebert-base \
+    --eval_data_file=./dataset/test.jsonl \
+    --block_size 512 \
+    --index 2400 2800
 ### Greedy Attack
 
 ```shell
@@ -162,9 +217,7 @@ python gi_attack.py \
     --model_name_or_path=microsoft/graphcodebert-base \
     --csv_store_path ./attack_no_gi.csv \
     --base_model=microsoft/graphcodebert-base \
-    --train_data_file=../preprocess/dataset/train.jsonl \
-    --eval_data_file=../preprocess/dataset/valid.jsonl \
-    --test_data_file=../preprocess/dataset/test.jsonl \
+    --eval_data_file=../preprocess/dataset/test_subs_0_400.jsonl \
     --code_length 512 \
     --data_flow_length 128 \
     --eval_batch_size 64 \
@@ -183,9 +236,7 @@ CUDA_VISIBLE_DEVICES=2 python gi_attack.py \
     --csv_store_path ./attack_genetic.csv \
     --base_model=microsoft/graphcodebert-base \
     --use_ga \
-    --train_data_file=../preprocess/dataset/train.jsonl \
-    --eval_data_file=../preprocess/dataset/valid.jsonl \
-    --test_data_file=../preprocess/dataset/test.jsonl \
+    --eval_data_file=../preprocess/dataset/test_subs_0_400.jsonl \
     --code_length 512 \
     --data_flow_length 128 \
     --eval_batch_size 64 \

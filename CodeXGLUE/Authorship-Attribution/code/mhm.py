@@ -212,11 +212,11 @@ def main():
         if args.is_original_mhm:
             _res = attacker.mcmc_random(tokenizer, code,
                                 _label=ground_truth, _n_candi=30,
-                                _max_iter=50, _prob_threshold=1, subs = subs)
+                                _max_iter=100, _prob_threshold=1, subs = subs)
         else:
             _res = attacker.mcmc(tokenizer, code,
                                 _label=ground_truth, _n_candi=30,
-                                _max_iter=50, _prob_threshold=1, subs = subs)
+                                _max_iter=100, _prob_threshold=1, subs = subs)
         
         if _res['succ'] is None:
             continue

@@ -82,33 +82,7 @@ CUDA_VISIBLE_DEVICES=4,5,6,7 python run.py \
 ```
 ❕**Note**: if encountering `CUDA error: an illegal memory access was encountered`, change the `train_batch_size` to a bigger number, such as 32.
 
-### On Java dataset
 
-We use full train data for fine-tuning. The training cost is 15 mins on 2*P100-16G. We use full valid data to evaluate during training.
-
-```
-CUDA_VISIBLE_DEVICES=2,0 python run.py \
-    --output_dir=./saved_models/java40 \
-    --config_name=microsoft/graphcodebert-base \
-    --model_name_or_path=microsoft/graphcodebert-base \
-    --tokenizer_name=microsoft/graphcodebert-base \
-    --do_train \
-    --language_type java \
-    --number_labels 41 \
-    --train_data_file=../dataset/data_folder/processed_java40/train.txt \
-    --eval_data_file=../dataset/data_folder/processed_java40/valid.txt \
-    --test_data_file=../dataset/data_folder/processed_java40/test.txt \
-    --epoch 10 \
-    --code_length 512 \
-    --data_flow_length 128 \
-    --train_batch_size 16 \
-    --eval_batch_size 64 \
-    --learning_rate 2e-5 \
-    --max_grad_norm 1.0 \
-    --evaluate_during_training \
-    --seed 123456 2>&1| tee saved_models/train_java40.log
-```
-❕**Note**: if encountering `CUDA error: an illegal memory access was encountered`, change the `train_batch_size` to a bigger number, such as 32.
 
 ## Attack
 
@@ -196,7 +170,7 @@ CUDA_VISIBLE_DEVICES=5 python mhm_attack.py \
 # Original MHM-Attack
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=5 python mhm_attack.py \
+CUDA_VISIBLE_DEVICES=6 python mhm_attack.py \
     --output_dir=./saved_models/gcjpy \
     --model_type=roberta \
     --tokenizer_name=microsoft/graphcodebert-base \
