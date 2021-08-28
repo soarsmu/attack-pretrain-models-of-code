@@ -271,12 +271,12 @@ class Attacker():
             for index, logits in enumerate(mutate_logits):
                 if mutate_preds[index] != orig_label:
                     adv_code = " ".join(map_chromesome(_temp_mutants[index], words, names_positions_dict))
-                    for old_word in child_1.keys():
-                        if old_word == child_1[old_word]:
+                    for old_word in _temp_mutants[index].keys():
+                        if old_word == _temp_mutants[index][old_word]:
                             nb_changed_var += 1
                             nb_changed_pos += len(names_positions_dict[old_word])
 
-                    return code, prog_length, adv_code, true_label, orig_label, mutate_preds[index], 1, variable_names, None, nb_changed_var, nb_changed_pos, child_1
+                    return code, prog_length, adv_code, true_label, orig_label, mutate_preds[index], 1, variable_names, None, nb_changed_var, nb_changed_pos, _temp_mutants[index]
                 _tmp_fitness = max(orig_prob) - logits[orig_label]
                 mutate_fitness_values.append(_tmp_fitness)
             
