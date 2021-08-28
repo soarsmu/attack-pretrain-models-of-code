@@ -127,6 +127,69 @@ CUDA_VISIBLE_DEVICES=1 python get_substitutes.py \
     --eval_data_file=./test_sampled.txt \
     --block_size 512
 ```
+tmux3
+CUDA_VISIBLE_DEVICES=0 python get_substitutes.py \
+    --store_path ./test_subs_0_500.jsonl \
+    --base_model=microsoft/codebert-base-mlm \
+    --eval_data_file=./test_sampled.txt \
+    --block_size 512 \
+    --index 0 500
+
+tmux4
+CUDA_VISIBLE_DEVICES=1 python get_substitutes.py \
+    --store_path ./test_subs_500_1000.jsonl \
+    --base_model=microsoft/codebert-base-mlm \
+    --eval_data_file=./test_sampled.txt \
+    --block_size 512 \
+    --index 500 1000
+
+tmux5
+CUDA_VISIBLE_DEVICES=2 python get_substitutes.py \
+    --store_path ./test_subs_1000_1500.jsonl \
+    --base_model=microsoft/codebert-base-mlm \
+    --eval_data_file=./test_sampled.txt \
+    --block_size 512 \
+    --index 1000 1500
+
+tmux6
+CUDA_VISIBLE_DEVICES=3 python get_substitutes.py \
+    --store_path ./test_subs_1500_2000.jsonl \
+    --base_model=microsoft/codebert-base-mlm \
+    --eval_data_file=./test_sampled.txt \
+    --block_size 512 \
+    --index 1500 2000
+
+tmux7
+CUDA_VISIBLE_DEVICES=4 python get_substitutes.py \
+    --store_path ./test_subs_2000_2500.jsonl \
+    --base_model=microsoft/codebert-base-mlm \
+    --eval_data_file=./test_sampled.txt \
+    --block_size 512 \
+    --index 2000 2500
+
+tmux8
+CUDA_VISIBLE_DEVICES=4 python get_substitutes.py \
+    --store_path ./test_subs_2500_3000.jsonl \
+    --base_model=microsoft/codebert-base-mlm \
+    --eval_data_file=./test_sampled.txt \
+    --block_size 512 \
+    --index 2500 3000
+
+tmux9
+CUDA_VISIBLE_DEVICES=5 python get_substitutes.py \
+    --store_path ./test_subs_3000_3500.jsonl \
+    --base_model=microsoft/codebert-base-mlm \
+    --eval_data_file=./test_sampled.txt \
+    --block_size 512 \
+    --index 3000 3500
+
+tmux10
+CUDA_VISIBLE_DEVICES=6 python get_substitutes.py \
+    --store_path ./test_subs_3500_4000.jsonl \
+    --base_model=microsoft/codebert-base-mlm \
+    --eval_data_file=./test_sampled.txt \
+    --block_size 512 \
+    --index 3500 4000
 
 We use full test data for attacking. 
 
