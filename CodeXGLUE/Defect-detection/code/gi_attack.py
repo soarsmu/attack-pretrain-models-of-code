@@ -161,7 +161,7 @@ def main():
         for line in f:
             js=json.loads(line.strip())
             # code = ' '.join(js['func'].split())
-            code = remove_comments_and_docstrings(js['func'], "c")
+            code = js['func']
             source_codes.append(code)
             generated_substitutions.append(js['substitutes'])
     assert(len(source_codes) == len(eval_dataset) == len(generated_substitutions))

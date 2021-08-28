@@ -156,7 +156,7 @@ def main():
     with open(args.eval_data_file) as f:
         for line in f:
             js=json.loads(line.strip())
-            code = ' '.join(js['func'].split())
+            code = js['func']
             source_codes.append(code)
     assert(len(source_codes) == len(eval_dataset))
 
