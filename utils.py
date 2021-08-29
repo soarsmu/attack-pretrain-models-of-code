@@ -8,7 +8,7 @@ from torch.utils.data.dataset import Dataset
 import os
 import numpy as np
 import csv
-from python_parser.run_parser import get_example
+from python_parser.run_parser import get_example, get_example_batch
 
 python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">",
                    '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break',
@@ -115,8 +115,7 @@ def crossover(csome_1, csome_2, r=None):
 
 def map_chromesome(chromesome: dict, code: str, lang: str) -> str:
     
-    for tgt_word in chromesome.keys():
-        temp_replace = get_example(code, tgt_word, chromesome[tgt_word], lang)
+    temp_replace = get_example_batch(code, chromesome, lang)
     
     return temp_replace
 

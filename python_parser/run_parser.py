@@ -211,6 +211,33 @@ def get_example(code, tgt_word, substitute, lang):
 
     return "\n".join(code)
 
+
+def get_example_batch(code, chromesome, lang):
+    parser = parsers[lang]
+    code = code.replace("\\n", "\n")
+    parser = parsers[lang]
+    tree = parser[0].parse(bytes(code, 'utf8'))
+    root_node = tree.root_node
+    tokens_index = tree_to_token_index(root_node)
+    code = code.split('\n')
+    code_tokens = [index_to_code_token(x, code) for x in tokens_index]
+    replace_pos = {}
+    for tgt_word in chromesome.keys():
+        diff = len(chromesome[tgt_word]) - len(tgt_word)
+        for index, code_token in enumerate(code_tokens):
+            if code_token == tgt_word:
+                try:
+                    replace_pos[tokens_index[index][0][0]].append((tgt_word, chromesome[tgt_word], diff, tokens_index[index][0][1], tokens_index[index][1][1]))
+                except:
+                    replace_pos[tokens_index[index][0][0]] = [(tgt_word, chromesome[tgt_word], diff, tokens_index[index][0][1], tokens_index[index][1][1])]
+    for line in replace_pos.keys():
+        diff = 0
+        for index, pos in enumerate(replace_pos[line]):
+            code[line] = code[line][:pos[3]+diff] + pos[1] + code[line][pos[4]+diff:]
+            diff += pos[2]
+
+    return "\n".join(code)
+
 def unique(sequence):
     seen = set()
     return [x for x in sequence if not (x in seen or seen.add(x))]
@@ -234,12 +261,8 @@ def main():
     code = codes[args.lang]
     data, _ = get_identifiers(code, args.lang)
     code_ = get_example(java_code, "inChannel", "dwad", "java")
+    code_ = get_example_batch(java_code, {"inChannel":"dwad", "outChannel":"geg"}, "java")
     print(code_)
-    print(java_code==code_)
-    code_ = get_example(code_, "dwad", "inChannel", "java")
-
-    print(code_)
-    print(java_code==code_)
 
 
 if __name__ == '__main__':
