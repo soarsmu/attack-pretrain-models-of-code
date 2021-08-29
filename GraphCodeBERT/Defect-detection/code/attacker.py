@@ -12,14 +12,13 @@ from run import InputFeatures
 from utils import select_parents, crossover, map_chromesome, mutate, is_valid_variable_name, _tokenize, get_identifier_posistions_from_code, get_masked_code_by_position, get_substitues, is_valid_substitue
 
 from utils import GraphCodeDataset, isUID
-from run_parser import get_identifiers
+from run_parser import get_identifiers, get_example
 from run_parser import get_identifiers, extract_dataflow
 
-def compute_fitness(chromesome, codebert_tgt, tokenizer_tgt, orig_prob, orig_label, true_label ,words, names_positions_dict, args):
+def compute_fitness(chromesome, codebert_tgt, tokenizer_tgt, orig_prob, orig_label, true_label , code, names_positions_dict, args):
     # 计算fitness function.
     # words + chromesome + orig_label + current_prob
-    temp_replace = map_chromesome(chromesome, words, names_positions_dict)
-    temp_code = ' '.join(temp_replace)
+    temp_code = map_chromesome(chromesome, code, "c")
     new_feature = convert_code_to_features(temp_code, tokenizer_tgt, true_label, args)
     new_dataset = GraphCodeDataset([new_feature], args)
     new_logits, preds = codebert_tgt.get_results(new_dataset, args.eval_batch_size)
@@ -30,6 +29,7 @@ def compute_fitness(chromesome, codebert_tgt, tokenizer_tgt, orig_prob, orig_lab
 
 def convert_code_to_features(code, tokenizer, label, args):
     # 这里要被修改..
+    code=' '.join(code.split())
     dfg, index_table, code_tokens = extract_dataflow(code, "c")
     code_tokens=[tokenizer.tokenize('@ '+x)[1:] if idx!=0 else tokenizer.tokenize(x) for idx,x in enumerate(code_tokens)]
     ori2cur_pos={}
@@ -200,12 +200,11 @@ class Attacker():
                 # 原来是随机选择的，现在要找到改变最大的.
                 for a_substitue in variable_substitue_dict[tgt_word]:
                     # a_substitue = a_substitue.strip()
-                    for one_pos in tgt_positions:
-                        # 将对应的位置变成substitue
-                        temp_replace[one_pos] = a_substitue
+                    
                     substitute_list.append(a_substitue)
+                    temp_code = get_example(code, tgt_word, a_substitue, "c") 
                     # 记录下这次换的是哪个substitue
-                    temp_code = " ".join(temp_replace)
+                    
                     new_feature = convert_code_to_features(temp_code, self.tokenizer_tgt, example[3].item(), self.args)
                     replace_examples.append(new_feature)
 
@@ -244,7 +243,7 @@ class Attacker():
 
         for i in range(max_iter):
             _temp_mutants = []
-            for j in range(self.args.eval_batch_size):
+            for j in range(64):
                 p = random.random()
                 chromesome_1, index_1, chromesome_2, index_2 = select_parents(population)
                 if p < cross_probability: # 进行crossover
@@ -261,8 +260,7 @@ class Attacker():
             # compute fitness in batch
             feature_list = []
             for mutant in _temp_mutants:
-                _tmp_mutate_code = map_chromesome(mutant, words, names_positions_dict)
-                _temp_code = ' '.join(_tmp_mutate_code)
+                _temp_code =  map_chromesome(mutant, code, "c")
                 _tmp_feature = convert_code_to_features(_temp_code, self.tokenizer_tgt, true_label, self.args)
                 feature_list.append(_tmp_feature)
             if len(feature_list) == 0:
@@ -272,7 +270,7 @@ class Attacker():
             mutate_fitness_values = []
             for index, logits in enumerate(mutate_logits):
                 if mutate_preds[index] != orig_label:
-                    adv_code = " ".join(map_chromesome(_temp_mutants[index], words, names_positions_dict))
+                    adv_code = map_chromesome(_temp_mutants[index], code, "c")
                     for old_word in _temp_mutants[index].keys():
                         if old_word == _temp_mutants[index][old_word]:
                             nb_changed_var += 1
@@ -387,7 +385,7 @@ class Attacker():
         # 根据importance_score进行排序
 
         final_words = copy.deepcopy(words)
-        
+        final_code = copy.deepcopy(code)
         nb_changed_var = 0 # 表示被修改的variable数量
         nb_changed_pos = 0
         is_success = -1
@@ -408,15 +406,12 @@ class Attacker():
             # 即，每个temp_replace对应的substitue.
             for substitute in all_substitues:
                 
-                temp_replace = copy.deepcopy(final_words)
-                for one_pos in tgt_positions:
-                    temp_replace[one_pos] = substitute
                 
                 substitute_list.append(substitute)
                 # 记录了替换的顺序
+                temp_code = get_example(final_code, tgt_word, substitute, "c")
 
                 # 需要将几个位置都替换成sustitue_
-                temp_code = " ".join(temp_replace)
                 new_feature = convert_code_to_features(temp_code, self.tokenizer_tgt, example[3].item(), self.args)
                 replace_examples.append(new_feature)
             if len(replace_examples) == 0:
@@ -436,9 +431,7 @@ class Attacker():
                     nb_changed_pos += len(names_positions_dict[tgt_word])
                     candidate = substitute_list[index]
                     replaced_words[tgt_word] = candidate
-                    for one_pos in tgt_positions:
-                        final_words[one_pos] = candidate
-                    adv_code = " ".join(final_words)
+                    adv_code = get_example(final_code, tgt_word, candidate, "c")
                     print("%s SUC! %s => %s (%.5f => %.5f)" % \
                         ('>>', tgt_word, candidate,
                         current_prob,
@@ -457,8 +450,7 @@ class Attacker():
                 nb_changed_var += 1
                 nb_changed_pos += len(names_positions_dict[tgt_word])
                 current_prob = current_prob - most_gap
-                for one_pos in tgt_positions:
-                    final_words[one_pos] = candidate
+                final_code = get_example(final_code, tgt_word, candidate, "c")
                 replaced_words[tgt_word] = candidate
                 print("%s ACC! %s => %s (%.5f => %.5f)" % \
                     ('>>', tgt_word, candidate,
@@ -467,7 +459,7 @@ class Attacker():
             else:
                 replaced_words[tgt_word] = tgt_word
             
-            adv_code = " ".join(final_words)
+            adv_code = final_code
 
         return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words
 
@@ -520,30 +512,27 @@ class MHM_Attacker():
                     old_uids[res["old_uid"]] = []
                     old_uids[res["old_uid"]].append(res["new_uid"])
                     old_uid = res["old_uid"]
-                if not res["old_uid"] in old_uids.keys():
-                    flag = 0
-                    for k in old_uids.keys():
-                        if res["old_uid"] in old_uids[k]:
-                            flag = 1
-                            old_uids[k].append(res["new_uid"])
-                            old_uid = k
-                            break
-                    if flag == 0:
-                        old_uids[res["old_uid"]] = []
-                        old_uids[res["old_uid"]].append(res["new_uid"])
-                        old_uid = res["old_uid"]
-                else:
+
+                flag = 0
+                for k in old_uids.keys():
+                    if res["old_uid"] == old_uids[k][-1]:
+                        flag = 1
+                        old_uids[k].append(res["new_uid"])
+                        old_uid = k
+                        break
+                if flag == 0:
+                    old_uids[res["old_uid"]] = []
                     old_uids[res["old_uid"]].append(res["new_uid"])
                     old_uid = res["old_uid"]
 
-                tokens = res['tokens']
+                code = res['tokens']
                 uid[res['new_uid']] = uid.pop(res['old_uid']) # 替换key，但保留value.
                 variable_substitue_dict[res['new_uid']] = variable_substitue_dict.pop(res['old_uid'])
                 for i in range(len(raw_tokens)):
                     if raw_tokens[i] == res['old_uid']:
                         raw_tokens[i] = res['new_uid']
                 if res['status'].lower() == 's':
-                    return {'succ': True, 'tokens': tokens,
+                    return {'succ': True, 'tokens': code,
                             'raw_tokens': raw_tokens, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": 1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "MHM"}
 
         return {'succ': False, 'tokens': res['tokens'], 'raw_tokens': None, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": -1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "MHM"}
@@ -582,29 +571,27 @@ class MHM_Attacker():
                     old_uids[res["old_uid"]] = []
                     old_uids[res["old_uid"]].append(res["new_uid"])
                     old_uid = res["old_uid"]
-                if not res["old_uid"] in old_uids.keys():
-                    flag = 0
-                    for k in old_uids.keys():
-                        if res["old_uid"] in old_uids[k]:
-                            flag = 1
-                            old_uids[k].append(res["new_uid"])
-                            old_uid = k
-                            break
-                    if flag == 0:
-                        old_uids[res["old_uid"]] = []
-                        old_uids[res["old_uid"]].append(res["new_uid"])
-                        old_uid = res["old_uid"]
-                else:
+
+                flag = 0
+                for k in old_uids.keys():
+                    if res["old_uid"] == old_uids[k][-1]:
+                        flag = 1
+                        old_uids[k].append(res["new_uid"])
+                        old_uid = k
+                        break
+                if flag == 0:
+                    old_uids[res["old_uid"]] = []
                     old_uids[res["old_uid"]].append(res["new_uid"])
                     old_uid = res["old_uid"]
-                tokens = res['tokens']
+
+                code = res['tokens']
                 uid[res['new_uid']] = uid.pop(res['old_uid']) # 替换key，但保留value.
                 variable_substitue_dict[res['new_uid']] = variable_substitue_dict.pop(res['old_uid'])
                 for i in range(len(raw_tokens)):
                     if raw_tokens[i] == res['old_uid']:
                         raw_tokens[i] = res['new_uid']
                 if res['status'].lower() == 's':
-                    return {'succ': True, 'tokens': tokens,
+                    return {'succ': True, 'tokens': code,
                             'raw_tokens': raw_tokens, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": 1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "Ori_MHM"}
 
         return {'succ': False, 'tokens': res['tokens'], 'raw_tokens': None, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": -1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": 1, "nb_changed_pos":res["nb_changed_pos"], "replace_info": old_uid+":"+res['new_uid'], "attack_type": "Ori_MHM"}
@@ -626,10 +613,8 @@ class MHM_Attacker():
                     candi_token.append(c)
                     candi_tokens.append(copy.deepcopy(_tokens))
                     candi_labels.append(_label)
-                    for i in _uid[selected_uid]: # 依次进行替换.
-                        if i >= len(candi_tokens[-1]):
-                            break
-                        candi_tokens[-1][i] = c # 替换为新的candidate.
+                    candi_tokens[-1] = get_example(candi_tokens[-1], selected_uid, c, "c")
+                    
 
             new_example = []
             for tmp_tokens in candi_tokens:
@@ -688,10 +673,7 @@ class MHM_Attacker():
                     candi_token.append(c)
                     candi_tokens.append(copy.deepcopy(_tokens))
                     candi_labels.append(_label)
-                    for i in _uid[selected_uid]: # 依次进行替换.
-                        if i >= len(candi_tokens[-1]):
-                            break
-                        candi_tokens[-1][i] = c # 替换为新的candidate.
+                    candi_tokens[-1] = get_example(candi_tokens[-1], selected_uid, c, "c")
 
             new_example = []
             for tmp_tokens in candi_tokens:
