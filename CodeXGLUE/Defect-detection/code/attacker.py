@@ -545,7 +545,7 @@ class MHM_Attacker():
         words, sub_words, keys = _tokenize(processed_code, tokenizer)
         raw_tokens = copy.deepcopy(words)
         variable_names = list(substituions.keys())
-        
+
         uid = get_identifier_posistions_from_code(words, variable_names)
 
         if len(uid) <= 0: # 是有可能存在找不到变量名的情况的.
@@ -623,6 +623,8 @@ class MHM_Attacker():
             candi_tokens = [copy.deepcopy(_tokens)]
             candi_labels = [_label]
             for c in random.sample(substitute_dict[selected_uid], min(_n_candi, len(substitute_dict[selected_uid]))): # 选出_n_candi数量的候选.
+                if c in _uid.keys():
+                    continue
                 if isUID(c): # 判断是否是变量名.
                     candi_token.append(c)
                     candi_tokens.append(copy.deepcopy(_tokens))
@@ -686,6 +688,8 @@ class MHM_Attacker():
             candi_tokens = [copy.deepcopy(_tokens)]
             candi_labels = [_label]
             for c in random.sample(self.idx2token, _n_candi): # 选出_n_candi数量的候选.
+                if c in _uid.keys():
+                    continue
                 if isUID(c): # 判断是否是变量名.
                     candi_token.append(c)
                     candi_tokens.append(copy.deepcopy(_tokens))
