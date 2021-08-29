@@ -195,7 +195,7 @@ if __name__ == "__main__":
         new_feature = convert_code_to_features(processed_code, tokenizer, example[3].item(), args)
         new_dataset = GraphCodeDataset([new_feature], args)
 
-        orig_prob, orig_label = model.get_results(new_dataset, args.eval_batch_size)
+        orig_prob, orig_label = model.get_results([example], args.eval_batch_size)
         orig_prob = orig_prob[0]
         orig_label = orig_label[0]
         ground_truth = example[3].item()
@@ -208,11 +208,11 @@ if __name__ == "__main__":
         if args.original:
             _res = attacker.mcmc_random(tokenizer, substituions, code,
                              _label=ground_truth, _n_candi=30,
-                             _max_iter=400, _prob_threshold=1)
+                             _max_iter=100, _prob_threshold=1)
         else:
             _res = attacker.mcmc(tokenizer, substituions, code,
                              _label=ground_truth, _n_candi=30,
-                             _max_iter=400, _prob_threshold=1)
+                             _max_iter=100, _prob_threshold=1)
     
         if _res['succ'] is None:
             continue

@@ -233,7 +233,7 @@ class Attacker():
             temp_chromesome = copy.deepcopy(base_chromesome)
             temp_chromesome[tgt_word] = initial_candidate
             population.append(temp_chromesome)
-            temp_fitness, temp_label = compute_fitness(temp_chromesome, self.model_tgt, self.tokenizer_tgt, max(orig_prob), orig_label, true_label ,words, names_positions_dict, self.args)
+            temp_fitness, temp_label = compute_fitness(temp_chromesome, self.model_tgt, self.tokenizer_tgt, max(orig_prob), orig_label, true_label ,code, names_positions_dict, self.args)
             fitness_values.append(temp_fitness)
 
         cross_probability = 0.7
@@ -502,7 +502,7 @@ class MHM_Attacker():
         old_uid = ""
         for iteration in range(1, 1+_max_iter):
             # 这个函数需要tokens
-            res = self.__replaceUID(_tokens=words, _label=_label, _uid=uid,
+            res = self.__replaceUID(_tokens=code, _label=_label, _uid=uid,
                                     substitute_dict=variable_substitue_dict,
                                     _n_candi=_n_candi,
                                     _prob_threshold=_prob_threshold)
@@ -561,7 +561,7 @@ class MHM_Attacker():
         old_uid = ""
         for iteration in range(1, 1+_max_iter):
             # 这个函数需要tokens
-            res = self.__replaceUID_random(_tokens=words, _label=_label, _uid=uid,
+            res = self.__replaceUID_random(_tokens=code, _label=_label, _uid=uid,
                                     substitute_dict=variable_substitue_dict,
                                     _n_candi=_n_candi,
                                     _prob_threshold=_prob_threshold)
@@ -618,7 +618,7 @@ class MHM_Attacker():
 
             new_example = []
             for tmp_tokens in candi_tokens:
-                tmp_code = " ".join(tmp_tokens)
+                tmp_code = tmp_tokens
                 new_feature = convert_code_to_features(tmp_code, self.tokenizer_mlm, _label, self.args)
                 new_example.append(new_feature)
             new_dataset = GraphCodeDataset(new_example, self.args)
@@ -677,7 +677,7 @@ class MHM_Attacker():
 
             new_example = []
             for tmp_tokens in candi_tokens:
-                tmp_code = " ".join(tmp_tokens)
+                tmp_code = tmp_tokens
                 new_feature = convert_code_to_features(tmp_code, self.tokenizer_mlm, _label, self.args)
                 new_example.append(new_feature)
             new_dataset = GraphCodeDataset(new_example, self.args)
