@@ -85,8 +85,7 @@ class InputFeatures(object):
         
 def convert_examples_to_features(js,tokenizer,args):
     #source
-    # code=' '.join(js['func'].split())
-    code = remove_comments_and_docstrings(js['func'], "c")
+    code=' '.join(js['func'].split())
     code_tokens=tokenizer.tokenize(code)[:args.block_size-2]
     source_tokens =[tokenizer.cls_token]+code_tokens+[tokenizer.sep_token]
     source_ids =  tokenizer.convert_tokens_to_ids(source_tokens)
