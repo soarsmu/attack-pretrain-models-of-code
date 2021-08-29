@@ -196,7 +196,7 @@ def main():
         new_feature = convert_code_to_features(processed_code, tokenizer, example[1].item(), args)
         new_dataset = CodeDataset([new_feature])
 
-        orig_prob, orig_label = model.get_results(new_dataset, args.eval_batch_size)
+        orig_prob, orig_label = model.get_results([example], args.eval_batch_size)
         orig_prob = orig_prob[0]
         orig_label = orig_label[0]
         ground_truth = example[1].item()
