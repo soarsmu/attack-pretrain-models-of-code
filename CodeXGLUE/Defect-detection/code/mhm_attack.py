@@ -161,7 +161,7 @@ def main():
     with open(args.eval_data_file) as f:
         for line in f:
             js=json.loads(line.strip())
-            code = remove_comments_and_docstrings(js['func'], "c")
+            code = js['func']
             source_codes.append(code)
             generated_substitutions.append(js['substitutes'])
     assert(len(source_codes) == len(eval_dataset) == len(generated_substitutions))
@@ -209,11 +209,11 @@ def main():
         if args.original:
             _res = attacker.mcmc_random(tokenizer,substituions, code,
                              _label=ground_truth, _n_candi=30,
-                             _max_iter=50, _prob_threshold=1)
+                             _max_iter=10, _prob_threshold=1)
         else:
             _res = attacker.mcmc(tokenizer, substituions, code,
                              _label=ground_truth, _n_candi=30,
-                             _max_iter=50, _prob_threshold=1)
+                             _max_iter=10, _prob_threshold=1)
 
         if _res['succ'] is None:
             continue

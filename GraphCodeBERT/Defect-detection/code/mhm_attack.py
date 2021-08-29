@@ -163,7 +163,7 @@ if __name__ == "__main__":
             code = js['func']
             source_codes.append(code)
             generated_substitutions.append(js['substitutes'])
-    assert(len(source_codes) == len(eval_dataset))
+    assert(len(source_codes) == len(eval_dataset) == len(generated_substitutions))
 
     code_tokens = []
     for index, code in enumerate(source_codes):
@@ -184,6 +184,7 @@ if __name__ == "__main__":
     n_succ = 0.0
     total_cnt = 0
     query_times = 0
+    all_start_time = time.time()
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
         substituions = generated_substitutions[index]
@@ -205,7 +206,7 @@ if __name__ == "__main__":
         
         # 这里需要进行修改.
         if args.original:
-            _res = attacker.mcmc_random(tokenizer, code,
+            _res = attacker.mcmc_random(tokenizer, substituions, code,
                              _label=ground_truth, _n_candi=30,
                              _max_iter=400, _prob_threshold=1)
         else:
@@ -224,10 +225,12 @@ if __name__ == "__main__":
             print ("EXAMPLE "+str(index)+" FAILED.")
         total_cnt += 1
         print ("  time cost = %.2f min" % ((time.time()-start_time)/60))
+        time_cost = (time.time()-start_time)/60
+        print ("  ALL EXAMPLE time cost = %.2f min" % ((time.time()-all_start_time)/60))
         print ("  curr succ rate = "+str(n_succ/total_cnt))
         
         print("Query times in this attack: ", model.query - query_times)
         print("All Query times: ", model.query)
-        recoder.writemhm(index, code, _res["prog_length"], " ".join(_res['tokens']), ground_truth, orig_label, _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"], model.query - query_times, time_cost=(time.time()-start_time)/60)
+        recoder.writemhm(index, code, _res["prog_length"], " ".join(_res['tokens']), ground_truth, orig_label, _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"], model.query - query_times, time_cost)
         query_times = model.query
 
