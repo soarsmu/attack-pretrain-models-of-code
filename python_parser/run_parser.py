@@ -200,12 +200,13 @@ def get_example(code, tgt_word, substitute, lang):
     for index, code_token in enumerate(code_tokens):
         if code_token == tgt_word:
             code[tokens_index[index][0][0]] = code[tokens_index[index][0][0]][:tokens_index[index][0][1]] + substitute + code[tokens_index[index][0][0]][tokens_index[index][1][1]:]
-        code = "\n".join(code)
-        tree = parser[0].parse(bytes(code, 'utf8'))
-        root_node = tree.root_node
-        tokens_index = tree_to_token_index(root_node)
-        code = code.split('\n')
-        code_tokens = [index_to_code_token(x, code) for x in tokens_index]
+        if not len(tgt_word) == len(substitute):
+            code = "\n".join(code)
+            tree = parser[0].parse(bytes(code, 'utf8'))
+            root_node = tree.root_node
+            tokens_index = tree_to_token_index(root_node)
+            code = code.split('\n')
+            code_tokens = [index_to_code_token(x, code) for x in tokens_index]
 
     return "\n".join(code)
 
