@@ -1,4 +1,5 @@
 import argparse
+from os import replace
 import sys
 
 from parser_folder.DFG_python import DFG_python
@@ -196,17 +197,17 @@ def get_example(code, tgt_word, substitute, lang):
     tokens_index = tree_to_token_index(root_node)
     code = code.split('\n')
     code_tokens = [index_to_code_token(x, code) for x in tokens_index]
-
+    replace_pos = {}
     for index, code_token in enumerate(code_tokens):
         if code_token == tgt_word:
-            code[tokens_index[index][0][0]] = code[tokens_index[index][0][0]][:tokens_index[index][0][1]] + substitute + code[tokens_index[index][0][0]][tokens_index[index][1][1]:]
-        if not len(tgt_word) == len(substitute):
-            code = "\n".join(code)
-            tree = parser[0].parse(bytes(code, 'utf8'))
-            root_node = tree.root_node
-            tokens_index = tree_to_token_index(root_node)
-            code = code.split('\n')
-            code_tokens = [index_to_code_token(x, code) for x in tokens_index]
+            try:
+                replace_pos[tokens_index[index][0][0]].append((tokens_index[index][0][1], tokens_index[index][1][1]))
+            except:
+                replace_pos[tokens_index[index][0][0]] = [(tokens_index[index][0][1], tokens_index[index][1][1])]
+    diff = len(substitute) - len(tgt_word)
+    for line in replace_pos.keys():
+        for index, pos in enumerate(replace_pos[line]):
+            code[line] = code[line][:pos[0]+index*diff] + substitute + code[line][pos[1]+index*diff:]
 
     return "\n".join(code)
 

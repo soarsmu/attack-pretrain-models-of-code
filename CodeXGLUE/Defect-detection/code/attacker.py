@@ -516,7 +516,7 @@ class MHM_Attacker():
                     old_uids[res["old_uid"]].append(res["new_uid"])
                     old_uid = res["old_uid"]
 
-                tokens = res['tokens']
+                code = res['tokens']
                 uid[res['new_uid']] = uid.pop(res['old_uid']) # 替换key，但保留value.
                 variable_substitue_dict[res['new_uid']] = variable_substitue_dict.pop(res['old_uid'])
                 for i in range(len(raw_tokens)):
@@ -528,7 +528,7 @@ class MHM_Attacker():
                     for uid_ in old_uids.keys():
                         replace_info[uid_] = old_uids[uid_][-1]
                         nb_changed_pos += len(uid[old_uids[uid_][-1]])
-                    return {'succ': True, 'tokens': tokens,
+                    return {'succ': True, 'tokens': code,
                             'raw_tokens': raw_tokens, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": 1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": len(old_uids), "nb_changed_pos": nb_changed_pos, "replace_info": replace_info, "attack_type": "MHM"}
         replace_info = {}
         nb_changed_pos = 0
@@ -586,9 +586,10 @@ class MHM_Attacker():
                     old_uids[res["old_uid"]].append(res["new_uid"])
                     old_uid = res["old_uid"]
                     
-                tokens = res['tokens']
+                code = res['tokens']
                 uid[res['new_uid']] = uid.pop(res['old_uid']) # 替换key，但保留value.
                 variable_substitue_dict[res['new_uid']] = variable_substitue_dict.pop(res['old_uid'])
+                
                 for i in range(len(raw_tokens)):
                     if raw_tokens[i] == res['old_uid']:
                         raw_tokens[i] = res['new_uid']
@@ -598,11 +599,13 @@ class MHM_Attacker():
                     for uid_ in old_uids.keys():
                         replace_info[uid_] = old_uids[uid_][-1]
                         nb_changed_pos += len(uid[old_uids[uid_][-1]])
-                    return {'succ': True, 'tokens': tokens,
+                    return {'succ': True, 'tokens': code,
                             'raw_tokens': raw_tokens, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": 1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": len(old_uids), "nb_changed_pos": nb_changed_pos, "replace_info": replace_info, "attack_type": "MHM-Origin"}
         replace_info = {}
         nb_changed_pos = 0
+
         for uid_ in old_uids.keys():
+
             replace_info[uid_] = old_uids[uid_][-1]
             nb_changed_pos += len(uid[old_uids[uid_][-1]])
         return {'succ': False, 'tokens': res['tokens'], 'raw_tokens': None, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": -1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": len(old_uids), "nb_changed_pos": nb_changed_pos, "replace_info": replace_info, "attack_type": "MHM-Origin"}
@@ -629,7 +632,6 @@ class MHM_Attacker():
                     #     if i >= len(candi_tokens[-1]):
                     #         break
                     #     candi_tokens[-1][i] = c # 替换为新的candidate.
-
             new_example = []
             for tmp_tokens in candi_tokens:
                 tmp_code = tmp_tokens
@@ -693,7 +695,7 @@ class MHM_Attacker():
                     #     if i >= len(candi_tokens[-1]):
                     #         break
                     #     candi_tokens[-1][i] = c # 替换为新的candidate.
-
+            
             new_example = []
             for tmp_tokens in candi_tokens:
                 tmp_code = tmp_tokens
