@@ -265,6 +265,8 @@ class Attacker():
                 _temp_code = ' '.join(_tmp_mutate_code)
                 _tmp_feature = convert_code_to_features(_temp_code, self.tokenizer_tgt, true_label, self.args)
                 feature_list.append(_tmp_feature)
+            if len(feature_list) == 0:
+                continue
             new_dataset = GraphCodeDataset(feature_list, self.args)
             mutate_logits, mutate_preds = self.model_tgt.get_results(new_dataset, self.args.eval_batch_size)
             mutate_fitness_values = []
