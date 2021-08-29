@@ -562,7 +562,7 @@ class MHM_Attacker():
             res = self.__replaceUID_random(_tokens=code, _label=_label, _uid=uid,
                                     substitute_dict=variable_substitue_dict,
                                     _n_candi=_n_candi,
-                                    _prob_threshold=_prob_threshold)
+                                    _prob_threshold=_prob_threshold, old_uids=old_uids)
             self.__printRes(_iter=iteration, _res=res, _prefix="  >> ")
 
             if res['status'].lower() in ['s', 'a']:
@@ -589,7 +589,8 @@ class MHM_Attacker():
                 code = res['tokens']
                 uid[res['new_uid']] = uid.pop(res['old_uid']) # 替换key，但保留value.
                 variable_substitue_dict[res['new_uid']] = variable_substitue_dict.pop(res['old_uid'])
-                
+                print(uid)
+                print(len(uid))
                 for i in range(len(raw_tokens)):
                     if raw_tokens[i] == res['old_uid']:
                         raw_tokens[i] = res['new_uid']
@@ -607,7 +608,10 @@ class MHM_Attacker():
         for uid_ in old_uids.keys():
 
             replace_info[uid_] = old_uids[uid_][-1]
+            print(uid)
+            print(old_uids)
             nb_changed_pos += len(uid[old_uids[uid_][-1]])
+
         return {'succ': False, 'tokens': res['tokens'], 'raw_tokens': None, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": -1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": len(old_uids), "nb_changed_pos": nb_changed_pos, "replace_info": replace_info, "attack_type": "MHM-Origin"}
     
     def __replaceUID(self, _tokens, _label=None, _uid={}, substitute_dict={},
@@ -676,7 +680,7 @@ class MHM_Attacker():
 
 
     def __replaceUID_random(self, _tokens, _label=None, _uid={}, substitute_dict={},
-                     _n_candi=30, _prob_threshold=0.95, _candi_mode="random"):
+                     _n_candi=30, _prob_threshold=0.95, _candi_mode="random", old_uids={}):
         
         assert _candi_mode.lower() in ["random", "nearby"]
         
@@ -688,7 +692,7 @@ class MHM_Attacker():
             candi_tokens = [copy.deepcopy(_tokens)]
             candi_labels = [_label]
             for c in random.sample(self.idx2token, _n_candi): # 选出_n_candi数量的候选.
-                if c in _uid.keys():
+                if c in _uid.keys() or c in old_uids.keys():
                     continue
                 if isUID(c): # 判断是否是变量名.
                     candi_token.append(c)
