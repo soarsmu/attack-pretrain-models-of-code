@@ -12,7 +12,7 @@ CUDA_VISIBLE_DEVICES=0 python attack.py \
     --test_data_file=../dataset/test_sampled.txt \
     --block_size 512 \
     --eval_batch_size 16 \
-    --seed 123456 2>&1| tee attack_GA_0_500.log
+    --seed 123456 2>&1| tee attack_GA_0_500.log &
 
 CUDA_VISIBLE_DEVICES=0 python attack.py \
     --output_dir=./saved_models \
@@ -28,9 +28,9 @@ CUDA_VISIBLE_DEVICES=0 python attack.py \
     --test_data_file=../dataset/test_sampled.txt \
     --block_size 512 \
     --eval_batch_size 16 \
-    --seed 123456 2>&1| tee attack_GA_500_1000.log
+    --seed 123456 2>&1| tee attack_GA_500_1000.log &
 
-CUDA_VISIBLE_DEVICES=0 python attack.py \
+CUDA_VISIBLE_DEVICES=1 python attack.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --config_name=microsoft/codebert-base \
@@ -44,7 +44,7 @@ CUDA_VISIBLE_DEVICES=0 python attack.py \
     --test_data_file=../dataset/test_sampled.txt \
     --block_size 512 \
     --eval_batch_size 16 \
-    --seed 123456 2>&1| tee attack_GA_1000_1500.log
+    --seed 123456 2>&1| tee attack_GA_1000_1500.log &
 
 CUDA_VISIBLE_DEVICES=0 python attack.py \
     --output_dir=./saved_models \
@@ -60,7 +60,7 @@ CUDA_VISIBLE_DEVICES=0 python attack.py \
     --test_data_file=../dataset/test_sampled.txt \
     --block_size 512 \
     --eval_batch_size 8 \
-    --seed 123456 2>&1| tee attack_GA_1500_2000.log
+    --seed 123456 2>&1| tee attack_GA_1500_2000.log &
 
 CUDA_VISIBLE_DEVICES=1 python attack.py \
     --output_dir=./saved_models \
@@ -76,7 +76,7 @@ CUDA_VISIBLE_DEVICES=1 python attack.py \
     --test_data_file=../dataset/test_sampled.txt \
     --block_size 512 \
     --eval_batch_size 16 \
-    --seed 123456 2>&1| tee attack_GA_2000_2500.log
+    --seed 123456 2>&1| tee attack_GA_2000_2500.log &
 
 CUDA_VISIBLE_DEVICES=1 python attack.py \
     --output_dir=./saved_models \
@@ -92,7 +92,7 @@ CUDA_VISIBLE_DEVICES=1 python attack.py \
     --test_data_file=../dataset/test_sampled.txt \
     --block_size 512 \
     --eval_batch_size 16 \
-    --seed 123456 2>&1| tee attack_GA_2500_3000.log
+    --seed 123456 2>&1| tee attack_GA_2500_3000.log &
 
 CUDA_VISIBLE_DEVICES=1 python attack.py \
     --output_dir=./saved_models \
@@ -108,7 +108,7 @@ CUDA_VISIBLE_DEVICES=1 python attack.py \
     --test_data_file=../dataset/test_sampled.txt \
     --block_size 512 \
     --eval_batch_size 16 \
-    --seed 123456 2>&1| tee attack_GA_3000_3500.log
+    --seed 123456 2>&1| tee attack_GA_3000_3500.log &
 
 CUDA_VISIBLE_DEVICES=1 python attack.py \
     --output_dir=./saved_models \
@@ -124,4 +124,4 @@ CUDA_VISIBLE_DEVICES=1 python attack.py \
     --test_data_file=../dataset/test_sampled.txt \
     --block_size 512 \
     --eval_batch_size 8 \
-    --seed 123456 2>&1| tee attack_GA_3500_4000.log
+    --seed 123456 2>&1| tee attack_GA_3500_4000.log &
