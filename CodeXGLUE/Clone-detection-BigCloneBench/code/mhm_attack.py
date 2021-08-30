@@ -16,7 +16,7 @@ from run import TextDataset ,convert_examples_to_features
 from utils import CodeDataset
 from attacker import MHM_Attacker
 from attack import get_code_pairs
-from run_parser import get_identifiers
+from run_parser import get_identifiers, get_example
 from transformers import RobertaForMaskedLM
 from transformers import (RobertaConfig, RobertaModel, RobertaTokenizer)
 
@@ -100,7 +100,6 @@ if __name__ == "__main__":
 
     codebert_mlm = RobertaForMaskedLM.from_pretrained(args.base_model)
     tokenizer_mlm = RobertaTokenizer.from_pretrained(args.base_model)
-    codebert_mlm.to('cuda') 
 
     args.start_epoch = 0
     args.start_step = 0
@@ -147,19 +146,25 @@ if __name__ == "__main__":
     model.load_state_dict(torch.load(output_dir))
     model.to(args.device)
     print ("MODEL LOADED!")
-
-    
-    save_path = "./mlm_result.pkl"
+    codebert_mlm.to('cuda')
 
     # Load Dataset
     ## Load Dataset
     eval_dataset = TextDataset(tokenizer, args,args.eval_data_file)
 
-    ## Load tensor features
-    eval_dataset = TextDataset(tokenizer, args, args.eval_data_file)
     ## Load code pairs
     source_codes = get_code_pairs(args.eval_data_file)
-    assert len(source_codes) == len(eval_dataset)
+    
+    postfix = args.eval_data_file.split('/')[-1].split('.txt')[0].split("_")
+    folder = '/'.join(args.eval_data_file.split('/')[:-1]) # 得到文件目录
+    subs_path = os.path.join(folder, 'test_subs_{}_{}.jsonl'.format(
+                                    postfix[-2], postfix[-1]))
+    substitutes = []
+    with open(subs_path) as f:
+        for line in f:
+            js = json.loads(line.strip())
+            substitutes.append(js["substitutes"])
+    assert len(source_codes) == len(eval_dataset) == len(substitutes)
 
     code_tokens = []
     for index, code in enumerate(source_codes):
@@ -183,19 +188,25 @@ if __name__ == "__main__":
     all_start_time = time.time()
     for index, example in enumerate(eval_dataset):
         code_pair = source_codes[index]
+        substitute = substitutes[index]
         ground_truth = example[1].item()
+        orig_prob, orig_label = model.get_results([example], args.eval_batch_size)
+        orig_prob = orig_prob[0]
+        orig_label = orig_label[0]
         
+        if orig_label != ground_truth:
+            continue
         start_time = time.time()
         
         # 这里需要进行修改.
 
         if args.original:
-            _res = attacker.mcmc_random(example, tokenizer, code_pair,
+            _res = attacker.mcmc_random(example, substitute, tokenizer, code_pair,
                              _label=ground_truth, _n_candi=30,
                              _max_iter=10, _prob_threshold=1)
         
         else:
-            _res = attacker.mcmc(example, tokenizer, code_pair,
+            _res = attacker.mcmc(example, substitute, tokenizer, code_pair,
                              _label=ground_truth, _n_candi=30,
                              _max_iter=10, _prob_threshold=1)
     

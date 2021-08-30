@@ -4,6 +4,7 @@
 # @Email   : zyang@smu.edu.sg
 # @File    : attack.py
 '''For attacking CodeBERT models'''
+import json
 import sys
 import os
 
@@ -162,7 +163,17 @@ def main():
     eval_dataset = TextDataset(tokenizer, args, args.eval_data_file)
     ## Load code pairs
     source_codes = get_code_pairs(args.eval_data_file)
-    assert len(source_codes) == len(eval_dataset)
+
+    postfix = args.eval_data_file.split('/')[-1].split('.txt')[0].split("_")
+    folder = '/'.join(args.eval_data_file.split('/')[:-1]) # 得到文件目录
+    subs_path = os.path.join(folder, 'test_subs_{}_{}.jsonl'.format(
+                                    postfix[-2], postfix[-1]))
+    substitutes = []
+    with open(subs_path) as f:
+        for line in f:
+            js = json.loads(line.strip())
+            substitutes.append(js["substitutes"])
+    assert len(source_codes) == len(eval_dataset) == len(substitutes)
 
 
     # 现在要尝试计算importance_score了.
@@ -176,11 +187,12 @@ def main():
     for index, example in enumerate(eval_dataset):
         example_start_time = time.time()
         code_pair = source_codes[index]
-        code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.greedy_attack(example, code_pair)
+        substitute = substitutes[index]
+        code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.greedy_attack(example,  substitute, code_pair)
         attack_type = "Greedy"
         if is_success == -1 and args.use_ga:
             # 如果不成功，则使用gi_attack
-            code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.ga_attack(example, code, initial_replace=replaced_words)
+            code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.ga_attack(example, substitute, code, initial_replace=replaced_words)
             attack_type = "GA"
 
         example_end_time = (time.time()-example_start_time)/60
