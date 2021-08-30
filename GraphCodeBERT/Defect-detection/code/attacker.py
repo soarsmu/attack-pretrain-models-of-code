@@ -320,10 +320,6 @@ class Attacker():
         true_label = example[3].item()
         adv_code = ''
         temp_label = None
-        print(code)
-        print(example)
-        print(orig_prob)
-        exit()
 
 
         identifiers, code_tokens = get_identifiers(code, 'c')
@@ -550,7 +546,7 @@ class MHM_Attacker():
         return {'succ': False, 'tokens': res['tokens'], 'raw_tokens': None, "prog_length": prog_length, "new_pred": res["new_pred"], "is_success": -1, "old_uid": old_uid, "score_info": res["old_prob"][0]-res["new_prob"][0], "nb_changed_var": len(old_uids), "nb_changed_pos":nb_changed_pos, "replace_info": replace_info, "attack_type": "MHM"}
     
     
-    def mcmc_random(self, tokenizer, substituions, code=None, example = None, _label=None, _n_candi=30,
+    def mcmc_random(self, tokenizer, substituions, code=None, _label=None, _n_candi=30,
              _max_iter=100, _prob_threshold=0.95):
         identifiers, code_tokens = get_identifiers(code, 'c')
         prog_length = len(code_tokens)
@@ -573,7 +569,7 @@ class MHM_Attacker():
         old_uid = ""
         for iteration in range(1, 1+_max_iter):
             # 这个函数需要tokens
-            res = self.__replaceUID_random(_tokens=code, example=example, _label=_label, _uid=uid,
+            res = self.__replaceUID_random(_tokens=code, _label=_label, _uid=uid,
                                     substitute_dict=variable_substitue_dict,
                                     _n_candi=_n_candi,
                                     _prob_threshold=_prob_threshold)
@@ -679,7 +675,7 @@ class MHM_Attacker():
         else:
             pass
     
-    def __replaceUID_random(self, _tokens, example, _label=None, _uid={}, substitute_dict={},
+    def __replaceUID_random(self, _tokens, _label=None, _uid={}, substitute_dict={},
                      _n_candi=30, _prob_threshold=0.95, _candi_mode="random"):
         
         assert _candi_mode.lower() in ["random", "nearby"]
@@ -709,11 +705,6 @@ class MHM_Attacker():
             prob, pred = self.classifier.get_results(new_dataset, self.args.eval_batch_size)
 
             for i in range(len(candi_token)):   # Find a valid example
-                print(new_dataset[0])
-                for i, d in enumerate(new_dataset[0]):
-                    print(d == example[i])
-                print(prob[0], prob[i])
-                exit()
                 if pred[i] != _label: # 如果有样本攻击成功
                     return {"status": "s", "alpha": 1, "tokens": candi_tokens[i],
                             "old_uid": selected_uid, "new_uid": candi_token[i],

@@ -65,7 +65,7 @@ class Model(nn.Module):
                 
         logits=np.concatenate(logits,0)
         labels=np.concatenate(labels,0)
-        print(logits)
+
         probs = [[1 - prob[0], prob[0]] for prob in logits]
         pred_labels = [1 if label else 0 for label in logits[:,0]>0.5]
 

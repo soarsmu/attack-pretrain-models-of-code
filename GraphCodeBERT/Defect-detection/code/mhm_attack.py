@@ -14,13 +14,10 @@ import numpy as np
 from model import Model
 from utils import set_seed
 from run import TextDataset
-from utils import GraphCodeDataset
 from utils import Recorder
 from run_parser import get_identifiers
-from transformers import RobertaForMaskedLM
-from transformers import (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
+from transformers import (RobertaForMaskedLM, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
 from attacker import MHM_Attacker
-from attacker import convert_code_to_features
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning\
@@ -102,7 +99,6 @@ if __name__ == "__main__":
 
     codebert_mlm = RobertaForMaskedLM.from_pretrained(args.base_model)
     tokenizer_mlm = RobertaTokenizer.from_pretrained(args.base_model)
-    codebert_mlm.to('cuda') 
 
     args.start_epoch = 0
     args.start_step = 0
@@ -130,6 +126,7 @@ if __name__ == "__main__":
     tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name,
                                                 do_lower_case=False,
                                                 cache_dir=args.cache_dir if args.cache_dir else None)
+    
     if args.model_name_or_path:
         model = model_class.from_pretrained(args.model_name_or_path,
                                             from_tf=bool('.ckpt' in args.model_name_or_path),
@@ -147,8 +144,7 @@ if __name__ == "__main__":
     model.to(args.device)
     print ("MODEL LOADED!")
 
-    
-    save_path = "./mlm_result.pkl"
+    codebert_mlm.to('cuda') 
 
     # Load Dataset
     ## Load Dataset
@@ -188,19 +184,12 @@ if __name__ == "__main__":
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
         substituions = generated_substitutions[index]
-        identifiers, code_tokens = get_identifiers(code, lang='c')
-        code_tokens = [i for i in code_tokens]
-        processed_code = " ".join(code_tokens)
-
-        new_feature = convert_code_to_features(processed_code, tokenizer, example[3].item(), args)
-        new_dataset = GraphCodeDataset([new_feature], args)
 
         orig_prob, orig_label = model.get_results([example], args.eval_batch_size)
         orig_prob = orig_prob[0]
         orig_label = orig_label[0]
         ground_truth = example[3].item()
-        print(orig_prob)
-        exit()
+
         if orig_label != ground_truth:
             continue
         
@@ -208,7 +197,7 @@ if __name__ == "__main__":
         
         # 这里需要进行修改.
         if args.original:
-            _res = attacker.mcmc_random(tokenizer, substituions, code, example,
+            _res = attacker.mcmc_random(tokenizer, substituions, code,
                              _label=ground_truth, _n_candi=30,
                              _max_iter=100, _prob_threshold=1)
         else:

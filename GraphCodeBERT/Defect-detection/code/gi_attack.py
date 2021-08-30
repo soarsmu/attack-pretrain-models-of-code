@@ -159,8 +159,7 @@ def main():
     for index, example in enumerate(eval_dataset):
         example_start_time = time.time()
         orig_prob, orig_label = model.get_results([example], args.eval_batch_size)
-        print(orig_prob[0])
-        exit()
+        
         code = source_codes[index]
         substituions = generated_substitutions[index]
         code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.greedy_attack(example, code, substituions)
