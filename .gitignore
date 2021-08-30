@@ -75,3 +75,5 @@ MHM/mhm/LSTMClassifier/logs
 
 /python_parser/train_python.txt
 *.pkl
+*.docx
+*.c
