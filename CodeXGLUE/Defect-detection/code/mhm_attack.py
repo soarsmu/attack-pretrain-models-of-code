@@ -103,7 +103,7 @@ def main():
 
     codebert_mlm = RobertaForMaskedLM.from_pretrained(args.base_model)
     tokenizer_mlm = RobertaTokenizer.from_pretrained(args.base_model)
-    codebert_mlm.to('cuda') 
+
 
     args.start_epoch = 0
     args.start_step = 0
@@ -150,7 +150,8 @@ def main():
     model.load_state_dict(torch.load(output_dir))      
     model.to(args.device)
     print ("MODEL LOADED!")
-
+    
+    codebert_mlm.to('cuda') 
 
     # Load Dataset
     ## Load Dataset
