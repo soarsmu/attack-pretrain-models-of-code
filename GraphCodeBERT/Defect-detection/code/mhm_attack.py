@@ -199,6 +199,8 @@ if __name__ == "__main__":
         orig_prob = orig_prob[0]
         orig_label = orig_label[0]
         ground_truth = example[3].item()
+        print(orig_prob)
+        exit()
         if orig_label != ground_truth:
             continue
         
@@ -206,7 +208,7 @@ if __name__ == "__main__":
         
         # 这里需要进行修改.
         if args.original:
-            _res = attacker.mcmc_random(tokenizer, substituions, code,
+            _res = attacker.mcmc_random(tokenizer, substituions, code, example,
                              _label=ground_truth, _n_candi=30,
                              _max_iter=100, _prob_threshold=1)
         else:
@@ -231,6 +233,6 @@ if __name__ == "__main__":
         
         print("Query times in this attack: ", model.query - query_times)
         print("All Query times: ", model.query)
-        recoder.writemhm(index, code, _res["prog_length"], " ".join(_res['tokens']), ground_truth, orig_label, _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"], model.query - query_times, time_cost)
+        recoder.writemhm(index, code, _res["prog_length"], _res['tokens'], ground_truth, orig_label, _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"], model.query - query_times, time_cost)
         query_times = model.query
 
