@@ -134,6 +134,63 @@ gdown https://drive.google.com/uc?id=1C5Y1Lwlh_BNedU6-i-0BPgYfgMOvvK1O
 mv model.bin code/saved_models/checkpoint-best-f1/
 ```
 
+CUDA_VISIBLE_DEVICES=3 python get_substitutes.py \
+    --store_path ./test_subs_0_500.jsonl \
+    --base_model=microsoft/graphcodebert-base \
+    --eval_data_file=./test_sampled.txt \
+    --block_size 512 \
+    --index 0 500
+
+CUDA_VISIBLE_DEVICES=3 python get_substitutes.py \
+    --store_path ./test_subs_500_1000.jsonl \
+    --base_model=microsoft/graphcodebert-base \
+    --eval_data_file=./test_sampled.txt \
+    --block_size 512 \
+    --index 500 1000
+
+CUDA_VISIBLE_DEVICES=5 python get_substitutes.py \
+    --store_path ./test_subs_1000_1500.jsonl \
+    --base_model=microsoft/graphcodebert-base \
+    --eval_data_file=./test_sampled.txt \
+    --block_size 512 \
+    --index 1000 1500
+
+CUDA_VISIBLE_DEVICES=5 python get_substitutes.py \
+    --store_path ./test_subs_1500_2000.jsonl \
+    --base_model=microsoft/graphcodebert-base \
+    --eval_data_file=./test_sampled.txt \
+    --block_size 512 \
+    --index 1500 2000
+
+
+CUDA_VISIBLE_DEVICES=7 python get_substitutes.py \
+    --store_path ./test_subs_2000_2500.jsonl \
+    --base_model=microsoft/graphcodebert-base \
+    --eval_data_file=./test_sampled.txt \
+    --block_size 512 \
+    --index 2000 2500
+
+CUDA_VISIBLE_DEVICES=6 python get_substitutes.py \
+    --store_path ./test_subs_2500_3000.jsonl \
+    --base_model=microsoft/graphcodebert-base \
+    --eval_data_file=./test_sampled.txt \
+    --block_size 512 \
+    --index 2500 3000
+
+CUDA_VISIBLE_DEVICES=6 python get_substitutes.py \
+    --store_path ./test_subs_3000_3500.jsonl \
+    --base_model=microsoft/graphcodebert-base \
+    --eval_data_file=./test_sampled.txt \
+    --block_size 512 \
+    --index 3000 3500
+
+CUDA_VISIBLE_DEVICES=4 python get_substitutes.py \
+    --store_path ./test_subs_3500_4000.jsonl \
+    --base_model=microsoft/graphcodebert-base \
+    --eval_data_file=./test_sampled.txt \
+    --block_size 512 \
+    --index 3500 4000
+
 We use full test data to evaluate out attacker.
 
 ```shell
