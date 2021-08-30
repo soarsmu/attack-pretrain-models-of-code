@@ -75,3 +75,12 @@ MHM/mhm/LSTMClassifier/logs
 
 /python_parser/train_python.txt
 *.pkl
+CodeXGLUE/Defect-detection/preprocess/dataset/cached_test_subs_0_400
+CodeXGLUE/Defect-detection/preprocess/dataset/cached_test_subs_400_800
+CodeXGLUE/Defect-detection/preprocess/dataset/cached_test_subs_800_1200
+CodeXGLUE/Defect-detection/preprocess/dataset/cached_test_subs_1200_1600
+CodeXGLUE/Defect-detection/preprocess/dataset/cached_test_subs_1600_2000
+CodeXGLUE/Defect-detection/preprocess/dataset/cached_test_subs_2000_2400
+CodeXGLUE/Defect-detection/preprocess/dataset/cached_test_subs_2400_2800
+.gitignore
+CodeXGLUE/Defect-detection/preprocess/dataset/cached_valid_subs
