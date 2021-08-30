@@ -84,3 +84,11 @@ CodeXGLUE/Defect-detection/preprocess/dataset/cached_test_subs_2000_2400
 CodeXGLUE/Defect-detection/preprocess/dataset/cached_test_subs_2400_2800
 .gitignore
 CodeXGLUE/Defect-detection/preprocess/dataset/cached_valid_subs
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled_0_500
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled_500_1000
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled_1000_1500
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled_1500_2000
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled_2000_2500
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled_2500_3000
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled_3000_3500
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled_3500_4000
