@@ -32,6 +32,7 @@ import shutil
 import sys
 sys.path.append('../../')
 sys.path.append('../../../')
+sys.path.append('../../../python_parser')
 from python_parser.parser_folder import remove_comments_and_docstrings
 from utils import set_seed
 
