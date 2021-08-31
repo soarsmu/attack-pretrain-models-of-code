@@ -78,7 +78,7 @@ We use full train data for fine-tuning. The training cost is 18 hours on 8*P100-
 
 ```shell
 mkdir saved_models
-python run.py \
+CUDA_VISIBLE_DEVICES=0,2,4,6,3,5 python run.py \
     --output_dir=saved_models \
     --config_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
@@ -90,7 +90,7 @@ python run.py \
     --epoch 2 \
     --code_length 512 \
     --data_flow_length 128 \
-    --train_batch_size 16 \
+    --train_batch_size 14 \
     --eval_batch_size 32 \
     --learning_rate 2e-5 \
     --max_grad_norm 1.0 \
@@ -102,7 +102,7 @@ python run.py \
 We use full test data for inference. The inferencing cost is 1.5 hours on 8*P100-16G.
 
 ```shell
-python run.py \
+CUDA_VISIBLE_DEVICES=2,3 python run.py \
     --output_dir=saved_models \
     --config_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
