@@ -70,10 +70,10 @@ def main():
             names_positions_dict = get_identifier_posistions_from_code(words, variable_names)
 
             variable_substitue_dict = {}
-            with torch.no_grad():
-                orig_embeddings = codebert_mlm.roberta(input_ids_.to('cuda'))[0]
+            # with torch.no_grad():
+            #     orig_embeddings = codebert_mlm.roberta(input_ids_.to('cuda'))[0]
 
-            cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
+            # cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
             for tgt_word in names_positions_dict.keys():
                 tgt_positions = names_positions_dict[tgt_word] # the positions of tgt_word in code
                 if not is_valid_variable_name(tgt_word, lang='c'):
@@ -89,40 +89,46 @@ def main():
                     substitutes = word_predictions[keys[one_pos][0]:keys[one_pos][1]]  # L, k
                     word_pred_scores = word_pred_scores_all[keys[one_pos][0]:keys[one_pos][1]]
                     
-                    orig_word_embed = orig_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
+                    # orig_word_embed = orig_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
 
-                    similar_substitutes = []
-                    similar_word_pred_scores = []
-                    sims = []
-                    subwords_leng, nums_candis = substitutes.size()
+                    # similar_substitutes = []
+                    # similar_word_pred_scores = []
+                    # sims = []
+                    # subwords_leng, nums_candis = substitutes.size()
 
-                    for i in range(nums_candis):
+                    # for i in range(nums_candis):
 
-                        new_ids_ = copy.deepcopy(input_ids_)
-                        new_ids_[0][keys[one_pos][0]+1:keys[one_pos][1]+1] = substitutes[:,i]
-                        # 替换词得到新embeddings
+                    #     new_ids_ = copy.deepcopy(input_ids_)
+                    #     new_ids_[0][keys[one_pos][0]+1:keys[one_pos][1]+1] = substitutes[:,i]
+                    #     # 替换词得到新embeddings
 
-                        with torch.no_grad():
-                            new_embeddings = codebert_mlm.roberta(new_ids_.to('cuda'))[0]
-                        new_word_embed = new_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
+                    #     with torch.no_grad():
+                    #         new_embeddings = codebert_mlm.roberta(new_ids_.to('cuda'))[0]
+                    #     new_word_embed = new_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
 
-                        sims.append((i, sum(cos(orig_word_embed, new_word_embed))/subwords_leng))
+                    #     sims.append((i, sum(cos(orig_word_embed, new_word_embed))/subwords_leng))
                     
-                    sims = sorted(sims, key=lambda x: x[1], reverse=True)
-                    # 排序取top 30 个
+                    # sims = sorted(sims, key=lambda x: x[1], reverse=True)
+                    # # 排序取top 30 个
 
-                    for i in range(int(nums_candis/2)):
-                        similar_substitutes.append(substitutes[:,sims[i][0]].reshape(subwords_leng, -1))
-                        similar_word_pred_scores.append(word_pred_scores[:,sims[i][0]].reshape(subwords_leng, -1))
+                    # for i in range(int(nums_candis/2)):
+                    #     similar_substitutes.append(substitutes[:,sims[i][0]].reshape(subwords_leng, -1))
+                    #     similar_word_pred_scores.append(word_pred_scores[:,sims[i][0]].reshape(subwords_leng, -1))
 
-                    similar_substitutes = torch.cat(similar_substitutes, 1)
-                    similar_word_pred_scores = torch.cat(similar_word_pred_scores, 1)
+                    # similar_substitutes = torch.cat(similar_substitutes, 1)
+                    # similar_word_pred_scores = torch.cat(similar_word_pred_scores, 1)
 
-                    substitutes = get_substitues(similar_substitutes, 
+                    # substitutes = get_substitues(similar_substitutes, 
+                    #                             tokenizer_mlm, 
+                    #                             codebert_mlm, 
+                    #                             1, 
+                    #                             similar_word_pred_scores, 
+                    #                             0)
+                    substitutes = get_substitues(substitutes, 
                                                 tokenizer_mlm, 
                                                 codebert_mlm, 
                                                 1, 
-                                                similar_word_pred_scores, 
+                                                word_pred_scores, 
                                                 0)
                     all_substitues += substitutes
                 all_substitues = set(all_substitues)

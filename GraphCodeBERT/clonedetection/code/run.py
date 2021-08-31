@@ -243,8 +243,8 @@ class TextDataset(Dataset):
                     data.append((url1,url2,label,tokenizer, args,cache,url_to_code))
                 
             #only use 10% valid data to keep best model        
-            if 'valid' in file_path:
-                data=random.sample(data,int(len(data)*0.1))
+            # if 'valid' in file_path:
+            #     data=random.sample(data,int(len(data)*0.1))
             for sing_example in data:
                 code_pairs.append([sing_example[0], 
                                     sing_example[1], 
