@@ -86,13 +86,12 @@ We use full test data for inference.
 
 ```shell
 cd code
-python run.py \
+CUDA_VISIBLE_DEVICES=4 python run.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --config_name=microsoft/codebert-base \
     --model_name_or_path=microsoft/codebert-base \
     --tokenizer_name=roberta-base \
-    --do_eval \
     --do_test \
     --train_data_file=../dataset/train_sampled.txt \
     --eval_data_file=../dataset/valid_sampled.txt \
@@ -110,12 +109,12 @@ python run.py \
 
 ### Attack
 
-If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/checkpoint-best-f1` by [this link](https://drive.google.com/file/d/14YamUwCoyNIJ3XLU8U5kM84xjk223aC9/view?usp=sharing).
+If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/checkpoint-best-f1` by [this link](https://drive.google.com/file/d/1CR3SWBlyMZLnctZklAHMFf0Jq1U7YdsZ/view?usp=sharing).
 
 ```shell
 pip install gdown
-mkdir code/saved_models/checkpoint-best-f1
-gdown https://drive.google.com/uc?id=14YamUwCoyNIJ3XLU8U5kM84xjk223aC9
+mkdir -p code/saved_models/checkpoint-best-f1
+gdown https://drive.google.com/uc?id=1CR3SWBlyMZLnctZklAHMFf0Jq1U7YdsZ
 mv model.bin code/saved_models/checkpoint-best-f1/
 ```
 
@@ -225,7 +224,7 @@ python attack.py \
     --use_ga \
     --base_model=microsoft/codebert-base-mlm \
     --train_data_file=../dataset/train_sampled.txt \
-    --eval_data_file=../dataset/valid_sampled.txt \
+    --eval_data_file=../dataset/test_sampled_0_500.txt \
     --test_data_file=../dataset/test_sampled.txt \
     --block_size 512 \
     --eval_batch_size 32 \
@@ -244,7 +243,7 @@ CUDA_VISIBLE_DEVICES=0 python mhm_attack.py \
     --csv_store_path ./attack_mhm.csv \
     --base_model=microsoft/codebert-base-mlm \
     --train_data_file=../dataset/train_sampled.txt \
-    --eval_data_file=../dataset/valid_sampled.txt \
+    --eval_data_file=../dataset/test_sampled_0_500.txt \
     --test_data_file=../dataset/test_sampled.txt \
     --block_size 512 \
     --eval_batch_size 64 \
@@ -277,4 +276,4 @@ The results on the test set are shown as below:
 
 | Method        | Precision |  Precision (attacked)   |    Recall     |  Recall (attacked)   |    F1     |  F1 (attacked)   |
 | ------------- | :-------: | :---------------------: | :-----------: | :------------------: | :-------: |:---------------: | 
-| CodeBERT | **0.9564** |  | **0.9723** |  | **0.9641** |  |
+| CodeBERT | **0.9697** |  | **0.9687** |  | **0.9688** |  |

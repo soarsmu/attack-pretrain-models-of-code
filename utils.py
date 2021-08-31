@@ -2,11 +2,13 @@ import torch
 import torch.nn as nn
 import copy
 import random
+import sys
 from tqdm import tqdm
 from torch.utils.data.dataset import Dataset
 import os
 import numpy as np
 import csv
+from python_parser.run_parser import get_example, get_example_batch
 
 python_keywords = ['import', '', '[', ']', ':', ',', '.', '(', ')', '{', '}', 'not', 'is', '=', "+=", '-=', "<", ">",
                    '+', '-', '*', '/', 'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break',
@@ -111,13 +113,9 @@ def crossover(csome_1, csome_2, r=None):
     return child_1, child_2
 
 
-def map_chromesome(chromesome: dict, words: list, names_positions_dict: dict) -> list:
-    temp_replace = copy.deepcopy(words)
-
-    for tgt_word in chromesome.keys():
-        tgt_positions = names_positions_dict[tgt_word] # 在words中对应的位置
-        for one_pos in tgt_positions:
-            temp_replace[one_pos] = chromesome[tgt_word]
+def map_chromesome(chromesome: dict, code: str, lang: str) -> str:
+    
+    temp_replace = get_example_batch(code, chromesome, lang)
     
     return temp_replace
 

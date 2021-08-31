@@ -103,7 +103,7 @@ def main():
 
     codebert_mlm = RobertaForMaskedLM.from_pretrained(args.base_model)
     tokenizer_mlm = RobertaTokenizer.from_pretrained(args.base_model)
-    codebert_mlm.to('cuda') 
+
 
     args.start_epoch = 0
     args.start_step = 0
@@ -150,7 +150,8 @@ def main():
     model.load_state_dict(torch.load(output_dir))      
     model.to(args.device)
     print ("MODEL LOADED!")
-
+    
+    codebert_mlm.to('cuda') 
 
     # Load Dataset
     ## Load Dataset
@@ -161,7 +162,7 @@ def main():
     with open(args.eval_data_file) as f:
         for line in f:
             js=json.loads(line.strip())
-            code = remove_comments_and_docstrings(js['func'], "c")
+            code = js['func']
             source_codes.append(code)
             generated_substitutions.append(js['substitutes'])
     assert(len(source_codes) == len(eval_dataset) == len(generated_substitutions))
@@ -196,7 +197,7 @@ def main():
         new_feature = convert_code_to_features(processed_code, tokenizer, example[1].item(), args)
         new_dataset = CodeDataset([new_feature])
 
-        orig_prob, orig_label = model.get_results(new_dataset, args.eval_batch_size)
+        orig_prob, orig_label = model.get_results([example], args.eval_batch_size)
         orig_prob = orig_prob[0]
         orig_label = orig_label[0]
         ground_truth = example[1].item()
@@ -209,11 +210,11 @@ def main():
         if args.original:
             _res = attacker.mcmc_random(tokenizer,substituions, code,
                              _label=ground_truth, _n_candi=30,
-                             _max_iter=50, _prob_threshold=1)
+                             _max_iter=100, _prob_threshold=1)
         else:
             _res = attacker.mcmc(tokenizer, substituions, code,
                              _label=ground_truth, _n_candi=30,
-                             _max_iter=50, _prob_threshold=1)
+                             _max_iter=100, _prob_threshold=1)
 
         if _res['succ'] is None:
             continue
@@ -231,7 +232,7 @@ def main():
         print ("  curr succ rate = "+str(n_succ/total_cnt))
         print("Query times in this attack: ", model.query - query_times)
         print("All Query times: ", model.query)
-        recoder.writemhm(index, code, _res["prog_length"], " ".join(_res['tokens']), ground_truth, orig_label, _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"], model.query - query_times, time_cost)
+        recoder.writemhm(index, code, _res["prog_length"], _res['tokens'], ground_truth, orig_label, _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"], model.query - query_times, time_cost)
         query_times = model.query
 
 if __name__ == "__main__":

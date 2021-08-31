@@ -14,13 +14,10 @@ import numpy as np
 from model import Model
 from utils import set_seed
 from run import TextDataset
-from utils import GraphCodeDataset
 from utils import Recorder
 from run_parser import get_identifiers
-from transformers import RobertaForMaskedLM
-from transformers import (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
+from transformers import (RobertaForMaskedLM, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
 from attacker import MHM_Attacker
-from attacker import convert_code_to_features
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning\
@@ -102,7 +99,6 @@ if __name__ == "__main__":
 
     codebert_mlm = RobertaForMaskedLM.from_pretrained(args.base_model)
     tokenizer_mlm = RobertaTokenizer.from_pretrained(args.base_model)
-    codebert_mlm.to('cuda') 
 
     args.start_epoch = 0
     args.start_step = 0
@@ -130,6 +126,7 @@ if __name__ == "__main__":
     tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name,
                                                 do_lower_case=False,
                                                 cache_dir=args.cache_dir if args.cache_dir else None)
+    
     if args.model_name_or_path:
         model = model_class.from_pretrained(args.model_name_or_path,
                                             from_tf=bool('.ckpt' in args.model_name_or_path),
@@ -147,8 +144,7 @@ if __name__ == "__main__":
     model.to(args.device)
     print ("MODEL LOADED!")
 
-    
-    save_path = "./mlm_result.pkl"
+    codebert_mlm.to('cuda') 
 
     # Load Dataset
     ## Load Dataset
@@ -163,7 +159,7 @@ if __name__ == "__main__":
             code = js['func']
             source_codes.append(code)
             generated_substitutions.append(js['substitutes'])
-    assert(len(source_codes) == len(eval_dataset))
+    assert(len(source_codes) == len(eval_dataset) == len(generated_substitutions))
 
     code_tokens = []
     for index, code in enumerate(source_codes):
@@ -184,20 +180,16 @@ if __name__ == "__main__":
     n_succ = 0.0
     total_cnt = 0
     query_times = 0
+    all_start_time = time.time()
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
         substituions = generated_substitutions[index]
-        identifiers, code_tokens = get_identifiers(code, lang='c')
-        code_tokens = [i for i in code_tokens]
-        processed_code = " ".join(code_tokens)
 
-        new_feature = convert_code_to_features(processed_code, tokenizer, example[3].item(), args)
-        new_dataset = GraphCodeDataset([new_feature], args)
-
-        orig_prob, orig_label = model.get_results(new_dataset, args.eval_batch_size)
+        orig_prob, orig_label = model.get_results([example], args.eval_batch_size)
         orig_prob = orig_prob[0]
         orig_label = orig_label[0]
         ground_truth = example[3].item()
+
         if orig_label != ground_truth:
             continue
         
@@ -205,13 +197,13 @@ if __name__ == "__main__":
         
         # 这里需要进行修改.
         if args.original:
-            _res = attacker.mcmc_random(tokenizer, code,
+            _res = attacker.mcmc_random(tokenizer, substituions, code,
                              _label=ground_truth, _n_candi=30,
-                             _max_iter=400, _prob_threshold=1)
+                             _max_iter=100, _prob_threshold=1)
         else:
             _res = attacker.mcmc(tokenizer, substituions, code,
                              _label=ground_truth, _n_candi=30,
-                             _max_iter=400, _prob_threshold=1)
+                             _max_iter=100, _prob_threshold=1)
     
         if _res['succ'] is None:
             continue
@@ -224,10 +216,12 @@ if __name__ == "__main__":
             print ("EXAMPLE "+str(index)+" FAILED.")
         total_cnt += 1
         print ("  time cost = %.2f min" % ((time.time()-start_time)/60))
+        time_cost = (time.time()-start_time)/60
+        print ("  ALL EXAMPLE time cost = %.2f min" % ((time.time()-all_start_time)/60))
         print ("  curr succ rate = "+str(n_succ/total_cnt))
         
         print("Query times in this attack: ", model.query - query_times)
         print("All Query times: ", model.query)
-        recoder.writemhm(index, code, _res["prog_length"], " ".join(_res['tokens']), ground_truth, orig_label, _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"], model.query - query_times, time_cost=(time.time()-start_time)/60)
+        recoder.writemhm(index, code, _res["prog_length"], _res['tokens'], ground_truth, orig_label, _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"], model.query - query_times, time_cost)
         query_times = model.query
 

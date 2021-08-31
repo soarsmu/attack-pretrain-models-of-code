@@ -228,19 +228,19 @@ python gi_attack.py \
 
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=2 python gi_attack.py \
+CUDA_VISIBLE_DEVICES=0 python gi_attack.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --tokenizer_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
-    --csv_store_path ./attack_genetic.csv \
+    --csv_store_path ./attack_genetic_2400_2800.csv \
     --base_model=microsoft/graphcodebert-base \
     --use_ga \
-    --eval_data_file=../preprocess/dataset/test_subs_0_400.jsonl \
+    --eval_data_file=../preprocess/dataset/test_subs_2400_2800.jsonl \
     --code_length 512 \
     --data_flow_length 128 \
-    --eval_batch_size 64 \
-    --seed 123456  2>&1 | tee attack_gi.log
+    --eval_batch_size 8 \
+    --seed 123456  2>&1 | tee attack_gi_2400_2800.log
 ```
 
 # MHM-Attack
@@ -251,15 +251,15 @@ CUDA_VISIBLE_DEVICES=5 python mhm_attack.py \
     --model_type=roberta \
     --tokenizer_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
-    --csv_store_path ./attack_mhm.csv \
+    --csv_store_path ./attack_mhm_0_400.csv \
     --base_model=microsoft/graphcodebert-base \
     --train_data_file=../preprocess/dataset/train.jsonl \
-    --eval_data_file=../preprocess/dataset/valid.jsonl \
+    --eval_data_file=../preprocess/dataset/test_subs_0_400.jsonl \
     --test_data_file=../preprocess/dataset/test.jsonl \
     --code_length 512 \
     --data_flow_length 128 \
-    --eval_batch_size 64 \
-    --seed 123456  2>&1 | tee attack_mhm.log
+    --eval_batch_size 16 \
+    --seed 123456  2>&1 | tee attack_mhm_0_400.log
 ```
 
 # Original MHM-Attack
@@ -278,7 +278,7 @@ CUDA_VISIBLE_DEVICES=5 python mhm_attack.py \
     --test_data_file=../preprocess/dataset/test.jsonl \
     --code_length 512 \
     --data_flow_length 128 \
-    --eval_batch_size 64 \
+    --eval_batch_size 16 \
     --seed 123456  2>&1 | tee attack_original_mhm.log
 ```
 

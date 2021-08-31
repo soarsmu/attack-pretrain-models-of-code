@@ -21,6 +21,13 @@ CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled
 CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_valid_sampled
 
 GraphCodeBERT/Defect-detection/code/saved_models/
+GraphCodeBERT/Defect-detection/preprocess/dataset/cached_test_subs_0_400
+GraphCodeBERT/Defect-detection/preprocess/dataset/cached_test_subs_400_800
+GraphCodeBERT/Defect-detection/preprocess/dataset/cached_test_subs_800_1200
+GraphCodeBERT/Defect-detection/preprocess/dataset/cached_test_subs_1200_1600
+GraphCodeBERT/Defect-detection/preprocess/dataset/cached_test_subs_1600_2000
+GraphCodeBERT/Defect-detection/preprocess/dataset/cached_test_subs_2000_2400
+GraphCodeBERT/Defect-detection/preprocess/dataset/cached_test_subs_2400_2800
 GraphCodeBERT/Defect-detection/preprocess/dataset/cached_test
 GraphCodeBERT/Defect-detection/preprocess/dataset/cached_train
 GraphCodeBERT/Defect-detection/preprocess/dataset/cached_valid
@@ -68,3 +75,23 @@ MHM/mhm/LSTMClassifier/logs
 
 /python_parser/train_python.txt
 *.pkl
+CodeXGLUE/Defect-detection/preprocess/dataset/cached_test_subs_0_400
+CodeXGLUE/Defect-detection/preprocess/dataset/cached_test_subs_400_800
+CodeXGLUE/Defect-detection/preprocess/dataset/cached_test_subs_800_1200
+CodeXGLUE/Defect-detection/preprocess/dataset/cached_test_subs_1200_1600
+CodeXGLUE/Defect-detection/preprocess/dataset/cached_test_subs_1600_2000
+CodeXGLUE/Defect-detection/preprocess/dataset/cached_test_subs_2000_2400
+CodeXGLUE/Defect-detection/preprocess/dataset/cached_test_subs_2400_2800
+.gitignore
+CodeXGLUE/Defect-detection/preprocess/dataset/cached_valid_subs
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled_0_500
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled_500_1000
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled_1000_1500
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled_1500_2000
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled_2000_2500
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled_2500_3000
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled_3000_3500
+CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled_3500_4000
+GraphCodeBERT/clonedetection/dataset/cached_test_sampled
+GraphCodeBERT/clonedetection/dataset/cached_train_sampled
+GraphCodeBERT/clonedetection/dataset/cached_valid_sampled

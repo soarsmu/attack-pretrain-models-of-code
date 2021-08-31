@@ -165,8 +165,8 @@ class TextDataset(Dataset):
                         label=1
                     data.append((url1,url2,label,tokenizer, args,cache,url_to_code))
                     # 所有东西都存进来内存不爆炸么....
-            if 'train' not in postfix:
-                data=random.sample(data,int(len(data)*0.01))
+            # if 'train' not in postfix:
+            #     data=random.sample(data,int(len(data)*0.01))
             for sing_example in data:
                 code_pairs.append([sing_example[0], 
                                     sing_example[1], 
