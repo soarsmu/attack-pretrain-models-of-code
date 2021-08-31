@@ -79,18 +79,18 @@ We use full train data for fine-tuning. The training cost is 50 mins on 8*P100-1
 
 ```shell
 cd code
-python run.py \
-    --output_dir=./saved_models \
+CUDA_VISIBLE_DEVICES=0,1,4,5,6 python run.py \
+    --output_dir=./adv_saved_models \
     --model_type=roberta \
     --tokenizer_name=microsoft/codebert-base \
     --model_name_or_path=microsoft/codebert-base \
     --do_train \
-    --train_data_file=../preprocess/dataset/train.jsonl \
+    --train_data_file=../preprocess/dataset/adv_train.jsonl \
     --eval_data_file=../preprocess/dataset/valid.jsonl \
     --test_data_file=../preprocess/dataset/test.jsonl \
     --epoch 5 \
     --block_size 512 \
-    --train_batch_size 32 \
+    --train_batch_size 16 \
     --eval_batch_size 64 \
     --learning_rate 2e-5 \
     --max_grad_norm 1.0 \
@@ -255,7 +255,7 @@ CUDA_VISIBLE_DEVICES=4 python gi_attack.py \
     --base_model=microsoft/codebert-base-mlm \
     --use_ga \
     --train_data_file=../preprocess/dataset/train_subs.jsonl \
-    --eval_data_file=../preprocess/dataset/valid_subs.jsonl \
+    --eval_data_file=../preprocess/dataset/test_subs_0_400.jsonl \
     --test_data_file=../preprocess/dataset/test_subs.jsonl \
     --block_size 512 \
     --eval_batch_size 64 \
@@ -273,7 +273,7 @@ CUDA_VISIBLE_DEVICES=4 python gi_attack.py \
 # MHM-Attack
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=6 python mhm_attack.py \
+CUDA_VISIBLE_DEVICES=2 python mhm_attack.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --tokenizer_name=microsoft/codebert-base \
@@ -281,7 +281,7 @@ CUDA_VISIBLE_DEVICES=6 python mhm_attack.py \
     --csv_store_path ./attack_mhm_ls.csv \
     --base_model=microsoft/codebert-base-mlm \
     --train_data_file=../preprocess/dataset/train_subs.jsonl \
-    --eval_data_file=../preprocess/dataset/valid_subs.jsonl \
+    --eval_data_file=../preprocess/dataset/test_subs_0_400.jsonl \
     --test_data_file=../preprocess/dataset/test_subs.jsonl \
     --block_size 512 \
     --eval_batch_size 64 \
