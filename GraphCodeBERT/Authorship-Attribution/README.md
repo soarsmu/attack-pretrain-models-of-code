@@ -59,7 +59,7 @@ docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase
 We use full train data for fine-tuning. The training cost is 10 mins on 4*P100-16G. We use full valid data to evaluate during training.
 
 ```
-CUDA_VISIBLE_DEVICES=4,5,6,7 python run.py \
+CUDA_VISIBLE_DEVICES=4,6 python run.py \
     --output_dir=./saved_models/gcjpy \
     --config_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
@@ -70,7 +70,7 @@ CUDA_VISIBLE_DEVICES=4,5,6,7 python run.py \
     --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/test.txt \
-    --epoch 40 \
+    --epoch 30 \
     --code_length 512 \
     --data_flow_length 128 \
     --train_batch_size 16 \
@@ -128,7 +128,7 @@ python gi_attack.py \
 
 ```shell
 cd code
-python gi_attack.py \
+CUDA_VISIBLE_DEVICES=2 python gi_attack.py \
     --output_dir=./saved_models/gcjpy \
     --model_type=roberta \
     --tokenizer_name=microsoft/graphcodebert-base \
@@ -150,7 +150,7 @@ python gi_attack.py \
 # MHM-Attack
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=5 python mhm_attack.py \
+CUDA_VISIBLE_DEVICES=3 python mhm_attack.py \
     --output_dir=./saved_models/gcjpy \
     --model_type=roberta \
     --tokenizer_name=microsoft/graphcodebert-base \
