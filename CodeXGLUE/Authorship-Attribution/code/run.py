@@ -104,6 +104,7 @@ class TextDataset(Dataset):
             self.examples = torch.load(cache_file_path)
             with open(code_pairs_file_path, 'rb') as f:
                 code_files = pickle.load(f)
+            
             logger.info("Loading features from cached file %s", cache_file_path)
         
         except:
@@ -112,6 +113,7 @@ class TextDataset(Dataset):
             with open(file_path) as f:
                 for line in f:
                     code = line.split(" <CODESPLIT> ")[0]
+                    code = code.replace("\\n", "\n").replace('\"','"')
                     label = line.split(" <CODESPLIT> ")[1]
                     # 将这俩内容转化成input.
                     self.examples.append(convert_examples_to_features(code, int(label), tokenizer,args))

@@ -165,7 +165,7 @@ def main():
     with open(codes_file_path) as rf:
         for line in rf:
             item = json.loads(line.strip())
-            source_codes.append(item["code"])
+            source_codes.append(item["code"].replace("\\n", "\n").replace('\"','"'))
             substs.append(item["substitutes"])
     assert(len(source_codes) == len(eval_dataset) == len(substs))
 
@@ -192,14 +192,8 @@ def main():
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
         subs = substs[index]
-        identifiers, code_tokens = get_identifiers(code, lang='python')
-        code_tokens = [i for i in code_tokens]
-        processed_code = " ".join(code_tokens)
 
-        new_feature = convert_code_to_features(processed_code, tokenizer, example[1].item(), args)
-        new_dataset = CodeDataset([new_feature])
-
-        orig_prob, orig_label = model.get_results(new_dataset, args.eval_batch_size)
+        orig_prob, orig_label = model.get_results([example], args.eval_batch_size)
         orig_prob = orig_prob[0]
         orig_label = orig_label[0]
         ground_truth = example[1].item()
@@ -234,7 +228,7 @@ def main():
         print ("  curr succ rate = "+str(n_succ/total_cnt))
         print("Query times in this attack: ", model.query - query_times)
         print("All Query times: ", model.query)
-        recoder.writemhm(index, code, _res["prog_length"], " ".join(_res['tokens']), ground_truth, orig_label, _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"], model.query - query_times, time_cost)
+        recoder.writemhm(index, code, _res["prog_length"], _res['tokens'], ground_truth, orig_label, _res["new_pred"], _res["is_success"], _res["old_uid"], _res["score_info"], _res["nb_changed_var"], _res["nb_changed_pos"], _res["replace_info"], _res["attack_type"], model.query - query_times, time_cost)
         query_times = model.query
 
 if __name__ == "__main__":
