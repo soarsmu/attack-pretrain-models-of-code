@@ -209,7 +209,7 @@ def main():
     with open(codes_file_path) as rf:
         for line in rf:
             item = json.loads(line.strip())
-            source_codes.append(item["code"])
+            source_codes.append(item["code"].replace("\\n", "\n").replace('\"','"'))
             substs.append(item["substitutes"])
     assert(len(source_codes) == len(eval_dataset) == len(substs))
 

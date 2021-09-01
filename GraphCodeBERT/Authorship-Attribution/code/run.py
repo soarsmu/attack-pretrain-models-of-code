@@ -71,6 +71,7 @@ for lang in dfg_function:
 #remove comments, tokenize code and extract dataflow                                        
 def extract_dataflow(code, parser,lang):
     #remove comments
+    code = code.replace("\\n", "\n")
     try:
         code=remove_comments_and_docstrings(code,lang)
     except:
@@ -187,6 +188,7 @@ class TextDataset(Dataset):
             with open(file_path) as f:
                 for line in f:
                     code = line.split(" <CODESPLIT> ")[0]
+                    code = code.replace("\\n", "\n").replace('\"','"')
                     label = line.split(" <CODESPLIT> ")[1]
                     # 将这俩内容转化成input.
                     self.examples.append(convert_examples_to_features(code, int(label), tokenizer,args))

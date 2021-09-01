@@ -378,7 +378,6 @@ class Attacker():
         sorted_list_of_names = sorted(names_to_importance_score.items(), key=lambda x: x[1], reverse=True)
         # 根据importance_score进行排序
 
-        final_words = copy.deepcopy(words)
         final_code = copy.deepcopy(code_1)
         
         nb_changed_var = 0 # 表示被修改的variable数量

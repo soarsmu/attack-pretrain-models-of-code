@@ -70,7 +70,7 @@ def main():
                 item["label"] = label
                 eval_data.append(item)
     print(len(eval_data))
-    with open(args.store_path, "w") as wf:
+    with open(args.store_path, "a") as wf:
         for item in tqdm(eval_data):
             try:
                 identifiers, code_tokens = get_identifiers(remove_comments_and_docstrings(item["code1"], "java"), "java")
