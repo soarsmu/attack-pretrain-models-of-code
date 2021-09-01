@@ -125,12 +125,12 @@ CUDA_VISIBLE_DEVICES=2,3 python run.py \
 ## Attack GraphCodeBERT
 
 
-If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/checkpoint-best-f1` by [this link](https://drive.google.com/file/d/1C5Y1Lwlh_BNedU6-i-0BPgYfgMOvvK1O/view?usp=sharing).
+If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/checkpoint-best-f1` by [this link](https://drive.google.com/file/d/1Dzh85FpcFFCmTfBmi6R0eCbW3QNKxc29/view?usp=sharing).
 
 ```shell
 pip install gdown
-mkdir code/saved_models/checkpoint-best-f1
-gdown https://drive.google.com/uc?id=1C5Y1Lwlh_BNedU6-i-0BPgYfgMOvvK1O
+mkdir -p code/saved_models/checkpoint-best-f1
+gdown https://drive.google.com/uc?id=1Dzh85FpcFFCmTfBmi6R0eCbW3QNKxc29
 mv model.bin code/saved_models/checkpoint-best-f1/
 ```
 
