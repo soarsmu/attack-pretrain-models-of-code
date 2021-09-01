@@ -88,12 +88,12 @@ CUDA_VISIBLE_DEVICES=4,6 python run.py \
 
 ### On Python dataset
 
-If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/gcjpy/checkpoint-best-acc` by [this link](https://drive.google.com/file/d/1CAiHsIligJD09QJ97Q2BsDosqCLWbKB9/view?usp=sharing).
+If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/gcjpy/checkpoint-best-acc` by [this link](https://drive.google.com/file/d/1CyYzOt31suUN68EHN1W4PB2bLu8V3wYU/view?usp=sharing).
 
 ```shell
 pip install gdown
-mkdir code/saved_models/gcjpy/checkpoint-best-acc
-gdown https://drive.google.com/uc?id=1CAiHsIligJD09QJ97Q2BsDosqCLWbKB9
+mkdir -p code/saved_models/gcjpy/checkpoint-best-acc
+gdown https://drive.google.com/uc?id=1CyYzOt31suUN68EHN1W4PB2bLu8V3wYU
 mv model.bin code/saved_models/gcjpy/checkpoint-best-acc/
 ```
 
