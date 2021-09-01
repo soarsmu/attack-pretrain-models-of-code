@@ -104,8 +104,8 @@ We use full valid data to evaluate. The inferencing cost is 1 min on 8*P100-16G.
 
 ```shell
 cd code
-python run.py \
-    --output_dir=./saved_models \
+CUDA_VISIBLE_DEVICES=6 python run.py \
+    --output_dir=./adv_saved_models \
     --model_type=roberta \
     --tokenizer_name=microsoft/codebert-base \
     --model_name_or_path=microsoft/codebert-base \
