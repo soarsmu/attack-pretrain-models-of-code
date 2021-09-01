@@ -1,7 +1,6 @@
 import csv
 import json
 import random
-
 csv.field_size_limit(100000000)
 
 def main():
