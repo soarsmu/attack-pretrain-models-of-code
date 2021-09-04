@@ -136,18 +136,6 @@ mv model.bin code/saved_models/checkpoint-best-acc/
 
 ### Generate substitutes
 
-#### Adversarial Validation set
-
-```
-cd preprocess
-python get_substitutes.py \
-    --store_path ./dataset/valid_subs.jsonl \
-    --base_model=microsoft/codebert-base-mlm \
-    --eval_data_file=./dataset/valid.jsonl \
-    --block_size 512
-```
-
-#### Adversarial test set
 ```
 cd preprocess
 python get_substitutes.py \
@@ -157,62 +145,6 @@ python get_substitutes.py \
     --block_size 512 \
     --index 0 400
 ```
-
-tmux0:
-CUDA_VISIBLE_DEVICES=1 python get_substitutes.py \
-    --store_path ./dataset/test_subs_0_400.jsonl \
-    --base_model=microsoft/codebert-base-mlm \
-    --eval_data_file=./dataset/test.jsonl \
-    --block_size 512 \
-    --index 0 400
-
-tmux1:
-CUDA_VISIBLE_DEVICES=4 python get_substitutes.py \
-    --store_path ./dataset/test_subs_400_800.jsonl \
-    --base_model=microsoft/codebert-base-mlm \
-    --eval_data_file=./dataset/test.jsonl \
-    --block_size 512 \
-    --index 400 800
-
-tmux2:
-CUDA_VISIBLE_DEVICES=4 python get_substitutes.py \
-    --store_path ./dataset/test_subs_800_1200.jsonl \
-    --base_model=microsoft/codebert-base-mlm \
-    --eval_data_file=./dataset/test.jsonl \
-    --block_size 512 \
-    --index 800 1200
-
-tmux3:
-CUDA_VISIBLE_DEVICES=5 python get_substitutes.py \
-    --store_path ./dataset/test_subs_1200_1600.jsonl \
-    --base_model=microsoft/codebert-base-mlm \
-    --eval_data_file=./dataset/test.jsonl \
-    --block_size 512 \
-    --index 1200 1600
-
-tmux4:
-CUDA_VISIBLE_DEVICES=6 python get_substitutes.py \
-    --store_path ./dataset/test_subs_1600_2000.jsonl \
-    --base_model=microsoft/codebert-base-mlm \
-    --eval_data_file=./dataset/test.jsonl \
-    --block_size 512 \
-    --index 1600 2000
-
-tmux5:nvidia
-CUDA_VISIBLE_DEVICES=3 python get_substitutes.py \
-    --store_path ./dataset/test_subs_2000_2400.jsonl \
-    --base_model=microsoft/codebert-base-mlm \
-    --eval_data_file=./dataset/test.jsonl \
-    --block_size 512 \
-    --index 2000 2400
-
-tmux6:
-CUDA_VISIBLE_DEVICES=7 python get_substitutes.py \
-    --store_path ./dataset/test_subs_2400_2800.jsonl \
-    --base_model=microsoft/codebert-base-mlm \
-    --eval_data_file=./dataset/test.jsonl \
-    --block_size 512 \
-    --index 2400 2800
 
 #### Adversarial training set
 ```

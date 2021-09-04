@@ -1,8 +1,3 @@
-# coding=utf-8
-# @Time    : 2020/8/25
-# @Author  : Zhou Yang
-# @Email   : zyang@smu.edu.sg
-# @File    : attacker.py
 '''For attacking CodeBERT models'''
 import sys
 import os
