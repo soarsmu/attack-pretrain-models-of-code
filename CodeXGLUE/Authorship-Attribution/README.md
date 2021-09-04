@@ -52,18 +52,18 @@ We use full train data for fine-tuning. The training cost is 10 mins on 4*P100-1
 
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=0,2,4,5 python run.py \
+CUDA_VISIBLE_DEVICES=4,6 python run.py \
     --output_dir=./saved_models/gcjpy \
     --model_type=roberta \
     --config_name=microsoft/codebert-base \
     --model_name_or_path=microsoft/codebert-base \
     --tokenizer_name=roberta-base \
     --number_labels 66 \
-    --do_eval \
+    --do_train \
     --train_data_file=../dataset/data_folder/processed_gcjpy/train.txt \
     --eval_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
     --test_data_file=../dataset/data_folder/processed_gcjpy/valid.txt \
-    --epoch 20 \
+    --epoch 30 \
     --block_size 512 \
     --train_batch_size 16 \
     --eval_batch_size 32 \
@@ -124,7 +124,7 @@ python attack.py \
 #### MHM-LS
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=1 python mhm.py \
+CUDA_VISIBLE_DEVICES=6 python mhm.py \
     --output_dir=./saved_models/gcjpy \
     --model_type=roberta \
     --number_labels 66 \

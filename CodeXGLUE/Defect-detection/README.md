@@ -79,7 +79,7 @@ We use full train data for fine-tuning. The training cost is 50 mins on 8*P100-1
 
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=0,1,4,5,6 python run.py \
+CUDA_VISIBLE_DEVICES=4,6 python run.py \
     --output_dir=./adv_saved_models \
     --model_type=roberta \
     --tokenizer_name=microsoft/codebert-base \
@@ -90,7 +90,7 @@ CUDA_VISIBLE_DEVICES=0,1,4,5,6 python run.py \
     --test_data_file=../preprocess/dataset/test.jsonl \
     --epoch 5 \
     --block_size 512 \
-    --train_batch_size 16 \
+    --train_batch_size 24 \
     --eval_batch_size 64 \
     --learning_rate 2e-5 \
     --max_grad_norm 1.0 \
@@ -104,7 +104,7 @@ We use full valid data to evaluate. The inferencing cost is 1 min on 8*P100-16G.
 
 ```shell
 cd code
-python run.py \
+CUDA_VISIBLE_DEVICES=6 python run.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --tokenizer_name=microsoft/codebert-base \
@@ -112,7 +112,7 @@ python run.py \
     --do_test \
     --train_data_file=../preprocess/dataset/train.jsonl \
     --eval_data_file=../preprocess/dataset/valid.jsonl \
-    --test_data_file=../preprocess/dataset/test.jsonl \
+    --test_data_file=../preprocess/dataset/adv_test.jsonl \
     --epoch 5 \
     --block_size 512 \
     --train_batch_size 32 \
@@ -126,11 +126,11 @@ python run.py \
 ## Attack
 
 If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/checkpoint-best-acc` by [this link](https://drive.google.com/file/d/14STf95S3cDstI5CiyvK1giLlbDw4ZThu/view?usp=sharing).
-
+ADV: https://drive.google.com/file/d/1CR3SWBlyMZLnctZklAHMFf0Jq1U7YdsZ/view?usp=sharing
 ```shell
 pip install gdown
 mkdir -p code/saved_models/checkpoint-best-acc
-gdown https://drive.google.com/uc?id=14STf95S3cDstI5CiyvK1giLlbDw4ZThu
+gdown https://drive.google.com/uc?id=1CR3SWBlyMZLnctZklAHMFf0Jq1U7YdsZ
 mv model.bin code/saved_models/checkpoint-best-acc/
 ```
 
@@ -227,19 +227,19 @@ python get_substitutes.py \
 ### Attack microsoft/codebert-base-mlm
 ```shell
 cd code
-CUDA_VISIBLE_DEVICES=0 python gi_attack.py \
-    --output_dir=./saved_models \
+CUDA_VISIBLE_DEVICES=4 python gi_attack.py \
+    --output_dir=./adv_saved_models \
     --model_type=roberta \
     --tokenizer_name=microsoft/codebert-base-mlm \
     --model_name_or_path=microsoft/codebert-base-mlm \
-    --csv_store_path ./attack_no_gi.csv \
+    --csv_store_path ./attack_no_gitest_subs_400_800_.csv \
     --base_model=microsoft/codebert-base-mlm \
     --train_data_file=../preprocess/dataset/train_subs.jsonl \
-    --eval_data_file=../preprocess/dataset/valid_subs.jsonl \
+    --eval_data_file=../preprocess/dataset/test_subs_400_800.jsonl \
     --test_data_file=../preprocess/dataset/test_subs.jsonl \
     --block_size 512 \
     --eval_batch_size 64 \
-    --seed 123456  2>&1 | tee attack_no_gi.log
+    --seed 123456  2>&1 | tee attack_no_gitest_subs_400_800_.log
 ```
 
 # Genetic Programming

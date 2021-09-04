@@ -95,3 +95,4 @@ CodeXGLUE/Clone-detection-BigCloneBench/dataset/cached_test_sampled_3500_4000
 GraphCodeBERT/clonedetection/dataset/cached_test_sampled
 GraphCodeBERT/clonedetection/dataset/cached_train_sampled
 GraphCodeBERT/clonedetection/dataset/cached_valid_sampled
+CodeXGLUE/Defect-detection/code/adv_saved_models/checkpoint-best-acc/model.bin

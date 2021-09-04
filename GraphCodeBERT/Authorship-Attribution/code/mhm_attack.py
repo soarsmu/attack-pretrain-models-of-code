@@ -101,9 +101,6 @@ if __name__ == "__main__":
     # Set seed
     set_seed(args.seed)
 
-    codebert_mlm = RobertaForMaskedLM.from_pretrained(args.base_model)
-    tokenizer_mlm = RobertaTokenizer.from_pretrained(args.base_model)
-    codebert_mlm.to('cuda') 
 
     args.start_epoch = 0
     args.start_step = 0
@@ -147,7 +144,9 @@ if __name__ == "__main__":
     model.load_state_dict(torch.load(output_dir))      
     model.to(args.device)
     print ("MODEL LOADED!")
-
+    codebert_mlm = RobertaForMaskedLM.from_pretrained(args.base_model)
+    tokenizer_mlm = RobertaTokenizer.from_pretrained(args.base_model)
+    codebert_mlm.to('cuda') 
 
     ## Load Dataset
     eval_dataset = TextDataset(tokenizer, args,args.eval_data_file)
@@ -189,17 +188,12 @@ if __name__ == "__main__":
     for index, example in enumerate(eval_dataset):
         code = source_codes[index]
         subs = substs[index]
-        identifiers, code_tokens = get_identifiers(code, lang='python')
-        code_tokens = [i for i in code_tokens]
-        processed_code = " ".join(code_tokens)
-
-        new_feature = convert_code_to_features(processed_code, tokenizer, example[3].item(), args)
-        new_dataset = GraphCodeDataset([new_feature], args)
-
-        orig_prob, orig_label = model.get_results(new_dataset, args.eval_batch_size)
+        
+        orig_prob, orig_label = model.get_results([example], args.eval_batch_size)
         orig_prob = orig_prob[0]
         orig_label = orig_label[0]
         ground_truth = example[3].item()
+
         if orig_label != ground_truth:
             continue
         
