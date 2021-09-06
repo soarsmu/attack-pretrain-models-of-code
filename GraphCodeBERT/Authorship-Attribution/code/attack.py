@@ -29,7 +29,7 @@ from transformers import RobertaForMaskedLM
 from transformers import (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-warnings.simplefilter(action='ignore') # Only report warning
+warnings.simplefilter(action='ignore') 
 
 MODEL_CLASSES = {
     'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
@@ -46,25 +46,25 @@ class CodeDataset(Dataset):
         return len(self.examples)
 
     def __getitem__(self, item):
-        #calculate graph-guided masked function
+        
         attn_mask=np.zeros((self.args.code_length+self.args.data_flow_length,
                             self.args.code_length+self.args.data_flow_length),dtype=np.bool)
-        #calculate begin index of node and max length of input
+        
         
         node_index=sum([i>1 for i in self.examples[item].position_idx])
         max_length=sum([i!=1 for i in self.examples[item].position_idx])
-        #sequence can attend to sequence
+        
         attn_mask[:node_index,:node_index]=True
-        #special tokens attend to all tokens
+        
         for idx,i in enumerate(self.examples[item].input_ids):
             if i in [0,2]:
                 attn_mask[idx,:max_length]=True
-        #nodes attend to code tokens that are identified from
+        
         for idx,(a,b) in enumerate(self.examples[item].dfg_to_code):
             if a<node_index and b<node_index:
                 attn_mask[idx+node_index,a:b]=True
                 attn_mask[a:b,idx+node_index]=True
-        #nodes attend to adjacent nodes 
+        
         for idx,nodes in enumerate(self.examples[item].dfg_to_dfg):
             for a in nodes:
                 if a+node_index<len(self.examples[item].position_idx):
@@ -96,7 +96,7 @@ def get_results(dataset, model, batch_size):
         label=batch[3].to("cuda") 
         with torch.no_grad():
             lm_loss,logit = model(inputs_ids, attn_mask, position_idx, label)
-            # 调用这个模型. 重写了反前向传播模型.
+            
             
             logits.append(logit.cpu().numpy())
             labels.append(label.cpu().numpy())
@@ -113,7 +113,7 @@ def get_results(dataset, model, batch_size):
     return probs, pred_labels
 
 def convert_code_to_features(code, tokenizer, label, args):
-    # 这里要被修改..
+    
     dfg, index_table, code_tokens = extract_dataflow(code, args.language_type)
     code_tokens=[tokenizer.tokenize('@ '+x)[1:] if idx!=0 else tokenizer.tokenize(x) for idx,x in enumerate(code_tokens)]
     ori2cur_pos={}
@@ -150,19 +150,19 @@ def get_importance_score(args, example, code, words_list: list, sub_words: list,
     '''
     计算importance score
     '''
-    # label: example[1] tensor(1)
-    # 1. 过滤掉所有的keywords.
+    
+    
     positions = get_identifier_posistions_from_code(words_list, variable_names)
-    # 需要注意大小写.
+    
     if len(positions) == 0:
-        ## 没有提取出可以mutate的position
+        
         return None, None, None
 
     new_example = []
 
-    # 2. 得到Masked_tokens
+    
     masked_token_list, replace_token_positions = get_masked_code_by_position(words_list, positions)
-    # replace_token_positions 表示着，哪一个位置的token被替换了.
+    
 
 
     for index, tokens in enumerate([words_list] + masked_token_list):
@@ -170,14 +170,14 @@ def get_importance_score(args, example, code, words_list: list, sub_words: list,
         new_feature = convert_code_to_features(new_code, tokenizer, example[3].item(), args)
         new_example.append(new_feature)
     new_dataset = CodeDataset(new_example, args)
-    # 3. 将他们转化成features
+    
     logits, preds = get_results(new_dataset, tgt_model, args.eval_batch_size)
     orig_probs = logits[0]
     orig_label = preds[0]
-    # 第一个是original code的数据.
+    
     
     orig_prob = max(orig_probs)
-    # predicted label对应的probability
+    
 
     importance_score = []
     for prob in logits[1:]:
@@ -203,7 +203,7 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
         number of changed positions: nb_changed_pos
         substitues for variables: replaced_words
     '''
-        # 先得到tgt_model针对原始Example的预测信息.
+        
 
     logits, preds = get_results([example], codebert_tgt, args.eval_batch_size)
     orig_prob = logits[0]
@@ -223,7 +223,7 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
     processed_code = " ".join(code_tokens)
     
     words, sub_words, keys = _tokenize(processed_code, tokenizer_mlm)
-    # 这里经过了小写处理..
+    
 
 
     variable_names = []
@@ -234,27 +234,27 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
 
     print("Number of identifiers extracted: ", len(variable_names))
     if not orig_label == true_label:
-        # 说明原来就是错的
+        
         is_success = -4
         return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, None, None, None, None
         
     if len(variable_names) == 0:
-        # 没有提取到identifier，直接退出
+        
         is_success = -3
         return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, None, None, None, None
 
     sub_words = [tokenizer_tgt.cls_token] + sub_words[:args.block_size - 2] + [tokenizer_tgt.sep_token]
-    # 如果长度超了，就截断；这里的block_size是CodeBERT能接受的输入长度
+    
     input_ids_ = torch.tensor([tokenizer_mlm.convert_tokens_to_ids(sub_words)])
-    word_predictions = codebert_mlm(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
-    word_pred_scores_all, word_predictions = torch.topk(word_predictions, 30, -1)  # seq-len k
-    # 得到前k个结果.
+    word_predictions = codebert_mlm(input_ids_.to('cuda'))[0].squeeze()  
+    word_pred_scores_all, word_predictions = torch.topk(word_predictions, 30, -1)  
+    
 
     word_predictions = word_predictions[1:len(sub_words) + 1, :]
     word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
-    # 只取subwords的部分，忽略首尾的预测结果.
+    
 
-    # 计算importance_score.
+    
 
     importance_score, replace_token_positions, names_positions_dict = get_importance_score(args, example, 
                                             code,
@@ -274,41 +274,41 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
 
     for i, token_pos in enumerate(replace_token_positions):
         token_pos_to_score_pos[token_pos] = i
-    # 重新计算Importance score，将所有出现的位置加起来（而不是取平均）.
+    
     names_to_importance_score = {}
 
     for name in names_positions_dict.keys():
         total_score = 0.0
         positions = names_positions_dict[name]
         for token_pos in positions:
-            # 这个token在code中对应的位置
-            # importance_score中的位置：token_pos_to_score_pos[token_pos]
+            
+            
             total_score += importance_score[token_pos_to_score_pos[token_pos]]
         
         names_to_importance_score[name] = total_score
 
     sorted_list_of_names = sorted(names_to_importance_score.items(), key=lambda x: x[1], reverse=True)
-    # 根据importance_score进行排序
+    
 
     final_words = copy.deepcopy(words)
     
-    nb_changed_var = 0 # 表示被修改的variable数量
+    nb_changed_var = 0 
     nb_changed_pos = 0
     is_success = -1
     replaced_words = {}
 
     for name_and_score in sorted_list_of_names:
         tgt_word = name_and_score[0]
-        tgt_positions = names_positions_dict[tgt_word] # 在words中对应的位置
+        tgt_positions = names_positions_dict[tgt_word] 
         if tgt_word in python_keywords:
-            # 如果在filter_words中就不修改
+            
             continue   
 
-        ## 得到substitues
+        
         all_substitues = []
         for one_pos in tgt_positions:
-            ## 一个变量名会出现很多次
-            substitutes = word_predictions[keys[one_pos][0]:keys[one_pos][1]]  # L, k
+            
+            substitutes = word_predictions[keys[one_pos][0]:keys[one_pos][1]]  
             word_pred_scores = word_pred_scores_all[keys[one_pos][0]:keys[one_pos][1]]
 
             substitutes = get_substitues(substitutes, 
@@ -319,21 +319,21 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
                                         threshold_pred_score)
             all_substitues += substitutes
         all_substitues = set(all_substitues)
-        # 得到了所有位置的substitue，并使用set来去重
+        
 
         most_gap = 0.0
         candidate = None
         replace_examples = []
 
         substitute_list = []
-        # 依次记录了被加进来的substitue
-        # 即，每个temp_replace对应的substitue.
+        
+        
         for substitute_ in all_substitues:
 
             substitute = substitute_.strip()
-            # FIX: 有些substitue的开头或者末尾会产生空格
-            # 这些头部和尾部的空格在拼接的时候并不影响，但是因为下面的第4个if语句会被跳过
-            # 这导致了部分mutants为空，而引发了runtime error
+            
+            
+            
 
             if not is_valid_substitue(substitute, tgt_word):
                 continue
@@ -344,18 +344,18 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
                 temp_replace[one_pos] = substitute
             
             substitute_list.append(substitute)
-            # 记录了替换的顺序
+            
 
-            # 需要将几个位置都替换成sustitue_
+            
             temp_code = " ".join(temp_replace)
                                             
             new_feature = convert_code_to_features(temp_code, tokenizer_tgt, example[3].item(), args)
             replace_examples.append(new_feature)
         if len(replace_examples) == 0:
-            # 并没有生成新的mutants，直接跳去下一个token
+            
             continue
         new_dataset = CodeDataset(replace_examples, args)
-            # 3. 将他们转化成features
+            
         logits, preds = get_results(new_dataset, codebert_tgt, args.eval_batch_size)
         assert(len(logits) == len(substitute_list))
 
@@ -363,7 +363,7 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
         for index, temp_prob in enumerate(logits):
             temp_label = preds[index]
             if temp_label != orig_label:
-                # 如果label改变了，说明这个mutant攻击成功
+                
                 is_success = 1
                 nb_changed_var += 1
                 nb_changed_pos += len(names_positions_dict[tgt_word])
@@ -375,15 +375,15 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
 
                 return code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words
             else:
-                # 如果没有攻击成功，我们看probability的修改
+                
                 gap = current_prob - temp_prob[temp_label]
-                # 并选择那个最大的gap.
+                
                 if gap > most_gap:
                     most_gap = gap
                     candidate = substitute_list[index]
     
         if most_gap > 0:
-            # 如果most_gap > 0，说明有mutant可以让prob减少
+            
             nb_changed_var += 1
             nb_changed_pos += len(names_positions_dict[tgt_word])
             current_prob = current_prob - most_gap
@@ -413,13 +413,13 @@ def attack(args, example, code, codebert_tgt, tokenizer_tgt, codebert_mlm, token
 def main():
     parser = argparse.ArgumentParser()
 
-    ## Required parameters
+    
     parser.add_argument("--train_data_file", default=None, type=str, required=True,
                         help="The input training data file (a text file).")
     parser.add_argument("--output_dir", default=None, type=str, required=True,
                         help="The output directory where the model predictions and checkpoints will be written.")
 
-    ## Other parameters
+    
     parser.add_argument("--eval_data_file", default=None, type=str,
                         help="An optional input evaluation data file to evaluate the perplexity on (a text file).")
     parser.add_argument("--test_data_file", default=None, type=str,
@@ -474,7 +474,7 @@ def main():
 
 
     args.device = torch.device("cuda")
-    # Set seed
+    
     set_seed(args.seed)
 
 
@@ -482,10 +482,10 @@ def main():
     args.start_step = 0
 
 
-    ## Load Target Model
-    checkpoint_last = os.path.join(args.output_dir, 'checkpoint-last') # 读取model的路径
+    
+    checkpoint_last = os.path.join(args.output_dir, 'checkpoint-last') 
     if os.path.exists(checkpoint_last) and os.listdir(checkpoint_last):
-        # 如果路径存在且有内容，则从checkpoint load模型
+        
         args.model_name_or_path = os.path.join(checkpoint_last, 'pytorch_model.bin')
         args.config_name = os.path.join(checkpoint_last, 'config.json')
         idx_file = os.path.join(checkpoint_last, 'idx_file.txt')
@@ -502,12 +502,12 @@ def main():
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
     config = config_class.from_pretrained(args.config_name if args.config_name else args.model_name_or_path,
                                           cache_dir=args.cache_dir if args.cache_dir else None)
-    config.num_labels=args.number_labels # 只有一个label?
+    config.num_labels=args.number_labels 
     tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name,
                                                 do_lower_case=args.do_lower_case,
                                                 cache_dir=args.cache_dir if args.cache_dir else None)
     if args.block_size <= 0:
-        args.block_size = tokenizer.max_len_single_sentence  # Our input block size will be the max possible for the model
+        args.block_size = tokenizer.max_len_single_sentence  
     args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
     if args.model_name_or_path:
         model = model_class.from_pretrained(args.model_name_or_path,
@@ -525,16 +525,16 @@ def main():
     model.load_state_dict(torch.load(output_dir))      
     model.to(args.device)
 
-    ## Load CodeBERT (MLM) model
+    
     codebert_mlm = RobertaForMaskedLM.from_pretrained("microsoft/graphcodebert-base")
     tokenizer_mlm = RobertaTokenizer.from_pretrained("microsoft/graphcodebert-base")
     codebert_mlm.to('cuda') 
 
-    ## Load Dataset
+    
     eval_dataset = TextDataset(tokenizer, args,args.eval_data_file)
 
-    file_type = args.eval_data_file.split('/')[-1].split('.')[0] # valid
-    folder = '/'.join(args.eval_data_file.split('/')[:-1]) # 得到文件目录
+    file_type = args.eval_data_file.split('/')[-1].split('.')[0] 
+    folder = '/'.join(args.eval_data_file.split('/')[:-1]) 
     codes_file_path = os.path.join(folder, 'cached_{}.pkl'.format(
                                 file_type))
 
@@ -542,12 +542,12 @@ def main():
         source_codes = pickle.load(f)
     assert(len(source_codes) == len(eval_dataset))
 
-    # 现在要尝试计算importance_score了.
+    
     success_attack = 0
     total_cnt = 0
     f = open('./attack_result_'+args.language_type+'.csv', 'w')
     writer = csv.writer(f)
-    # write table head.
+    
     writer.writerow(["Original Code", 
                     "Program Length", 
                     "Adversarial Code", 
@@ -589,14 +589,14 @@ def main():
         
         
         if is_success >= -1 :
-            # 如果原来正确
+            
             total_cnt += 1
         if is_success == 1:
             success_attack += 1
         
         if total_cnt == 0:
             continue
-        print("Success rate: ", 1.0 * success_attack / total_cnt, flush=True) # 因为不知名的原因可能不会print，加了打印缓冲区的语句flush = True
+        print("Success rate: ", 1.0 * success_attack / total_cnt, flush=True) 
         print(success_attack)
         print(total_cnt)
     

@@ -33,46 +33,46 @@ c_keywords = ["auto", "break", "case", "char", "const", "continue",
                  "_Generic", "_Imaginary", "_Noreturn", "_Static_assert",
                  "_Thread_local", "__func__"]
 
-c_macros = ["NULL", "_IOFBF", "_IOLBF", "BUFSIZ", "EOF", "FOPEN_MAX", "TMP_MAX",  # <stdio.h> macro
+c_macros = ["NULL", "_IOFBF", "_IOLBF", "BUFSIZ", "EOF", "FOPEN_MAX", "TMP_MAX",  
               "FILENAME_MAX", "L_tmpnam", "SEEK_CUR", "SEEK_END", "SEEK_SET",
-              "NULL", "EXIT_FAILURE", "EXIT_SUCCESS", "RAND_MAX", "MB_CUR_MAX"]     # <stdlib.h> macro
-c_special_ids = ["main",  # main function
-                   "stdio", "cstdio", "stdio.h",                                # <stdio.h> & <cstdio>
-                   "size_t", "FILE", "fpos_t", "stdin", "stdout", "stderr",     # <stdio.h> types & streams
-                   "remove", "rename", "tmpfile", "tmpnam", "fclose", "fflush", # <stdio.h> functions
+              "NULL", "EXIT_FAILURE", "EXIT_SUCCESS", "RAND_MAX", "MB_CUR_MAX"]     
+c_special_ids = ["main",  
+                   "stdio", "cstdio", "stdio.h",                                
+                   "size_t", "FILE", "fpos_t", "stdin", "stdout", "stderr",     
+                   "remove", "rename", "tmpfile", "tmpnam", "fclose", "fflush", 
                    "fopen", "freopen", "setbuf", "setvbuf", "fprintf", "fscanf",
                    "printf", "scanf", "snprintf", "sprintf", "sscanf", "vprintf",
                    "vscanf", "vsnprintf", "vsprintf", "vsscanf", "fgetc", "fgets",
                    "fputc", "getc", "getchar", "putc", "putchar", "puts", "ungetc",
                    "fread", "fwrite", "fgetpos", "fseek", "fsetpos", "ftell",
                    "rewind", "clearerr", "feof", "ferror", "perror", "getline"
-                   "stdlib", "cstdlib", "stdlib.h",                             # <stdlib.h> & <cstdlib>
-                   "size_t", "div_t", "ldiv_t", "lldiv_t",                      # <stdlib.h> types
-                   "atof", "atoi", "atol", "atoll", "strtod", "strtof", "strtold",  # <stdlib.h> functions
+                   "stdlib", "cstdlib", "stdlib.h",                             
+                   "size_t", "div_t", "ldiv_t", "lldiv_t",                      
+                   "atof", "atoi", "atol", "atoll", "strtod", "strtof", "strtold",  
                    "strtol", "strtoll", "strtoul", "strtoull", "rand", "srand",
                    "aligned_alloc", "calloc", "malloc", "realloc", "free", "abort",
                    "atexit", "exit", "at_quick_exit", "_Exit", "getenv",
                    "quick_exit", "system", "bsearch", "qsort", "abs", "labs",
                    "llabs", "div", "ldiv", "lldiv", "mblen", "mbtowc", "wctomb",
                    "mbstowcs", "wcstombs",
-                   "string", "cstring", "string.h",                                 # <string.h> & <cstring>
-                   "memcpy", "memmove", "memchr", "memcmp", "memset", "strcat",     # <string.h> functions
+                   "string", "cstring", "string.h",                                 
+                   "memcpy", "memmove", "memchr", "memcmp", "memset", "strcat",     
                    "strncat", "strchr", "strrchr", "strcmp", "strncmp", "strcoll",
                    "strcpy", "strncpy", "strerror", "strlen", "strspn", "strcspn",
                    "strpbrk" ,"strstr", "strtok", "strxfrm",
-                   "memccpy", "mempcpy", "strcat_s", "strcpy_s", "strdup",      # <string.h> extension functions
+                   "memccpy", "mempcpy", "strcat_s", "strcpy_s", "strdup",      
                    "strerror_r", "strlcat", "strlcpy", "strsignal", "strtok_r",
-                   "iostream", "istream", "ostream", "fstream", "sstream",      # <iostream> family
+                   "iostream", "istream", "ostream", "fstream", "sstream",      
                    "iomanip", "iosfwd",
-                   "ios", "wios", "streamoff", "streampos", "wstreampos",       # <iostream> types
+                   "ios", "wios", "streamoff", "streampos", "wstreampos",       
                    "streamsize", "cout", "cerr", "clog", "cin",
-                   "boolalpha", "noboolalpha", "skipws", "noskipws", "showbase",    # <iostream> manipulators
+                   "boolalpha", "noboolalpha", "skipws", "noskipws", "showbase",    
                    "noshowbase", "showpoint", "noshowpoint", "showpos",
                    "noshowpos", "unitbuf", "nounitbuf", "uppercase", "nouppercase",
                    "left", "right", "internal", "dec", "oct", "hex", "fixed",
                    "scientific", "hexfloat", "defaultfloat", "width", "fill",
                    "precision", "endl", "ends", "flush", "ws", "showpoint",
-                   "sin", "cos", "tan", "asin", "acos", "atan", "atan2", "sinh",    # <math.h> functions
+                   "sin", "cos", "tan", "asin", "acos", "atan", "atan2", "sinh",    
                    "cosh", "tanh", "exp", "sqrt", "log", "log10", "pow", "powf",
                    "ceil", "floor", "abs", "fabs", "cabs", "frexp", "ldexp",
                    "modf", "fmod", "hypot", "ldexp", "poly", "matherr"]
@@ -98,13 +98,13 @@ def mutate(chromesome, variable_substitue_dict):
 
 def crossover(csome_1, csome_2, r=None):
     if r is None:
-        r = random.choice(range(len(csome_1))) # 随机选择一个位置.
-        # 但是不能选到0
+        r = random.choice(range(len(csome_1))) 
+        
 
     child_1 = {}
     child_2 = {}
     for index, variable_name in enumerate(csome_1.keys()):
-        if index < r: #前半段
+        if index < r: 
             child_2[variable_name] = csome_1[variable_name]
             child_1[variable_name] = csome_2[variable_name]
         else:
@@ -148,7 +148,7 @@ def is_valid_variable_c(name: str) -> bool:
     return True
 
 def is_valid_variable_name(name: str, lang: str) -> bool:
-    # check if matches language keywords
+    
     if lang == 'python':
         return is_valid_variable_python(name)
     elif lang == 'c':
@@ -179,11 +179,11 @@ def _tokenize(seq, tokenizer):
     keys = []
     index = 0
     for word in words:
-        # 并非直接tokenize这句话，而是tokenize了每个splited words.
+        
         sub = tokenizer.tokenize(word)
         sub_words += sub
         keys.append([index, index + len(sub)])
-        # 将subwords对齐
+        
         index += len(sub)
 
     return words, sub_words, keys
@@ -210,11 +210,11 @@ def get_bpe_substitues(substitutes, tokenizer, mlm_model):
     '''
     得到substitues
     '''
-    # substitutes L, k
+    
 
-    substitutes = substitutes[0:12, 0:4]  # maximum BPE candidates
+    substitutes = substitutes[0:12, 0:4]  
 
-    # find all possible candidates 
+    
 
     all_substitutes = []
     for i in range(substitutes.size(0)):
@@ -223,21 +223,21 @@ def get_bpe_substitues(substitutes, tokenizer, mlm_model):
             all_substitutes = [[int(c)] for c in lev_i]
         else:
             lev_i = []
-            for all_sub in all_substitutes[:24]:  # 去掉不用的计算.
+            for all_sub in all_substitutes[:24]:  
                 for j in substitutes[i]:
                     lev_i.append(all_sub + [int(j)])
             all_substitutes = lev_i
-    # all substitutes  list of list of token-id (all candidates)
+    
     c_loss = nn.CrossEntropyLoss(reduction='none')
     word_list = []
-    # all_substitutes = all_substitutes[:24]
-    all_substitutes = torch.tensor(all_substitutes)  # [ N, L ]
+    
+    all_substitutes = torch.tensor(all_substitutes)  
     all_substitutes = all_substitutes[:24].to('cuda')
-    # 不是，这个总共不会超过24... 那之前生成那么多也没用....
+    
     N, L = all_substitutes.size()
-    word_predictions = mlm_model(all_substitutes)[0]  # N L vocab-size
-    ppl = c_loss(word_predictions.view(N * L, -1), all_substitutes.view(-1))  # [ N*L ]
-    ppl = torch.exp(torch.mean(ppl.view(N, L), dim=-1))  # N
+    word_predictions = mlm_model(all_substitutes)[0]  
+    ppl = c_loss(word_predictions.view(N * L, -1), all_substitutes.view(-1))  
+    ppl = torch.exp(torch.mean(ppl.view(N, L), dim=-1))  
     _, word_list = torch.sort(ppl)
     word_list = [all_substitutes[i] for i in word_list]
     final_words = []
@@ -252,24 +252,24 @@ def get_substitues(substitutes, tokenizer, mlm_model, use_bpe, substitutes_score
     '''
     将生成的substitued subwords转化为words
     '''
-    # substitues L,k
-    # from this matrix to recover a word
+    
+    
     words = []
-    sub_len, k = substitutes.size()  # sub-len, k
+    sub_len, k = substitutes.size()  
 
     if sub_len == 0:
-        # 比如空格对应的subwords就是[a,a]，长度为0
+        
         return words
 
     elif sub_len == 1:
-        # subwords就是本身
+        
         for (i, j) in zip(substitutes[0], substitutes_score[0]):
             if threshold != 0 and j < threshold:
                 break
             words.append(tokenizer._decode([int(i)]))
-            # 将id转为token.
+            
     else:
-        # word被分解成了多个subwords
+        
         if use_bpe == 1:
             words = get_bpe_substitues(substitutes, tokenizer, mlm_model)
         else:
@@ -332,11 +332,11 @@ def build_vocab(codes, limit=5000):
 
 
 
-# From MHM codebases
 
 
-# import pycparser
-# import torch
+
+
+
 
 def getTensor(batch, batchfirst=False):
     
@@ -344,8 +344,8 @@ def getTensor(batch, batchfirst=False):
     inputs, labels = torch.tensor(inputs, dtype=torch.long).cuda(), \
                      torch.tensor(labels, dtype=torch.long).cuda()
     if batchfirst:
-        # inputs_pos = [[pos_i + 1 if w_i != 0 else 0 for pos_i, w_i in enumerate(inst)] for inst in inputs]
-        # inputs_pos = torch.tensor(inputs_pos, dtype=torch.long).cuda()
+        
+        
         return inputs, labels
     inputs = inputs.permute([1, 0])
     return inputs, labels
@@ -363,46 +363,46 @@ __ops__ = ["...", ">>=", "<<=", "+=", "-=", "*=", "/=", "%=", "&=", "^=", "|=",
            ">>", "<<", "++", "--", "->", "&&", "||", "<=", ">=", "==", "!=", ";",
            "{", "<%", "}", "%>", ",", ":", "=", "(", ")", "[", "<:", "]", ":>",
            ".", "&", "!", "~", "-", "+", "*", "/", "%", "<", ">", "^", "|", "?"]
-__macros__ = ["NULL", "_IOFBF", "_IOLBF", "BUFSIZ", "EOF", "FOPEN_MAX", "TMP_MAX",  # <stdio.h> macro
+__macros__ = ["NULL", "_IOFBF", "_IOLBF", "BUFSIZ", "EOF", "FOPEN_MAX", "TMP_MAX",  
               "FILENAME_MAX", "L_tmpnam", "SEEK_CUR", "SEEK_END", "SEEK_SET",
-              "NULL", "EXIT_FAILURE", "EXIT_SUCCESS", "RAND_MAX", "MB_CUR_MAX"]     # <stdlib.h> macro
-__special_ids__ = ["main",  # main function
-                   "stdio", "cstdio", "stdio.h",                                # <stdio.h> & <cstdio>
-                   "size_t", "FILE", "fpos_t", "stdin", "stdout", "stderr",     # <stdio.h> types & streams
-                   "remove", "rename", "tmpfile", "tmpnam", "fclose", "fflush", # <stdio.h> functions
+              "NULL", "EXIT_FAILURE", "EXIT_SUCCESS", "RAND_MAX", "MB_CUR_MAX"]     
+__special_ids__ = ["main",  
+                   "stdio", "cstdio", "stdio.h",                                
+                   "size_t", "FILE", "fpos_t", "stdin", "stdout", "stderr",     
+                   "remove", "rename", "tmpfile", "tmpnam", "fclose", "fflush", 
                    "fopen", "freopen", "setbuf", "setvbuf", "fprintf", "fscanf",
                    "printf", "scanf", "snprintf", "sprintf", "sscanf", "vprintf",
                    "vscanf", "vsnprintf", "vsprintf", "vsscanf", "fgetc", "fgets",
                    "fputc", "getc", "getchar", "putc", "putchar", "puts", "ungetc",
                    "fread", "fwrite", "fgetpos", "fseek", "fsetpos", "ftell",
                    "rewind", "clearerr", "feof", "ferror", "perror", "getline"
-                   "stdlib", "cstdlib", "stdlib.h",                             # <stdlib.h> & <cstdlib>
-                   "size_t", "div_t", "ldiv_t", "lldiv_t",                      # <stdlib.h> types
-                   "atof", "atoi", "atol", "atoll", "strtod", "strtof", "strtold",  # <stdlib.h> functions
+                   "stdlib", "cstdlib", "stdlib.h",                             
+                   "size_t", "div_t", "ldiv_t", "lldiv_t",                      
+                   "atof", "atoi", "atol", "atoll", "strtod", "strtof", "strtold",  
                    "strtol", "strtoll", "strtoul", "strtoull", "rand", "srand",
                    "aligned_alloc", "calloc", "malloc", "realloc", "free", "abort",
                    "atexit", "exit", "at_quick_exit", "_Exit", "getenv",
                    "quick_exit", "system", "bsearch", "qsort", "abs", "labs",
                    "llabs", "div", "ldiv", "lldiv", "mblen", "mbtowc", "wctomb",
                    "mbstowcs", "wcstombs",
-                   "string", "cstring", "string.h",                                 # <string.h> & <cstring>
-                   "memcpy", "memmove", "memchr", "memcmp", "memset", "strcat",     # <string.h> functions
+                   "string", "cstring", "string.h",                                 
+                   "memcpy", "memmove", "memchr", "memcmp", "memset", "strcat",     
                    "strncat", "strchr", "strrchr", "strcmp", "strncmp", "strcoll",
                    "strcpy", "strncpy", "strerror", "strlen", "strspn", "strcspn",
                    "strpbrk" ,"strstr", "strtok", "strxfrm",
-                   "memccpy", "mempcpy", "strcat_s", "strcpy_s", "strdup",      # <string.h> extension functions
+                   "memccpy", "mempcpy", "strcat_s", "strcpy_s", "strdup",      
                    "strerror_r", "strlcat", "strlcpy", "strsignal", "strtok_r",
-                   "iostream", "istream", "ostream", "fstream", "sstream",      # <iostream> family
+                   "iostream", "istream", "ostream", "fstream", "sstream",      
                    "iomanip", "iosfwd",
-                   "ios", "wios", "streamoff", "streampos", "wstreampos",       # <iostream> types
+                   "ios", "wios", "streamoff", "streampos", "wstreampos",       
                    "streamsize", "cout", "cerr", "clog", "cin",
-                   "boolalpha", "noboolalpha", "skipws", "noskipws", "showbase",    # <iostream> manipulators
+                   "boolalpha", "noboolalpha", "skipws", "noskipws", "showbase",    
                    "noshowbase", "showpoint", "noshowpoint", "showpos",
                    "noshowpos", "unitbuf", "nounitbuf", "uppercase", "nouppercase",
                    "left", "right", "internal", "dec", "oct", "hex", "fixed",
                    "scientific", "hexfloat", "defaultfloat", "width", "fill",
                    "precision", "endl", "ends", "flush", "ws", "showpoint",
-                   "sin", "cos", "tan", "asin", "acos", "atan", "atan2", "sinh",    # <math.h> functions
+                   "sin", "cos", "tan", "asin", "acos", "atan", "atan2", "sinh",    
                    "cosh", "tanh", "exp", "sqrt", "log", "log10", "pow", "powf",
                    "ceil", "floor", "abs", "fabs", "cabs", "frexp", "ldexp",
                    "modf", "fmod", "hypot", "ldexp", "poly", "matherr"]
@@ -546,25 +546,25 @@ class GraphCodeDataset(Dataset):
         return len(self.examples)
 
     def __getitem__(self, item):
-        #calculate graph-guided masked function
+        
         attn_mask=np.zeros((self.args.code_length+self.args.data_flow_length,
                             self.args.code_length+self.args.data_flow_length),dtype=np.bool)
-        #calculate begin index of node and max length of input
+        
         
         node_index=sum([i>1 for i in self.examples[item].position_idx])
         max_length=sum([i!=1 for i in self.examples[item].position_idx])
-        #sequence can attend to sequence
+        
         attn_mask[:node_index,:node_index]=True
-        #special tokens attend to all tokens
+        
         for idx,i in enumerate(self.examples[item].input_ids):
             if i in [0,2]:
                 attn_mask[idx,:max_length]=True
-        #nodes attend to code tokens that are identified from
+        
         for idx,(a,b) in enumerate(self.examples[item].dfg_to_code):
             if a<node_index and b<node_index:
                 attn_mask[idx+node_index,a:b]=True
                 attn_mask[a:b,idx+node_index]=True
-        #nodes attend to adjacent nodes 
+        
         for idx,nodes in enumerate(self.examples[item].dfg_to_dfg):
             for a in nodes:
                 if a+node_index<len(self.examples[item].position_idx):
@@ -584,47 +584,47 @@ class CodePairDataset(Dataset):
         return len(self.examples)
 
     def __getitem__(self, item):
-        #calculate graph-guided masked function
+        
         attn_mask_1= np.zeros((self.args.code_length+self.args.data_flow_length,
                         self.args.code_length+self.args.data_flow_length),dtype=np.bool)
-        #calculate begin index of node and max length of input
+        
         node_index=sum([i>1 for i in self.examples[item].position_idx_1])
         max_length=sum([i!=1 for i in self.examples[item].position_idx_1])
-        #sequence can attend to sequence
+        
         attn_mask_1[:node_index,:node_index]=True
-        #special tokens attend to all tokens
+        
         for idx,i in enumerate(self.examples[item].input_ids_1):
             if i in [0,2]:
                 attn_mask_1[idx,:max_length]=True
-        #nodes attend to code tokens that are identified from
+        
         for idx,(a,b) in enumerate(self.examples[item].dfg_to_code_1):
             if a<node_index and b<node_index:
                 attn_mask_1[idx+node_index,a:b]=True
                 attn_mask_1[a:b,idx+node_index]=True
-        #nodes attend to adjacent nodes 
+        
         for idx,nodes in enumerate(self.examples[item].dfg_to_dfg_1):
             for a in nodes:
                 if a+node_index<len(self.examples[item].position_idx_1):
                     attn_mask_1[idx+node_index,a+node_index]=True  
                     
-        #calculate graph-guided masked function
+        
         attn_mask_2= np.zeros((self.args.code_length+self.args.data_flow_length,
                         self.args.code_length+self.args.data_flow_length),dtype=np.bool)
-        #calculate begin index of node and max length of input
+        
         node_index=sum([i>1 for i in self.examples[item].position_idx_2])
         max_length=sum([i!=1 for i in self.examples[item].position_idx_2])
-        #sequence can attend to sequence
+        
         attn_mask_2[:node_index,:node_index]=True
-        #special tokens attend to all tokens
+        
         for idx,i in enumerate(self.examples[item].input_ids_2):
             if i in [0,2]:
                 attn_mask_2[idx,:max_length]=True
-        #nodes attend to code tokens that are identified from
+        
         for idx,(a,b) in enumerate(self.examples[item].dfg_to_code_2):
             if a<node_index and b<node_index:
                 attn_mask_2[idx+node_index,a:b]=True
                 attn_mask_2[a:b,idx+node_index]=True
-        #nodes attend to adjacent nodes 
+        
         for idx,nodes in enumerate(self.examples[item].dfg_to_dfg_2):
             for a in nodes:
                 if a+node_index<len(self.examples[item].position_idx_2):

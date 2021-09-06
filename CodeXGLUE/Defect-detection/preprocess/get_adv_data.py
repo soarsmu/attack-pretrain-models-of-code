@@ -11,10 +11,10 @@ for index in [(0,400), (400,800), (800,1200), (1200,1600), (1600,2000), (2000,24
             if not len(row["Adversarial Code"]) == 0:
                 adv_data.append({"target":int(row["True Label"]), "func":row["Adversarial Code"], "idx":None})
 print(len(adv_data))
-# with open("./dataset/train.jsonl") as rf:
-#     for line in rf:
-#         adv_data.append(json.loads(line.strip()))
-# print(len(adv_data))
+
+
+
+
 random.shuffle(adv_data)
 
 with open("./dataset/adv_test.jsonl", "w") as wf:

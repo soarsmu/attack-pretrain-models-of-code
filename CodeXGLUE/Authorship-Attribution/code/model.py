@@ -1,5 +1,5 @@
-# Copyright (c) Microsoft Corporation. 
-# Licensed under the MIT license.
+
+
 import torch
 import torch.nn as nn
 import torch
@@ -20,8 +20,8 @@ class RobertaClassificationHead(nn.Module):
         self.out_proj = nn.Linear(config.hidden_size, config.num_labels)
 
     def forward(self, features, **kwargs):
-        x = features[:, 0, :]  # take <s> token (equiv. to [CLS])
-        # x = x.reshape(-1,x.size(-1)*2)
+        x = features[:, 0, :]  
+        
         x = self.dropout(x)
         x = self.dense(x)
         x = torch.tanh(x)
@@ -55,13 +55,12 @@ class Model(nn.Module):
       
     def get_results(self, dataset, batch_size):
         '''
-        给定example和tgt model，返回预测的label和probability
         '''
         self.query += len(dataset)
         eval_sampler = SequentialSampler(dataset)
         eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size,num_workers=4,pin_memory=False)
 
-        ## Evaluate Model
+        
 
         eval_loss = 0.0
         nb_eval_steps = 0
@@ -73,7 +72,7 @@ class Model(nn.Module):
             label=batch[1].to("cuda") 
             with torch.no_grad():
                 lm_loss,logit = self.forward(inputs,label)
-                # 调用这个模型. 重写了反前向传播模型.
+
                 eval_loss += lm_loss.mean().item()
                 logits.append(logit.cpu().numpy())
                 labels.append(label.cpu().numpy())

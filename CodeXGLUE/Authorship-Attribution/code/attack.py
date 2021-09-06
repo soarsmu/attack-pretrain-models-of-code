@@ -33,7 +33,7 @@ from transformers import RobertaForMaskedLM
 from transformers import (RobertaConfig, RobertaModel, RobertaTokenizer)
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning\
+warnings.simplefilter(action='ignore', category=FutureWarning) 
 
 MODEL_CLASSES = {
     'roberta': (RobertaConfig, RobertaModel, RobertaTokenizer),
@@ -44,13 +44,13 @@ logger = logging.getLogger(__name__)
 def main():
     parser = argparse.ArgumentParser()
 
-    ## Required parameters
+    
     parser.add_argument("--train_data_file", default=None, type=str, required=True,
                         help="The input training data file (a text file).")
     parser.add_argument("--output_dir", default=None, type=str, required=True,
                         help="The output directory where the model predictions and checkpoints will be written.")
 
-    ## Other parameters
+    
     parser.add_argument("--eval_data_file", default=None, type=str,
                         help="An optional input evaluation data file to evaluate the perplexity on (a text file).")
     parser.add_argument("--test_data_file", default=None, type=str,
@@ -134,7 +134,7 @@ def main():
 
 
     args.device = torch.device("cuda")
-    # Set seed
+    
     set_seed(args.seed)
 
 
@@ -142,8 +142,8 @@ def main():
     args.start_step = 0
 
 
-    ## Load Target Model
-    checkpoint_last = os.path.join(args.output_dir, 'checkpoint-last') # 读取model的路径
+    
+    checkpoint_last = os.path.join(args.output_dir, 'checkpoint-last') 
     if os.path.exists(checkpoint_last) and os.listdir(checkpoint_last):
         args.model_name_or_path = os.path.join(checkpoint_last, 'pytorch_model.bin')
         args.config_name = os.path.join(checkpoint_last, 'config.json')
@@ -162,12 +162,12 @@ def main():
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
     config = config_class.from_pretrained(args.config_name if args.config_name else args.model_name_or_path,
                                           cache_dir=args.cache_dir if args.cache_dir else None)
-    config.num_labels=args.number_labels # 只有一个label?
+    config.num_labels=args.number_labels 
     tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name,
                                                 do_lower_case=args.do_lower_case,
                                                 cache_dir=args.cache_dir if args.cache_dir else None)
     if args.block_size <= 0:
-        args.block_size = tokenizer.max_len_single_sentence  # Our input block size will be the max possible for the model
+        args.block_size = tokenizer.max_len_single_sentence  
     args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
     if args.model_name_or_path:
         model = model_class.from_pretrained(args.model_name_or_path,
@@ -186,16 +186,16 @@ def main():
     model.to(args.device)
 
 
-    ## Load CodeBERT (MLM) model
+    
     codebert_mlm = RobertaForMaskedLM.from_pretrained("microsoft/codebert-base-mlm")
     tokenizer_mlm = RobertaTokenizer.from_pretrained("microsoft/codebert-base-mlm")
     codebert_mlm.to('cuda') 
 
-    ## Load Dataset
+    
     eval_dataset = TextDataset(tokenizer, args, args.eval_data_file)
 
-    file_type = args.eval_data_file.split('/')[-1].split('.')[0] # valid
-    folder = '/'.join(args.eval_data_file.split('/')[:-1]) # 得到文件目录
+    file_type = args.eval_data_file.split('/')[-1].split('.')[0] 
+    folder = '/'.join(args.eval_data_file.split('/')[:-1]) 
     codes_file_path = os.path.join(folder, '{}_subs.jsonl'.format(
                                 file_type))
     print(codes_file_path)
@@ -209,7 +209,7 @@ def main():
     assert(len(source_codes) == len(eval_dataset) == len(substs))
 
 
-    # 现在要尝试计算importance_score了.
+
     success_attack = 0
     total_cnt = 0
     recoder = Recorder(args.csv_store_path)
@@ -224,7 +224,7 @@ def main():
         
         attack_type = "Greedy"
         if is_success == -1 and args.use_ga:
-            # 如果不成功，则使用gi_attack
+
             code, prog_length, adv_code, true_label, orig_label, temp_label, is_success, variable_names, names_to_importance_score, nb_changed_var, nb_changed_pos, replaced_words = attacker.ga_attack(example, code, subs, initial_replace=replaced_words)
             attack_type = "GA"
 
@@ -247,7 +247,7 @@ def main():
         query_times = model.query
         
         if is_success >= -1 :
-            # 如果原来正确
+
             total_cnt += 1
         if is_success == 1:
             success_attack += 1

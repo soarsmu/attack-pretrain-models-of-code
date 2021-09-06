@@ -18,7 +18,7 @@ class RobertaClassificationHead(nn.Module):
         self.out_proj = nn.Linear(config.hidden_size, 2)
 
     def forward(self, features, **kwargs):
-        x = features[:, 0, :]  # take <s> token (equiv. to [CLS])
+        x = features[:, 0, :]  
         x = x.reshape(-1,x.size(-1)*2)
         x = self.dropout(x)
         x = self.dense(x)
@@ -44,7 +44,7 @@ class Model(nn.Module):
         position_idx=torch.cat((position_idx_1.unsqueeze(1),position_idx_2.unsqueeze(1)),1).view(bs*2,l)
         attn_mask=torch.cat((attn_mask_1.unsqueeze(1),attn_mask_2.unsqueeze(1)),1).view(bs*2,l,l)
 
-        #embedding
+        
         nodes_mask=position_idx.eq(0)
         token_mask=position_idx.ge(2)        
         inputs_embeddings=self.encoder.roberta.embeddings.word_embeddings(inputs_ids)
@@ -79,7 +79,7 @@ class Model(nn.Module):
             with torch.no_grad():
                 logit = self.forward(inputs_ids_1,position_idx_1,attn_mask_1,inputs_ids_2,position_idx_2,attn_mask_2)
                 logits.append(logit.cpu().numpy())
-                # 和defect detection任务不一样，这个的输出就是softmax值，而非sigmoid值
+                
                 labels.append(label.cpu().numpy())
 
         logits=np.concatenate(logits,0)
@@ -87,7 +87,7 @@ class Model(nn.Module):
 
         probs = logits
         pred_labels = [0 if first_softmax  > threshold else 1 for first_softmax in logits[:,0]]
-        # 如果logits中的一个元素，其一个softmax值 > threshold, 则说明其label为0，反之为1
+        
 
         return probs, pred_labels
         

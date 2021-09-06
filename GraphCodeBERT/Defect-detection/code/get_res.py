@@ -11,7 +11,7 @@ def main():
         with open("./attack_mhm_"+str(index*400)+"_"+str((index+1)*400)+".csv") as rf:
             reader = csv.DictReader(rf)
             for row in reader:
-                # if row["Attack Type"] == "Greedy":
+                
                     total_count += int(row["Query Times"])
     
     print(total_count)

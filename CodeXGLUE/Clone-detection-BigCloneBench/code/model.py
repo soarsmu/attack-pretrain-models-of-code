@@ -1,5 +1,5 @@
-# Copyright (c) Microsoft Corporation. 
-# Licensed under the MIT license.
+ 
+ 
 import torch
 import torch.nn as nn
 import torch
@@ -20,7 +20,7 @@ class RobertaClassificationHead(nn.Module):
         self.out_proj = nn.Linear(config.hidden_size, 2)
 
     def forward(self, features, **kwargs):
-        x = features[:, 0, :]  # take <s> token (equiv. to [CLS])
+        x = features[:, 0, :]   
         x = x.reshape(-1,x.size(-1)*2)
         x = self.dropout(x)
         x = self.dense(x)
@@ -59,7 +59,7 @@ class Model(nn.Module):
         eval_sampler = SequentialSampler(dataset)
         eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size,num_workers=4,pin_memory=False)
 
-        ## Evaluate Model
+         
 
         eval_loss = 0.0
         self.eval()
@@ -70,16 +70,16 @@ class Model(nn.Module):
             label=batch[1].to("cuda") 
             with torch.no_grad():
                 lm_loss,logit = self.forward(inputs,label)
-                # 调用这个模型. 重写了反前向传播模型.
+                 
                 eval_loss += lm_loss.mean().item()
                 logits.append(logit.cpu().numpy())
-                # 和defect detection任务不一样，这个的输出就是softmax值，而非sigmoid值
+                 
                 labels.append(label.cpu().numpy())
         logits=np.concatenate(logits,0)
         labels=np.concatenate(labels,0)
 
         probs = logits
         pred_labels = [0 if first_softmax  > threshold else 1 for first_softmax in logits[:,0]]
-        # 如果logits中的一个元素，其一个softmax值 > threshold, 则说明其label为0，反之为1
+         
 
         return probs, pred_labels

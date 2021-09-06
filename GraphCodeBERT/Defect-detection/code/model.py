@@ -1,5 +1,5 @@
-# Copyright (c) Microsoft Corporation.
-# Licensed under the MIT License.
+
+
 import torch
 import torch.nn as nn
 import torch
@@ -22,7 +22,7 @@ class Model(nn.Module):
         self.query = 0
         
     def forward(self, inputs_ids=None, attn_mask=None, position_idx=None, labels = None):
-        #embedding
+        
         
         nodes_mask=position_idx.eq(0)
         token_mask=position_idx.ge(2)

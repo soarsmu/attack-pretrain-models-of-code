@@ -7,8 +7,6 @@ from parser_folder import remove_comments_and_docstrings
 
 def preprocess_gcjpy(split_portion):
     '''
-    预处理文件.
-    需要将结果分成train和valid
     '''
     data_name = "gcjpy"
     folder = os.path.join('./data_folder', data_name)

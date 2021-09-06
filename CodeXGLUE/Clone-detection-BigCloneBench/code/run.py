@@ -1,18 +1,18 @@
-# coding=utf-8
-# Copyright 2018 The Google AI Language Team Authors and The HuggingFace Inc. team.
-# Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
 """
 Fine-tuning the library models for language modeling on a text file (GPT, GPT-2, BERT, RoBERTa).
 GPT and GPT-2 are fine-tuned using a causal language modeling (CLM) loss while BERT and RoBERTa are fine-tuned
@@ -101,7 +101,7 @@ class InputFeatures(object):
         self.url2=url2
         
 def convert_examples_to_features(code1_tokens,code2_tokens,label,url1,url2,tokenizer,args,cache):
-    #source
+     
     code1_tokens=code1_tokens[:args.block_size-2]
     code1_tokens =[tokenizer.cls_token]+code1_tokens+[tokenizer.sep_token]
     code2_tokens=code2_tokens[:args.block_size-2]
@@ -126,11 +126,11 @@ class TextDataset(Dataset):
         index_filename=file_path
         logger.info("Creating features from index file at %s ", index_filename)
         url_to_code={}
-        folder = '/'.join(file_path.split('/')[:-1]) # 得到文件目录
+        folder = '/'.join(file_path.split('/')[:-1])  
 
         cache_file_path = os.path.join(folder, 'cached_{}'.format(
                                     postfix))
-        # 保存下对应的code1和code2
+         
         code_pairs_file_path = os.path.join(folder, 'cached_{}.pkl'.format(
                                     postfix))
         code_pairs = []
@@ -141,32 +141,32 @@ class TextDataset(Dataset):
             logger.info("Loading features from cached file %s", cache_file_path)
         except:
 
-            # 读取了所有的数据集文件.
+             
             with open('/'.join(index_filename.split('/')[:-1])+'/data.jsonl') as f:
                 for line in f:
                     line=line.strip()
                     js=json.loads(line)
                     url_to_code[js['idx']]=js['func']
-                    # idx 表示每段代码的id
+                     
 
             data=[]
-            cache={} # 这个cache的意义何在？
+            cache={}  
             f=open(index_filename)
             with open(index_filename) as f:
                 for line in f:
                     line=line.strip()
                     url1,url2,label=line.split('\t')
                     if url1 not in url_to_code or url2 not in url_to_code:
-                        # 在data.jsonl中不存在，直接跳过
+                         
                         continue
                     if label=='0':
                         label=0
                     else:
                         label=1
                     data.append((url1,url2,label,tokenizer, args,cache,url_to_code))
-                    # 所有东西都存进来内存不爆炸么....
-            # if 'train' not in postfix:
-            #     data=random.sample(data,int(len(data)*0.01))
+                     
+             
+             
             for sing_example in data:
                 code_pairs.append([sing_example[0], 
                                     sing_example[1], 
@@ -177,7 +177,7 @@ class TextDataset(Dataset):
             pool = multiprocessing.Pool(7)
             self.examples=pool.map(get_example,tqdm(data,total=len(data)))
             torch.save(self.examples, cache_file_path)
-        # 这应该就是处理数据的地方了.
+         
         if 'train' in postfix:
             for idx, example in enumerate(self.examples[:3]):
                     logger.info("*** Example ***")
@@ -197,7 +197,7 @@ class TextDataset(Dataset):
 
 
 def load_and_cache_examples(args, tokenizer, evaluate=False,test=False,pool=None):
-    # 问题是，我寻思你们也没cache啊....
+     
     dataset = TextDataset(tokenizer, args, file_path=args.test_data_file if test else (args.eval_data_file if evaluate else args.train_data_file),block_size=args.block_size,pool=pool)
     return dataset
 
@@ -222,7 +222,7 @@ def train(args, train_dataset, model, tokenizer,pool):
     args.logging_steps=len( train_dataloader)
     args.num_train_epochs=args.epoch
     model.to(args.device)
-    # Prepare optimizer and schedule (linear warmup and decay)
+     
     no_decay = ['bias', 'LayerNorm.weight']
     optimizer_grouped_parameters = [
         {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
@@ -239,11 +239,11 @@ def train(args, train_dataset, model, tokenizer,pool):
             raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
         model, optimizer = amp.initialize(model, optimizer, opt_level=args.fp16_opt_level)
 
-    # multi-gpu training (should be after apex fp16 initialization)
+     
     if args.n_gpu > 1:
         model = torch.nn.DataParallel(model)
 
-    # Distributed training (should be after apex fp16 initialization)
+     
     if args.local_rank != -1:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank],
                                                           output_device=args.local_rank,
@@ -256,7 +256,7 @@ def train(args, train_dataset, model, tokenizer,pool):
         scheduler.load_state_dict(torch.load(scheduler_last))
     if os.path.exists(optimizer_last):
         optimizer.load_state_dict(torch.load(optimizer_last))
-    # Train!
+     
     logger.info("***** Running training *****")
     logger.info("  Num examples = %d", len(train_dataset))
     logger.info("  Num Epochs = %d", args.num_train_epochs)
@@ -271,9 +271,9 @@ def train(args, train_dataset, model, tokenizer,pool):
     tr_loss, logging_loss,avg_loss,tr_nb,tr_num,train_loss = 0.0, 0.0,0.0,0,0,0
     best_mrr=0.0
     best_f1=0
-    # model.resize_token_embeddings(len(tokenizer))
+     
     model.zero_grad()
-    set_seed(args.seed)  # Added here for reproducibility (even between python 2 and 3)
+    set_seed(args.seed)   
  
     for idx in range(args.start_epoch, int(args.num_train_epochs)): 
         bar = tqdm(train_dataloader,total=len(train_dataloader))
@@ -287,7 +287,7 @@ def train(args, train_dataset, model, tokenizer,pool):
 
 
             if args.n_gpu > 1:
-                loss = loss.mean()  # mean() to average on multi-gpu parallel training
+                loss = loss.mean()   
             if args.gradient_accumulation_steps > 1:
                 loss = loss / args.gradient_accumulation_steps
 
@@ -321,9 +321,9 @@ def train(args, train_dataset, model, tokenizer,pool):
 
                 if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
                     
-                    if args.local_rank == -1 and args.evaluate_during_training:  # Only evaluate when single GPU otherwise metrics may not average well
+                    if args.local_rank == -1 and args.evaluate_during_training:   
                         results = evaluate(args, model, tokenizer,pool=pool,eval_when_training=True)                 
-                        # Save model checkpoint
+                         
 
                     if results['eval_f1']>best_f1:
                         best_f1=results['eval_f1']
@@ -347,23 +347,23 @@ def train(args, train_dataset, model, tokenizer,pool):
 
 
 def evaluate(args, model, tokenizer, prefix="",pool=None,eval_when_training=False):
-    # Loop to handle MNLI double evaluation (matched, mis-matched)
+     
     eval_output_dir = args.output_dir
     eval_dataset = load_and_cache_examples(args, tokenizer, evaluate=True,pool=pool)
-    # 得到数据集.
+     
     if not os.path.exists(eval_output_dir) and args.local_rank in [-1, 0]:
         os.makedirs(eval_output_dir)
 
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
-    # Note that DistributedSampler samples randomly
+     
     eval_sampler = SequentialSampler(eval_dataset) if args.local_rank == -1 else DistributedSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size,num_workers=4,pin_memory=True)
 
-    # multi-gpu evaluate
+     
     if args.n_gpu > 1 and eval_when_training is False:
         model = torch.nn.DataParallel(model)
 
-    # Eval!
+     
     logger.info("***** Running evaluation {} *****".format(prefix))
     logger.info("  Num examples = %d", len(eval_dataset))
     logger.info("  Batch size = %d", args.eval_batch_size)
@@ -380,13 +380,13 @@ def evaluate(args, model, tokenizer, prefix="",pool=None,eval_when_training=Fals
             eval_loss += lm_loss.mean().item()
             logits.append(logit.cpu().numpy())
             y_trues.append(labels.cpu().numpy())
-            # ground truth
+             
         nb_eval_steps += 1
     logits=np.concatenate(logits,0)
     y_trues=np.concatenate(y_trues,0)
     best_threshold=0
     best_f1=0
-    # 在validation集上确定best_threshold的.
+     
     for i in range(1,100):
         threshold=i/100
         y_preds=logits[:,1]>threshold
@@ -400,7 +400,7 @@ def evaluate(args, model, tokenizer, prefix="",pool=None,eval_when_training=Fals
             best_f1=f1
             best_threshold=threshold
 
-    # 使用best_threshold来计算指标.
+     
     y_preds=logits[:,1]>best_threshold
     from sklearn.metrics import recall_score
     recall=recall_score(y_trues, y_preds, average='macro')
@@ -423,19 +423,19 @@ def evaluate(args, model, tokenizer, prefix="",pool=None,eval_when_training=Fals
     return result
 
 def test(args, model, tokenizer, prefix="",pool=None,best_threshold=0):
-    # Loop to handle MNLI double evaluation (matched, mis-matched)
+     
     eval_dataset = load_and_cache_examples(args, tokenizer, test=True,pool=pool)
 
     args.eval_batch_size = args.per_gpu_eval_batch_size * max(1, args.n_gpu)
-    # Note that DistributedSampler samples randomly
+     
     eval_sampler = SequentialSampler(eval_dataset) if args.local_rank == -1 else DistributedSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size,num_workers=4,pin_memory=True)
 
-    # multi-gpu evaluate
+     
     if args.n_gpu > 1:
         model = torch.nn.DataParallel(model)
 
-    # Eval!
+     
     logger.info("***** Running Test {} *****".format(prefix))
     logger.info("  Num examples = %d", len(eval_dataset))
     logger.info("  Batch size = %d", args.eval_batch_size)
@@ -479,13 +479,13 @@ def test(args, model, tokenizer, prefix="",pool=None,best_threshold=0):
 def main():
     parser = argparse.ArgumentParser()
 
-    ## Required parameters
+     
     parser.add_argument("--train_data_file", default=None, type=str, required=True,
                         help="The input training data file (a text file).")
     parser.add_argument("--output_dir", default=None, type=str, required=True,
                         help="The output directory where the model predictions and checkpoints will be written.")
 
-    ## Other parameters
+     
     parser.add_argument("--eval_data_file", default=None, type=str,
                         help="An optional input evaluation data file to evaluate the perplexity on (a text file).")
     parser.add_argument("--test_data_file", default=None, type=str,
@@ -575,19 +575,19 @@ def main():
     pool = multiprocessing.Pool(cpu_cont)
     args = parser.parse_args()
 
-    # Setup distant debugging if needed
+     
     if args.server_ip and args.server_port:
-        # Distant debugging - see https://code.visualstudio.com/docs/python/debugging#_attach-to-a-local-script
+         
         import ptvsd
         print("Waiting for debugger attach")
         ptvsd.enable_attach(address=(args.server_ip, args.server_port), redirect_output=True)
         ptvsd.wait_for_attach()
 
-    # Setup CUDA, GPU & distributed training
+     
     if args.local_rank == -1 or args.no_cuda:
         device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
         args.n_gpu = torch.cuda.device_count()
-    else:  # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
+    else:   
         torch.cuda.set_device(args.local_rank)
         device = torch.device("cuda", args.local_rank)
         torch.distributed.init_process_group(backend='nccl')
@@ -595,19 +595,19 @@ def main():
     args.device = device
     args.per_gpu_train_batch_size=args.train_batch_size//args.n_gpu
     args.per_gpu_eval_batch_size=args.eval_batch_size//args.n_gpu
-    # Setup logging
+     
     logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                         datefmt='%m/%d/%Y %H:%M:%S',
                         level=logging.INFO if args.local_rank in [-1, 0] else logging.WARN)
     logger.warning("Process rank: %s, device: %s, n_gpu: %s, distributed training: %s, 16-bits training: %s",
                    args.local_rank, device, args.n_gpu, bool(args.local_rank != -1), args.fp16)
 
-    # Set seed
+     
     set_seed(args.seed)
 
-    # Load pretrained model and tokenizer
+     
     if args.local_rank not in [-1, 0]:
-        torch.distributed.barrier()  # Barrier to make sure only the first process in distributed training download model & vocab
+        torch.distributed.barrier()   
 
     args.start_epoch = 0
     args.start_step = 0
@@ -634,7 +634,7 @@ def main():
                                                 do_lower_case=args.do_lower_case,
                                                 cache_dir=args.cache_dir if args.cache_dir else None)
     if args.block_size <= 0:
-        args.block_size = tokenizer.max_len_single_sentence  # Our input block size will be the max possible for the model
+        args.block_size = tokenizer.max_len_single_sentence   
     args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
     if args.model_name_or_path:
         model = model_class.from_pretrained(args.model_name_or_path,
@@ -645,16 +645,16 @@ def main():
         model = model_class(config)
 
     model=Model(model,config,tokenizer,args)
-    # load 模型.
+     
     if args.local_rank == 0:
-        torch.distributed.barrier()  # End of barrier to make sure only the first process in distributed training download model & vocab
+        torch.distributed.barrier()   
 
     logger.info("Training/evaluation parameters %s", args)
 
-    # Training
+     
     if args.do_train:
         if args.local_rank not in [-1, 0]:
-            torch.distributed.barrier()  # Barrier to make sure only the first process in distributed training process the dataset, and the others will use the cache
+            torch.distributed.barrier()   
 
         train_dataset = load_and_cache_examples(args, tokenizer, evaluate=False,pool=pool)
 
@@ -664,7 +664,7 @@ def main():
         global_step, tr_loss = train(args, train_dataset, model, tokenizer,pool)
 
 
-    # Evaluation
+     
     results = {}
     if args.do_eval and args.local_rank in [-1, 0]:
         checkpoint_prefix = 'checkpoint-best-f1/model.bin'

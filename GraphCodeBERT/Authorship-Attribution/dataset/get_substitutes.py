@@ -10,7 +10,7 @@ from tqdm import tqdm
 sys.path.append('../../../')
 sys.path.append('../../../python_parser')
 
-# from attacker import 
+
 from python_parser.run_parser import get_identifiers, remove_comments_and_docstrings
 from utils import is_valid_variable_name, _tokenize, get_identifier_posistions_from_code, get_masked_code_by_position, get_substitues, is_valid_substitue
 from transformers import (RobertaForMaskedLM, RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
@@ -36,8 +36,8 @@ def main():
     tokenizer_mlm = RobertaTokenizer.from_pretrained(args.base_model)
     codebert_mlm.to('cuda')
 
-    file_type = args.eval_data_file.split('/')[-1].split('.')[0] # valid
-    folder = '/'.join(args.eval_data_file.split('/')[:-1]) # 得到文件目录
+    file_type = args.eval_data_file.split('/')[-1].split('.')[0] 
+    folder = '/'.join(args.eval_data_file.split('/')[:-1]) 
     codes_file_path = os.path.join(folder, 'cached_{}.pkl'.format(
                                 file_type))
 
@@ -69,9 +69,9 @@ def main():
             
             input_ids_ = torch.tensor([tokenizer_mlm.convert_tokens_to_ids(sub_words)])
 
-            word_predictions = codebert_mlm(input_ids_.to('cuda'))[0].squeeze()  # seq-len(sub) vocab
-            word_pred_scores_all, word_predictions = torch.topk(word_predictions, 60, -1)  # seq-len k
-            # 得到前k个结果.
+            word_predictions = codebert_mlm(input_ids_.to('cuda'))[0].squeeze()  
+            word_pred_scores_all, word_predictions = torch.topk(word_predictions, 60, -1)  
+            
 
             word_predictions = word_predictions[1:len(sub_words) + 1, :]
             word_pred_scores_all = word_pred_scores_all[1:len(sub_words) + 1, :]
@@ -84,18 +84,18 @@ def main():
                 orig_embeddings = codebert_mlm.roberta(input_ids_.to('cuda'))[0]
             cos = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
             for tgt_word in names_positions_dict.keys():
-                tgt_positions = names_positions_dict[tgt_word] # the positions of tgt_word in code
+                tgt_positions = names_positions_dict[tgt_word] 
                 if not is_valid_variable_name(tgt_word, lang='python'):
-                    # if the extracted name is not valid
+                    
                     continue   
 
-                ## 得到(所有位置的)substitues
+                
                 all_substitues = []
                 for one_pos in tgt_positions:
-                    ## 一个变量名会出现很多次
+                    
                     if keys[one_pos][0] >= word_predictions.size()[0]:
                         continue
-                    substitutes = word_predictions[keys[one_pos][0]:keys[one_pos][1]]  # L, k
+                    substitutes = word_predictions[keys[one_pos][0]:keys[one_pos][1]]  
                     word_pred_scores = word_pred_scores_all[keys[one_pos][0]:keys[one_pos][1]]
                     
                     orig_word_embed = orig_embeddings[0][keys[one_pos][0]+1:keys[one_pos][1]+1]
@@ -109,7 +109,7 @@ def main():
 
                         new_ids_ = copy.deepcopy(input_ids_)
                         new_ids_[0][keys[one_pos][0]+1:keys[one_pos][1]+1] = substitutes[:,i]
-                        # 替换词得到新embeddings
+                        
 
                         with torch.no_grad():
                             new_embeddings = codebert_mlm.roberta(new_ids_.to('cuda'))[0]
@@ -118,7 +118,7 @@ def main():
                         sims.append((i, sum(cos(orig_word_embed, new_word_embed))/subwords_leng))
                     
                     sims = sorted(sims, key=lambda x: x[1], reverse=True)
-                    # 排序取top 30 个
+                    
 
                     for i in range(int(nums_candis/2)):
                         similar_substitutes.append(substitutes[:,sims[i][0]].reshape(subwords_leng, -1))

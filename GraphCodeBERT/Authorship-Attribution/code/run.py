@@ -1,18 +1,18 @@
-# coding=utf-8
-# Copyright 2018 The Google AI Language Team Authors and The HuggingFace Inc. team.
-# Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 """
 Fine-tuning the library models for language modeling on a text file (GPT, GPT-2, BERT, RoBERTa).
 GPT and GPT-2 are fine-tuned using a causal language modeling (CLM) loss while BERT and RoBERTa are fine-tuned
@@ -58,7 +58,7 @@ dfg_function={
     'javascript':DFG_javascript
 }
 
-#load parsers
+
 parsers={}        
 for lang in dfg_function:
     LANGUAGE = Language('parser/my-languages.so', lang)
@@ -68,15 +68,15 @@ for lang in dfg_function:
     parsers[lang]= parser
     
     
-#remove comments, tokenize code and extract dataflow                                        
+
 def extract_dataflow(code, parser,lang):
-    #remove comments
+    
     code = code.replace("\\n", "\n")
     try:
         code=remove_comments_and_docstrings(code,lang)
     except:
         pass    
-    #obtain dataflow
+    
     if lang=="php":
         code="<?php"+code+"?>"    
     try:
@@ -128,8 +128,8 @@ class InputFeatures(object):
 
         
 def convert_examples_to_features(code, label, tokenizer,args):
-    #source
-    # code=' '.join(js['func'].split())
+    
+    
     parser = parsers["python"]
     code_tokens,dfg = extract_dataflow(code, parser, "python")
 
@@ -168,9 +168,9 @@ class TextDataset(Dataset):
     def __init__(self, tokenizer, args, file_path=None):
         self.examples = []
         self.args=args
-        # 首先看看有没有cache的文件.
+        
         file_type = file_path.split('/')[-1].split('.')[0]
-        folder = '/'.join(file_path.split('/')[:-1]) # 得到文件目录
+        folder = '/'.join(file_path.split('/')[:-1]) 
 
         cache_file_path = os.path.join(folder, 'cached_{}'.format(file_type))
         code_pairs_file_path = os.path.join(folder, 'cached_{}.pkl'.format(file_type))
@@ -190,10 +190,10 @@ class TextDataset(Dataset):
                     code = line.split(" <CODESPLIT> ")[0]
                     code = code.replace("\\n", "\n").replace('\"','"')
                     label = line.split(" <CODESPLIT> ")[1]
-                    # 将这俩内容转化成input.
+                    
                     self.examples.append(convert_examples_to_features(code, int(label), tokenizer,args))
                     code_files.append(code)
-                    # 这里每次都是重新读取并处理数据集，能否cache然后load
+                    
             assert(len(self.examples) == len(code_files))
             with open(code_pairs_file_path, 'wb') as f:
                 pickle.dump(code_files, f)
@@ -212,25 +212,25 @@ class TextDataset(Dataset):
         return len(self.examples)
 
     def __getitem__(self, item):
-        #calculate graph-guided masked function
+        
         attn_mask=np.zeros((self.args.code_length+self.args.data_flow_length,
                             self.args.code_length+self.args.data_flow_length),dtype=np.bool)
-        #calculate begin index of node and max length of input
+        
         
         node_index=sum([i>1 for i in self.examples[item].position_idx])
         max_length=sum([i!=1 for i in self.examples[item].position_idx])
-        #sequence can attend to sequence
+        
         attn_mask[:node_index,:node_index]=True
-        #special tokens attend to all tokens
+        
         for idx,i in enumerate(self.examples[item].input_ids):
             if i in [0,2]:
                 attn_mask[idx,:max_length]=True
-        #nodes attend to code tokens that are identified from
+        
         for idx,(a,b) in enumerate(self.examples[item].dfg_to_code):
             if a<node_index and b<node_index:
                 attn_mask[idx+node_index,a:b]=True
                 attn_mask[a:b,idx+node_index]=True
-        #nodes attend to adjacent nodes 
+        
         for idx,nodes in enumerate(self.examples[item].dfg_to_dfg):
             for a in nodes:
                 if a+node_index<len(self.examples[item].position_idx):
@@ -253,7 +253,7 @@ def set_seed(args):
 def train(args, train_dataset, model, tokenizer):
     """ Train the model """
     
-    #build dataloader
+    
     train_sampler = RandomSampler(train_dataset)
     train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size,num_workers=4)
     
@@ -262,7 +262,7 @@ def train(args, train_dataset, model, tokenizer):
     args.warmup_steps=args.max_steps//5
     model.to(args.device)
     
-    # Prepare optimizer and schedule (linear warmup and decay)
+    
     no_decay = ['bias', 'LayerNorm.weight']
     optimizer_grouped_parameters = [
         {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
@@ -273,11 +273,11 @@ def train(args, train_dataset, model, tokenizer):
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps,
                                                 num_training_steps=args.max_steps)
 
-    # multi-gpu training
+    
     if args.n_gpu > 1:
         model = torch.nn.DataParallel(model)
 
-    # Train!
+    
     logger.info("***** Running training *****")
     logger.info("  Num examples = %d", len(train_dataset))
     logger.info("  Num Epochs = %d", args.epochs)
@@ -333,7 +333,7 @@ def train(args, train_dataset, model, tokenizer):
                 if global_step % args.save_steps == 0:
                     results = evaluate(args, model, tokenizer, eval_when_training=True)    
                     
-                    # Save model checkpoint
+                    
                     if results['eval_precision']>best_f1:
                         best_f1=results['eval_precision']
                         logger.info("  "+"*"*20)  
@@ -351,16 +351,16 @@ def train(args, train_dataset, model, tokenizer):
                         
 
 def evaluate(args, model, tokenizer,eval_when_training=False):
-    #build dataloader
+    
     eval_dataset = TextDataset(tokenizer, args, file_path=args.eval_data_file)
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler,batch_size=args.eval_batch_size,num_workers=4)
 
-    # multi-gpu evaluate
+    
     if args.n_gpu > 1 and eval_when_training is False:
         model = torch.nn.DataParallel(model)
 
-    # Eval!
+    
     logger.info("***** Running evaluation *****")
     logger.info("  Num examples = %d", len(eval_dataset))
     logger.info("  Batch size = %d", args.eval_batch_size)
@@ -401,23 +401,23 @@ def evaluate(args, model, tokenizer,eval_when_training=False):
         "eval_f1": float(f1)
     }
 
-    # logger.info("***** Eval results {} *****".format(prefix))
+    
     for key in sorted(result.keys()):
         logger.info("  %s = %s", key, str(round(result[key],4)))
 
     return result
 
 def test(args, model, tokenizer):
-    #build dataloader
+    
     eval_dataset = TextDataset(tokenizer, args, file_path=args.test_data_file)
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size,num_workers=4)
 
-    # multi-gpu evaluate
+    
     if args.n_gpu > 1:
         model = torch.nn.DataParallel(model)
 
-    # Eval!
+    
     logger.info("***** Running Test *****")
     logger.info("  Num examples = %d", len(eval_dataset))
     logger.info("  Batch size = %d", args.eval_batch_size)
@@ -438,7 +438,7 @@ def test(args, model, tokenizer):
             y_trues.append(labels.cpu().numpy())
         nb_eval_steps += 1
 
-    #output result
+    
     logits=np.concatenate(logits,0)
     y_trues=np.concatenate(y_trues,0)
 
@@ -469,13 +469,13 @@ def test(args, model, tokenizer):
 def main():
     parser = argparse.ArgumentParser()
 
-    ## Required parameters
+    
     parser.add_argument("--train_data_file", default=None, type=str, required=True,
                         help="The input training data file (a text file).")
     parser.add_argument("--output_dir", default=None, type=str, required=True,
                         help="The output directory where the model predictions and checkpoints will be written.")
 
-    ## Other parameters
+    
     parser.add_argument("--eval_data_file", default=None, type=str,
                         help="An optional input evaluation data file to evaluate the perplexity on (a text file).")
     parser.add_argument("--test_data_file", default=None, type=str,
@@ -538,11 +538,11 @@ def main():
     
     args.device = device
 
-    # Setup logging
+    
     logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',datefmt='%m/%d/%Y %H:%M:%S',level=logging.INFO)
     logger.warning("device: %s, n_gpu: %s",device, args.n_gpu)
 
-    # Set seed  
+    
     set_seed(args)
     config = RobertaConfig.from_pretrained(args.config_name if args.config_name else args.model_name_or_path)
     config.num_labels=args.number_labels
@@ -552,12 +552,12 @@ def main():
 
     logger.info("Training/evaluation parameters %s", args)
 
-    # Training
+    
     if args.do_train:
         train_dataset = TextDataset(tokenizer, args,args.train_data_file)
         train(args, train_dataset, model, tokenizer)
 
-    # Evaluation
+    
     results = {}
     if args.do_eval:
         checkpoint_prefix = 'checkpoint-best-acc/model.bin'

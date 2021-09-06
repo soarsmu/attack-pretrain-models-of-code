@@ -1,5 +1,5 @@
-# Copyright (c) Microsoft Corporation. 
-# Licensed under the MIT license.
+
+
 import torch
 import torch.nn as nn
 import torch
@@ -20,8 +20,8 @@ class RobertaClassificationHead(nn.Module):
         self.out_proj = nn.Linear(config.hidden_size, config.num_labels)
 
     def forward(self, features, **kwargs):
-        x = features[:, 0, :]  # take <s> token (equiv. to [CLS])
-        # x = x.reshape(-1,x.size(-1)*2)
+        x = features[:, 0, :]  
+        
         x = self.dropout(x)
         x = self.dense(x)
         x = torch.tanh(x)

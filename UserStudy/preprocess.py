@@ -4,7 +4,7 @@ from random import sample
 
 def random_selection():
     fields = ['Index', 'Is Success']
-    # read specific columns
+    
     mhm_path = './results/attack_mhm.csv'
     gi_path = './results/attack_genetic.csv'
     index_mhm = pd.read_csv(mhm_path, skipinitialspace=True, usecols=fields)
@@ -14,11 +14,11 @@ def random_selection():
     print(type(gi_success))
     intersect = list(set(mhm_success['Index'].values.tolist()).intersection(set(gi_success['Index'].values.tolist())))
     print(len(intersect))
-    # samples = sample(intersect, 100)
-    #
-    # print(samples)
-    # print(len(set(samples)))
-    # return samples
+    
+    
+    
+    
+    
 
     return intersect
 

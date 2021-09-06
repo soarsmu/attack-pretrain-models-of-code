@@ -57,8 +57,6 @@ def preprocess_gcjpy(split_portion):
 
 def preprocess_java40(split_portion = 0.8):
     '''
-    预处理文件.
-    需要将结果分成train和valid
     '''
     data_name = "java40"
     folder = os.path.join('./data_folder', data_name)

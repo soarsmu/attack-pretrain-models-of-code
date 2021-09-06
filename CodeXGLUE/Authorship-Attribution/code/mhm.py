@@ -23,7 +23,7 @@ from attacker import MHM_Attacker
 from attacker import convert_code_to_features
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning\
+warnings.simplefilter(action='ignore', category=FutureWarning) 
 
 MODEL_CLASSES = {
     'roberta': (RobertaConfig, RobertaModel, RobertaTokenizer),
@@ -37,20 +37,17 @@ def main():
     import pickle
     import time
     import os
-    
-    # import tree as Tree
-    # from dataset import Dataset, POJ104_SEQ
-    # from lstm_classifier import LSTMEncoder, LSTMClassifier
+
     
     parser = argparse.ArgumentParser()
 
-    ## Required parameters
+    
     parser.add_argument("--train_data_file", default=None, type=str, required=True,
                         help="The input training data file (a text file).")
     parser.add_argument("--output_dir", default=None, type=str, required=True,
                         help="The output directory where the model predictions and checkpoints will be written.")
 
-    ## Other parameters
+    
     parser.add_argument("--eval_data_file", default=None, type=str,
                         help="An optional input evaluation data file to evaluate the perplexity on (a text file).")
     parser.add_argument("--test_data_file", default=None, type=str,
@@ -98,7 +95,7 @@ def main():
 
 
     args.device = torch.device("cuda")
-    # Set seed
+    
     set_seed(args.seed)
 
     codebert_mlm = RobertaForMaskedLM.from_pretrained(args.base_model)
@@ -108,10 +105,10 @@ def main():
     args.start_epoch = 0
     args.start_step = 0
 
-    ## Load Target Model
-    checkpoint_last = os.path.join(args.output_dir, 'checkpoint-last') # 读取model的路径
+    
+    checkpoint_last = os.path.join(args.output_dir, 'checkpoint-last') 
     if os.path.exists(checkpoint_last) and os.listdir(checkpoint_last):
-        # 如果路径存在且有内容，则从checkpoint load模型
+
         args.model_name_or_path = os.path.join(checkpoint_last, 'pytorch_model.bin')
         args.config_name = os.path.join(checkpoint_last, 'config.json')
         idx_file = os.path.join(checkpoint_last, 'idx_file.txt')
@@ -132,7 +129,7 @@ def main():
                                                 do_lower_case=False,
                                                 cache_dir=args.cache_dir if args.cache_dir else None)
     if args.block_size <= 0:
-        args.block_size = tokenizer.max_len_single_sentence  # Our input block size will be the max possible for the model
+        args.block_size = tokenizer.max_len_single_sentence  
     args.block_size = min(args.block_size, tokenizer.max_len_single_sentence)
     if args.model_name_or_path:
         model = model_class.from_pretrained(args.model_name_or_path,
@@ -152,11 +149,11 @@ def main():
     print ("MODEL LOADED!")
 
 
-    ## Load Dataset
+    
     eval_dataset = TextDataset(tokenizer, args, args.eval_data_file)
 
-    file_type = args.eval_data_file.split('/')[-1].split('.')[0] # valid
-    folder = '/'.join(args.eval_data_file.split('/')[:-1]) # 得到文件目录
+    file_type = args.eval_data_file.split('/')[-1].split('.')[0] 
+    folder = '/'.join(args.eval_data_file.split('/')[:-1]) 
     codes_file_path = os.path.join(folder, '{}_subs.jsonl'.format(
                                 file_type))
     print(codes_file_path)
@@ -178,8 +175,7 @@ def main():
     recoder = Recorder(args.csv_store_path)
     attacker = MHM_Attacker(args, model, codebert_mlm, tokenizer_mlm, token2id, id2token)
     
-    # token2id: dict,key是变量名, value是id
-    # id2token: list,每个元素是变量名
+
 
     print ("ATTACKER BUILT!")
     
@@ -202,7 +198,7 @@ def main():
         
         start_time = time.time()
         
-        # 这里需要进行修改.
+
         if args.is_original_mhm:
             _res = attacker.mcmc_random(tokenizer, code,
                                 _label=ground_truth, _n_candi=30,

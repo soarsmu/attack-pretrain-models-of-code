@@ -19,7 +19,7 @@ from transformers import RobertaForMaskedLM
 from transformers import (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-warnings.simplefilter(action='ignore', category=FutureWarning) # Only report warning
+warnings.simplefilter(action='ignore', category=FutureWarning) 
 
 MODEL_CLASSES = {
     'roberta': (RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
@@ -34,19 +34,19 @@ if __name__ == "__main__":
     import time
     import os
     
-    # import tree as Tree
-    # from dataset import Dataset, POJ104_SEQ
-    # from lstm_classifier import LSTMEncoder, LSTMClassifier
+    
+    
+    
     
     parser = argparse.ArgumentParser()
 
-    ## Required parameters
+    
     parser.add_argument("--train_data_file", default=None, type=str, required=True,
                         help="The input training data file (a text file).")
     parser.add_argument("--output_dir", default=None, type=str, required=True,
                         help="The output directory where the model predictions and checkpoints will be written.")
 
-    ## Other parameters
+    
     parser.add_argument("--eval_data_file", default=None, type=str,
                         help="An optional input evaluation data file to evaluate the perplexity on (a text file).")
     parser.add_argument("--test_data_file", default=None, type=str,
@@ -87,14 +87,14 @@ if __name__ == "__main__":
 
 
     args.device = torch.device("cuda")
-    # Set seed
+    
     set_seed(args.seed)
 
     args.start_epoch = 0
     args.start_step = 0
     
 
-    ## Load Target Model
+    
     checkpoint_last = os.path.join(args.output_dir, 'checkpoint-last')
     if os.path.exists(checkpoint_last) and os.listdir(checkpoint_last):
         args.model_name_or_path = os.path.join(checkpoint_last, 'pytorch_model.bin')
@@ -139,16 +139,16 @@ if __name__ == "__main__":
     codebert_mlm.to('cuda') 
 
 
-    # Load Dataset
-    ## Load Dataset
+    
+    
     eval_dataset = TextDataset(tokenizer, args,args.eval_data_file)
 
-    ## Load tensor features
+    
     eval_dataset = TextDataset(tokenizer, args, args.eval_data_file)
-    ## Load code pairs
+    
     source_codes = get_code_pairs(args.eval_data_file)
     postfix = args.eval_data_file.split('/')[-1].split('.txt')[0].split("_")
-    folder = '/'.join(args.eval_data_file.split('/')[:-1]) # 得到文件目录
+    folder = '/'.join(args.eval_data_file.split('/')[:-1]) 
     subs_path = os.path.join(folder, 'test_subs_{}_{}.jsonl'.format(
                                     postfix[-2], postfix[-1]))
     substitutes = []
@@ -167,8 +167,8 @@ if __name__ == "__main__":
     recoder = Recorder(args.csv_store_path)
     attacker = MHM_Attacker(args, model, codebert_mlm, tokenizer_mlm, token2id, id2token)
     
-    # token2id: dict,key是变量名, value是id
-    # id2token: list,每个元素是变量名
+    
+    
 
     print ("ATTACKER BUILT!")
     
@@ -191,7 +191,7 @@ if __name__ == "__main__":
             continue
         start_time = time.time()
         
-        # 这里需要进行修改.
+        
         if args.original:
             _res = attacker.mcmc_random(example, tokenizer, code_pair,
                              _label=ground_truth, _n_candi=30,
