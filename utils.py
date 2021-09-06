@@ -279,7 +279,6 @@ def get_substitues(substitutes, tokenizer, mlm_model, use_bpe, substitutes_score
 
 def get_masked_code_by_position(tokens: list, positions: dict):
     '''
-    给定一段文本，以及需要被mask的位置,返回一组masked后的text
     Example:
         tokens: [a,b,c]
         positions: [0,2]
