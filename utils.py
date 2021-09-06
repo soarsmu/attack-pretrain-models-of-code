@@ -160,9 +160,7 @@ def is_valid_variable_name(name: str, lang: str) -> bool:
 
 
 def is_valid_substitue(substitute: str, tgt_word: str, lang: str) -> bool:
-    '''
-    判断生成的substitues是否valid，如是否满足命名规范
-    '''
+
     is_valid = True
 
     if not is_valid_variable_name(substitute, lang):
@@ -190,10 +188,7 @@ def _tokenize(seq, tokenizer):
 
 
 def get_identifier_posistions_from_code(words_list: list, variable_names: list) -> dict:
-    '''
-    给定一串代码，以及variable的变量名，如: a
-    返回这串代码中这些变量名对应的位置.
-    '''
+
     positions = {}
     for name in variable_names:
         for index, token in enumerate(words_list):
@@ -207,10 +202,7 @@ def get_identifier_posistions_from_code(words_list: list, variable_names: list) 
 
 
 def get_bpe_substitues(substitutes, tokenizer, mlm_model):
-    '''
-    得到substitues
-    '''
-    
+
 
     substitutes = substitutes[0:12, 0:4]  
 
@@ -249,9 +241,7 @@ def get_bpe_substitues(substitutes, tokenizer, mlm_model):
 
 
 def get_substitues(substitutes, tokenizer, mlm_model, use_bpe, substitutes_score=None, threshold=3.0):
-    '''
-    将生成的substitued subwords转化为words
-    '''
+
     
     
     words = []
