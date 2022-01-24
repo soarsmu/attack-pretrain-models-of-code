@@ -1,4 +1,0 @@
-Traceback (most recent call last):
-  File "train.py", line 8, in <module>
-    from scripts.times import *
-ImportError: No module named 'scripts.times'
