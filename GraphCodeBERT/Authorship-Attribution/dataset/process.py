@@ -11,8 +11,8 @@ def preprocess_gcjpy(split_portion):
     需要将结果分成train和valid
     '''
     data_name = "gcjpy"
-    folder = os.path.join('./data_folder', data_name)
-    output_dir = os.path.join('./data_folder', "processed_" + data_name)
+    folder = os.path.join('./', data_name)
+    output_dir = "./processed_" + data_name
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     authors = os.listdir(folder)

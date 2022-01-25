@@ -49,9 +49,7 @@ Data statistics of the dataset are shown in the below table:
 | Test  |   2,732   |
 
 
-## Fine-tune GraphCodeBERT
-
-### Dependency
+## Dependency
 
 Users can try with the following docker image.
 
@@ -65,13 +63,24 @@ Then, create a container using this docker image. An example is:
 docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase_path>,dst=/workspace zhouyang996/codebert-attack:v1
 ```
 
-All the following scripts should run inside the docker container. 
+If the built parser "parser/my-languages.so" doesn't work for you, please rebuild as the following command:
 
-❕**Notes:** This docker works fine with RTX 2080Ti GPUs and Tesla P100 GPUs. But if on RTX 30XX GPUs, it may take very long time to load the models to cuda. Another possible problem is a CUDA error claimed `CUDA error: device-side assert triggered`. We think it's related to the CUDA version or torch version. Users can use the following command for a lower version:
+```shell
+cd code/parser
+bash build.sh
+cd ..
+```
+
+❕**Notes:** All the following scripts should run inside the docker container. This docker works fine with RTX 2080Ti GPUs and Tesla P100 GPUs. But if on RTX 30XX GPUs, it may take very long time to load the models to CUDA. Another possible problem is a CUDA error claimed `CUDA error: device-side assert triggered`. We think it's related to the CUDA version or torch version. Users can try the following command for a lower version of torch container:
 
 ```
 docker run --name=codebert-attack --gpus all -it --mount type=bind,src=<codebase_path>,dst=/workspace pytorch:1.5-cuda10.1-cudnn7-devel
 ```
+
+## Fine-tune GraphCodeBERT
+
+If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/checkpoint-best-acc` by [this link](https://drive.google.com/file/d/1kO-8_814J9B5cTThNpDw5CvzXJym6mCN/view?usp=sharing).
+
 
 ### Fine-tune
 
@@ -129,83 +138,19 @@ python run.py \
     --seed 123456 2>&1 | tee test.log
 ```
 
-## Attack
+## Attack GraphCodeBERT
 
-If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/checkpoint-best-acc` by [this link](https://drive.google.com/file/d/1C2wu1va4vMircV46LdEefsA74VoiIvbw/view?usp=sharing).
-
-```shell
-pip install gdown
-mkdir code/saved_models/checkpoint-best-acc
-gdown https://drive.google.com/uc?id=1C2wu1va4vMircV46LdEefsA74VoiIvbw
-mv model.bin code/saved_models/checkpoint-best-acc/
-```
 
 ### Generate substitutes
 
 ```
 cd preprocess
-CUDA_VISIBLE_DEVICES=3 python get_substitutes.py \
-    --store_path ./dataset/valid_subs.jsonl \
+python get_substitutes.py \
+    --store_path ./dataset/test_subs.jsonl \
     --base_model=microsoft/graphcodebert-base \
-    --eval_data_file=./dataset/valid.jsonl \
+    --eval_data_file=./dataset/test.jsonl \
     --block_size 512
 ```
-
-tmux0:
-CUDA_VISIBLE_DEVICES=0 python get_substitutes.py \
-    --store_path ./dataset/test_subs_0_400.jsonl \
-    --base_model=microsoft/graphcodebert-base \
-    --eval_data_file=./dataset/test.jsonl \
-    --block_size 512 \
-    --index 0 400
-
-tmux1:
-CUDA_VISIBLE_DEVICES=0 python get_substitutes.py \
-    --store_path ./dataset/test_subs_400_800.jsonl \
-    --base_model=microsoft/graphcodebert-base \
-    --eval_data_file=./dataset/test.jsonl \
-    --block_size 512 \
-    --index 400 800
-
-tmux2:
-CUDA_VISIBLE_DEVICES=2 python get_substitutes.py \
-    --store_path ./dataset/test_subs_800_1200.jsonl \
-    --base_model=microsoft/graphcodebert-base \
-    --eval_data_file=./dataset/test.jsonl \
-    --block_size 512 \
-    --index 800 1200
-
-tmux3:
-CUDA_VISIBLE_DEVICES=3 python get_substitutes.py \
-    --store_path ./dataset/test_subs_1200_1600.jsonl \
-    --base_model=microsoft/graphcodebert-base \
-    --eval_data_file=./dataset/test.jsonl \
-    --block_size 512 \
-    --index 1200 1600
-
-tmux4:
-CUDA_VISIBLE_DEVICES=5 python get_substitutes.py \
-    --store_path ./dataset/test_subs_1600_2000.jsonl \
-    --base_model=microsoft/graphcodebert-base \
-    --eval_data_file=./dataset/test.jsonl \
-    --block_size 512 \
-    --index 1600 2000
-
-tmux5:
-CUDA_VISIBLE_DEVICES=6 python get_substitutes.py \
-    --store_path ./dataset/test_subs_2000_2400.jsonl \
-    --base_model=microsoft/graphcodebert-base \
-    --eval_data_file=./dataset/test.jsonl \
-    --block_size 512 \
-    --index 2000 2400
-
-tmux6:
-CUDA_VISIBLE_DEVICES=6 python get_substitutes.py \
-    --store_path ./dataset/test_subs_2400_2800.jsonl \
-    --base_model=microsoft/graphcodebert-base \
-    --eval_data_file=./dataset/test.jsonl \
-    --block_size 512 \
-    --index 2400 2800
 ### Greedy Attack
 
 ```shell
@@ -217,14 +162,14 @@ python gi_attack.py \
     --model_name_or_path=microsoft/graphcodebert-base \
     --csv_store_path ./attack_no_gi.csv \
     --base_model=microsoft/graphcodebert-base \
-    --eval_data_file=../preprocess/dataset/test_subs_0_400.jsonl \
+    --eval_data_file=../preprocess/dataset/test_subs.jsonl \
     --code_length 512 \
     --data_flow_length 128 \
     --eval_batch_size 64 \
     --seed 123456  2>&1 | tee attack_no_gi.log
 ```
 
-# Genetic Programming
+### Genetic Programming
 
 ```shell
 cd code
@@ -233,17 +178,17 @@ CUDA_VISIBLE_DEVICES=0 python gi_attack.py \
     --model_type=roberta \
     --tokenizer_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
-    --csv_store_path ./attack_genetic_2400_2800.csv \
+    --csv_store_path ./attack_genetic.csv \
     --base_model=microsoft/graphcodebert-base \
     --use_ga \
-    --eval_data_file=../preprocess/dataset/test_subs_2400_2800.jsonl \
+    --eval_data_file=../preprocess/dataset/test_subs.jsonl \
     --code_length 512 \
     --data_flow_length 128 \
     --eval_batch_size 8 \
-    --seed 123456  2>&1 | tee attack_gi_2400_2800.log
+    --seed 123456  2>&1 | tee attack_gi.log
 ```
 
-# MHM-Attack
+### MHM-Attack
 ```shell
 cd code
 CUDA_VISIBLE_DEVICES=5 python mhm_attack.py \
@@ -251,39 +196,13 @@ CUDA_VISIBLE_DEVICES=5 python mhm_attack.py \
     --model_type=roberta \
     --tokenizer_name=microsoft/graphcodebert-base \
     --model_name_or_path=microsoft/graphcodebert-base \
-    --csv_store_path ./attack_mhm_0_400.csv \
+    --csv_store_path ./attack_mhm.csv \
     --base_model=microsoft/graphcodebert-base \
     --train_data_file=../preprocess/dataset/train.jsonl \
-    --eval_data_file=../preprocess/dataset/test_subs_0_400.jsonl \
+    --eval_data_file=../preprocess/dataset/test_subs.jsonl \
     --test_data_file=../preprocess/dataset/test.jsonl \
     --code_length 512 \
     --data_flow_length 128 \
     --eval_batch_size 16 \
-    --seed 123456  2>&1 | tee attack_mhm_0_400.log
+    --seed 123456  2>&1 | tee attack_mhm.log
 ```
-
-# Original MHM-Attack
-```shell
-cd code
-CUDA_VISIBLE_DEVICES=5 python mhm_attack.py \
-    --output_dir=./saved_models \
-    --model_type=roberta \
-    --tokenizer_name=microsoft/graphcodebert-base \
-    --model_name_or_path=microsoft/graphcodebert-base \
-    --csv_store_path ./attack_original_mhm.csv \
-    --original\
-    --base_model=microsoft/graphcodebert-base \
-    --train_data_file=../preprocess/dataset/train.jsonl \
-    --eval_data_file=../preprocess/dataset/valid.jsonl \
-    --test_data_file=../preprocess/dataset/test.jsonl \
-    --code_length 512 \
-    --data_flow_length 128 \
-    --eval_batch_size 16 \
-    --seed 123456  2>&1 | tee attack_original_mhm.log
-```
-
-## Result
-
-| Methods  |    ACC    |  ACC (attacked)    |
-| -------- | :-------: |   :-------: |
-| GraphCodeBERT | **63.65** |  |
