@@ -89,6 +89,8 @@ python run.py \
     --evaluate_during_training \
     --seed 123456 2>&1| tee saved_models/train.log
 ```
+❕**Note**: if encountering `CUDA error: an illegal memory access was encountered`, change the `train_batch_size` to a bigger number, such as 64. Besides, we set `code_length` as 512 and the whole pipeline works very well in our machine, but some errors caused by too much input tokens have been reported by some users. If you locate such error, we suggest that change `code_length` as 384 (i.e., 512-128=384).
+
 ### Inference
 
 We use full test data for inference. The inferencing cost is 1.5 hours on 8*P100-16G.
