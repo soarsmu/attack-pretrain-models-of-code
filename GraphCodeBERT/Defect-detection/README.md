@@ -110,7 +110,7 @@ python run.py \
 ```
 ❕**Note**: 
 * If encountering `CUDA error: an illegal memory access was encountered`, change the `train_batch_size` to a bigger number, such as 64.
-* We set `code_length` as 512 and the whole pipeline works very well in our machine, but errors caused by too much input tokens have been reported by some users. If you locate such errors, we suggest that change `code_length` as 384 (i.e., 512-128=384).
+* We set `code_length` as 512 and the whole pipeline works very well in our machine, but errors caused by too many input tokens have been reported by some users. If you locate such errors, we suggest to change `code_length` as 384 (i.e., 512-128=384).
 
 ### Inference
 
