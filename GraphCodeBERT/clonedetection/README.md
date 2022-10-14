@@ -180,6 +180,7 @@ python mhm_attack.py \
     --output_dir=./saved_models \
     --model_type=roberta \
     --config_name=microsoft/graphcodebert-base \
+    --csv_store_path ./attack_mhmns_results.csv \
     --model_name_or_path=microsoft/graphcodebert-base \
     --tokenizer_name=microsoft/graphcodebert-base \
     --base_model=microsoft/graphcodebert-base \
