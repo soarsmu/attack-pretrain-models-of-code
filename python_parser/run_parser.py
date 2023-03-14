@@ -9,6 +9,7 @@ from parser_folder import (remove_comments_and_docstrings,
                            tree_to_token_index,
                            index_to_code_token,)
 from tree_sitter import Language, Parser
+import os
 sys.path.append('..')
 sys.path.append('../../../')
 
@@ -138,6 +139,32 @@ dfg_function = {
     'java': DFG_java,
     'c': DFG_c,
 }
+
+
+LANG_LIB_MAP = {
+    'python': 'tree_sitter_assets/python.so',
+    'c': 'tree_sitter_assets/c.so',
+    'cpp': 'tree_sitter_assets/cpp.so',
+    'java': 'tree_sitter_assets/java.so',
+}
+
+LANG_REPO_MAP = {
+    'python': 'tree-sitter-python',
+    'c': 'tree-sitter-c',
+    'cpp': 'tree-sitter-cpp',
+    'java': 'tree-sitter-java',
+}
+
+if not os.path.exists(path):
+    for lang in LANG_LIB_MAP:
+        print(f'Installing {lang} language library...')
+        if not os.path.exists(LANG_REPO_MAP[lang]):
+            os.popen(
+                f'git clone https://github.com/tree-sitter/{LANG_REPO_MAP[lang]}.git'
+            ).read()
+    Language.build_library(path, list(LANG_REPO_MAP.values()))
+
+
 
 # load parsers
 parsers = {}
