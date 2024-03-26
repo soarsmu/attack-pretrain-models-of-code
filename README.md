@@ -2,6 +2,10 @@
 
 This is the codebase for the paper "[Natural Attack for Pre-trained Models of Code](https://arxiv.org/abs/2201.08698)".
 
+
+<mark>Please note that as the data sharing policy in my institution has changed: the Google Drive link cannot be made accessible to everyone. You have to apply for access permission to download the models. Be free to drop us an email.</mark>
+
+
 # Environment Configuration
 
 ## Docker
