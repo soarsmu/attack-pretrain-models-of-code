@@ -45,7 +45,7 @@ bash build.sh
 
 ## Models
 
-The pre-trained models and fine-tuned models can be downloaded from this [Google Drive Link](https://drive.google.com/file/d/1kO-8_814J9B5cTThNpDw5CvzXJym6mCN/view?usp=sharing). After decompressing this file, the folder structure is as follows.
+The pre-trained models and fine-tuned models can be downloaded from this [Google Drive Link](https://smu-my.sharepoint.com/:u:/g/personal/zyang_smu_edu_sg/EVrkhxzIzXNCrsTrOuJFMNwB37Y4LjxwBGAA94xeQdf6ew?e=CwJC43). After decompressing this file, the folder structure is as follows.
 ```
 .
 ├── CodeBERT
@@ -80,7 +80,7 @@ The pre-trained models and fine-tuned models can be downloaded from this [Google
 
 ## Datasets and Results
 
-The datasets and results can be downloaded from this [Google Drive](https://drive.google.com/file/d/1kOH1iKvy1PpovgDd5Ji3yoPB2Yty1XXV/view?usp=sharing). After decompressing this file, the folder structure is as follows.
+The datasets and results can be downloaded from this [Onedrive](https://smu-my.sharepoint.com/:u:/g/personal/zyang_smu_edu_sg/EXk81Z83qYNAsqGQhz4XmzkB2c75l3afygJcT7frpgLzrg?e=ZyvoFE). After decompressing this file, the folder structure is as follows.
 
 ```
 .
