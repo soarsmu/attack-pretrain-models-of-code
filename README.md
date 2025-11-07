@@ -45,7 +45,7 @@ bash build.sh
 
 ## Models
 
-The pre-trained models and fine-tuned models can be downloaded from this [Google Drive Link](https://smu-my.sharepoint.com/:u:/g/personal/zyang_smu_edu_sg/EVrkhxzIzXNCrsTrOuJFMNwB37Y4LjxwBGAA94xeQdf6ew?e=CwJC43). After decompressing this file, the folder structure is as follows.
+The pre-trained models and fine-tuned models can be downloaded from this [OneDrive Link](https://smu-my.sharepoint.com/:f:/g/personal/jiekeshi_smu_edu_sg/Enm3L3zaHGNIuzU7Nt805jgB-6-XP8pHuVtSCzi4cURGEw?e=RRETRW). After decompressing this file, the folder structure is as follows.
 ```
 .
 ├── CodeBERT
@@ -80,7 +80,7 @@ The pre-trained models and fine-tuned models can be downloaded from this [Google
 
 ## Datasets and Results
 
-The datasets and results can be downloaded from this [Onedrive](https://smu-my.sharepoint.com/:u:/g/personal/zyang_smu_edu_sg/EXk81Z83qYNAsqGQhz4XmzkB2c75l3afygJcT7frpgLzrg?e=ZyvoFE). After decompressing this file, the folder structure is as follows.
+The datasets and results can be downloaded from this [Onedrive](https://smu-my.sharepoint.com/:f:/g/personal/jiekeshi_smu_edu_sg/Enm3L3zaHGNIuzU7Nt805jgB-6-XP8pHuVtSCzi4cURGEw?e=RRETRW). After decompressing this file, the folder structure is as follows.
 
 ```
 .
@@ -173,4 +173,4 @@ We are very grateful that the authors of CodeBERT, GraphCodeBERT, CodeXGLUE, MHM
 
 
 # Contact
-Feel free to contact Zhou Yang (zyang@smu.edu.sg), Jieke Shi (jiekeshi@smu.edu.sg), Junda He (jundahe@smu.edu.sg) if you have any further questions.
+Feel free to contact Zhou Yang (zy25@ualberta.ca), Jieke Shi (jiekeshi@smu.edu.sg), Junda He (jundahe@smu.edu.sg) if you have any further questions.
