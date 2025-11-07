@@ -125,8 +125,8 @@ CUDA_VISIBLE_DEVICES=6 python run.py \
 
 ## Attack
 
-If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/checkpoint-best-acc` by [this link](https://drive.google.com/file/d/14STf95S3cDstI5CiyvK1giLlbDw4ZThu/view?usp=sharing).
-ADV: https://drive.google.com/file/d/1CR3SWBlyMZLnctZklAHMFf0Jq1U7YdsZ/view?usp=sharing
+If you don't want to be bothered by fine-tuning models, you can download the victim model into `code/saved_models/checkpoint-best-acc` by [https://drive.google.com/file/d/14STf95S3cDstI5CiyvK1giLlbDw4ZThu/view?usp=sharing](https://drive.google.com/file/d/14STf95S3cDstI5CiyvK1giLlbDw4ZThu/view?usp=sharing).
+ADV: [https://drive.google.com/file/d/1CR3SWBlyMZLnctZklAHMFf0Jq1U7YdsZ/view?usp=sharing](https://drive.google.com/file/d/1CR3SWBlyMZLnctZklAHMFf0Jq1U7YdsZ/view?usp=sharing)
 ```shell
 pip install gdown
 mkdir -p code/saved_models/checkpoint-best-acc
