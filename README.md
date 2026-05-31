@@ -45,7 +45,7 @@ bash build.sh
 
 ## Models
 
-The pre-trained models and fine-tuned models can be downloaded from this [OneDrive Link](https://smu-my.sharepoint.com/:f:/g/personal/jiekeshi_smu_edu_sg/Enm3L3zaHGNIuzU7Nt805jgB-6-XP8pHuVtSCzi4cURGEw?e=RRETRW). After decompressing this file, the folder structure is as follows.
+The pre-trained models and fine-tuned models can be downloaded from this [OneDrive Link](https://smu-my.sharepoint.com/:u:/g/personal/jiekeshi_smu_edu_sg/IQD1xuyljYnaQ7qgekpczkzAAWSznAYzLJgo4nVEVTgalaE?e=Q0cncE). After decompressing this file, the folder structure is as follows.
 ```
 .
 ├── CodeBERT
